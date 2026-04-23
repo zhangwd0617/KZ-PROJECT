@@ -81,10 +81,14 @@ class TrainSystem {
             hp: target.hp,
             mp: target.mp,
             stamina: target.stamina,
+            energy: target.energy,
             palam: [...target.palam],
             exp: [...target.exp],
             mark: [...target.mark],
-            tequip: [...target.tequip]
+            tequip: [...target.tequip],
+            partGauge: target.partGauge ? [...target.partGauge] : [],
+            totalOrgasmGauge: target.totalOrgasmGauge || 0,
+            chargeLevel: target.chargeLevel || 0
         };
     }
 
@@ -95,11 +99,39 @@ class TrainSystem {
         // --- 体力/气力变化 ---
         const hpDelta = target.hp - before.hp;
         const mpDelta = target.mp - before.mp;
-        if (hpDelta !== 0 || mpDelta !== 0) {
+        const stmDelta = (target.stamina || target.base[2]) - (before.stamina || before.hp);
+        const nrgDelta = (target.energy || 0) - (before.energy || 0);
+        if (hpDelta !== 0 || mpDelta !== 0 || stmDelta !== 0 || nrgDelta !== 0) {
             const parts = [];
             if (hpDelta !== 0) parts.push(`体力${hpDelta > 0 ? '+' : ''}${hpDelta}`);
-            if (mpDelta !== 0) parts.push(`气力${mpDelta > 0 ? '+' : ''}${mpDelta}`);
+            if (stmDelta !== 0 && stmDelta !== hpDelta) parts.push(`STM${stmDelta > 0 ? '+' : ''}${stmDelta}`);
+            if (mpDelta !== 0) parts.push(`MP${mpDelta > 0 ? '+' : ''}${mpDelta}`);
+            if (nrgDelta !== 0) parts.push(`气力${nrgDelta > 0 ? '+' : ''}${nrgDelta}`);
             lines.push(`[体力] ${parts.join('  ')}`);
+        }
+
+        // --- 部位快感变化 ---
+        const partCodes = ['C','V','A','B','N','O','W','P'];
+        const partNames = ['阴核','阴道','肛门','乳房','乳头','口腔','子宫','阴茎'];
+        const partChanges = [];
+        if (target.partGauge && before.partGauge) {
+            for (let i = 0; i < 8; i++) {
+                const delta = (target.partGauge[i] || 0) - (before.partGauge[i] || 0);
+                if (delta !== 0) partChanges.push(`${partCodes[i]}${delta > 0 ? '+' : ''}${delta}`);
+            }
+        }
+        if (partChanges.length > 0) {
+            lines.push(`[快感] ${partChanges.join(' ')}`);
+        }
+
+        // --- 绝顶槽/蓄力变化 ---
+        const gaugeDelta = (target.totalOrgasmGauge || 0) - (before.totalOrgasmGauge || 0);
+        const chargeDelta = (target.chargeLevel || 0) - (before.chargeLevel || 0);
+        if (gaugeDelta !== 0 || chargeDelta !== 0) {
+            const parts = [];
+            if (gaugeDelta !== 0) parts.push(`绝顶槽${gaugeDelta > 0 ? '+' : ''}${gaugeDelta}%`);
+            if (chargeDelta !== 0) parts.push(`蓄力C${target.chargeLevel || 0}`);
+            lines.push(`[高潮] ${parts.join(' ')}`);
         }
 
         // --- PALAM变化 (只显示有定义且变化>0的) ---

@@ -352,11 +352,13 @@ class Game {
 
         this.selectcom = comId;
 
-        // === NEW (P2): Master skills & special commands ===
+        // === NEW (P2/P4): Master skills, assistant, recovery commands ===
         if (comId >= 989 && comId <= 992) {
             this._executeMasterSkill(comId);
         } else if (comId === 900 || comId === 901) {
             this._executeAssistantCommand(comId);
+        } else if (comId === 998 || comId === 999) {
+            this._executeRecovery(comId);
         } else {
             this.trainSystem.execute(comId);
         }
@@ -455,6 +457,30 @@ class Game {
             if (target.addPartGain) for (let i = 0; i < 8; i++) target.addPartGain(i, Math.floor((target.partGauge[i] || 0) * 0.2));
             if (assi.energy !== undefined) assi.energy -= 3;
         }
+    }
+
+    _executeRecovery(comId) {
+        const target = this.getTarget();
+        const master = this.getMaster();
+        if (!target) return;
+        const meta = (typeof TRAIN_COMMAND_META !== 'undefined') ? TRAIN_COMMAND_META[comId] : null;
+        const stmHeal = meta ? (Math.abs(meta.staminaCost?.target || 0)) : (comId === 999 ? 30 : 20);
+        const nrgHeal = meta ? (Math.abs(meta.energyCost?.target || 0)) : (comId === 999 ? 15 : 10);
+
+        if (comId === 998) {
+            UI.appendText(`\n\u2500\u2500\u2500\u2500 \u5b89\u629a [#${this.trainCount + 1}] \u2500\u2500\u2500\u2500\n`);
+            UI.appendText(`${master.name}\u6e29\u67d4\u5730\u5b89\u629a\u4e86${target.name}\u2026\u2026\n`, "info");
+        } else {
+            UI.appendText(`\n\u2500\u2500\u2500\u2500 \u4f11\u606f [#${this.trainCount + 1}] \u2500\u2500\u2500\u2500\n`);
+            UI.appendText(`${master.name}\u8ba9${target.name}\u7565\u4f5c\u4f11\u606f\u2026\u2026\n`, "info");
+        }
+
+        if (target.stamina !== undefined) target.stamina = Math.min(target.maxbase[2] || 1000, target.stamina + stmHeal);
+        if (target.energy !== undefined) target.energy = Math.min(target.maxEnergy || 500, (target.energy || 0) + nrgHeal);
+        target.base[2] = target.stamina || target.base[2];
+        target.hp = Math.min(target.maxhp || target.hp, target.hp + stmHeal);
+
+        UI.appendText(`\u4f53\u529b+${stmHeal} \u6c14\u529b+${nrgHeal}\n`, "success");
     }
 
     endTrain() {

@@ -556,8 +556,8 @@ class Character {
         c.isCharging = data.isCharging || false;
         c.chargeLevel = data.chargeLevel !== undefined ? data.chargeLevel : 0;
         c.chargeTurns = data.chargeTurns !== undefined ? data.chargeTurns : 0;
-        c.personality = data.personality || null;
-        c.genitalConfig = data.genitalConfig || null;
+        c.personality = data.personality || { main: -1, sub: -1, minors: [], hidden: { traitId: -1, revealed: false } };
+        c.genitalConfig = data.genitalConfig || { hasVagina: true, hasWomb: true, penises: [], orgasmSystem: "standard" };
         c.routeExp = data.routeExp ? [...data.routeExp] : new Array(5).fill(0);
         c.routeLevel = data.routeLevel ? [...data.routeLevel] : new Array(5).fill(0);
         c.trainLevel = data.trainLevel !== undefined ? data.trainLevel : 0;

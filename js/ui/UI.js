@@ -256,39 +256,137 @@ const UI = {
         if (!bar) return;
 
         const assi = game.getAssi();
+        const bystander = game.bystander >= 0 ? game.characters[game.bystander] : null;
 
+        // === Top: Assistant bar (single line) ===
+        let assistantBar = '';
+        if (assi) {
+            const buff = assi.getAssistantBuff ? assi.getAssistantBuff() : null;
+            const hearts = '♥'.repeat(Math.min(3, assi.getFallenDepth ? assi.getFallenDepth() : 0));
+            assistantBar = `<div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">助手: <span style="color:var(--accent);">${assi.name}</span> ${hearts ? `[${hearts}]` : ''} ${buff ? `| 效果: ${buff.type}` : ''}</div>`;
+        }
+
+        // === Left: Main slave panel ===
         let leftHtml = '';
         const pregTag = target.talent[153] ? ` <span style="color:var(--accent);">🤰${target.cflag[800] || 0}d</span>` : '';
-        leftHtml += `<div class="status-name">${target.name} | Lv.${target.level} | ${target.getPersonalityName()}${pregTag}</div>`;
-        leftHtml += `<div class="bar-box"><span class="bar-label">体力</span><div class="bar-bg"><div class="bar-fill" style="width:${Math.max(0,target.hp/target.maxHp*100)}%"></div></div><span class="bar-text">${target.hp}/${target.maxHp}</span></div>`;
-        leftHtml += `<div class="bar-box"><span class="bar-label">气力</span><div class="bar-bg mp"><div class="bar-fill mp" style="width:${Math.max(0,target.mp/target.maxMp*100)}%"></div></div><span class="bar-text">${target.mp}/${target.maxMp}</span></div>`;
+        const persName = target.getPersonalityName ? target.getPersonalityName() : '普通';
+        leftHtml += `<div class="status-name">${target.name} Lv.${target.level} · ${persName}${pregTag}</div>`;
 
-        const palams = [
-            [0, "C快"], [1, "V快"], [2, "A快"], [14, "B快"],
-            [5, "欲情"], [4, "顺从"], [6, "屈服"], [8, "羞耻"],
-            [9, "痛苦"], [10, "恐惧"], [11, "反感"], [3, "润滑"]
-        ];
-        leftHtml += `<div class="stat-grid">`;
-        for (const [id, name] of palams) {
-            const val = target.palam[id] || 0;
-            const highlight = val > 5000 ? ' style="color:var(--danger);"' : (val > 2000 ? ' style="color:var(--warning);"' : '');
-            leftHtml += `<div class="stat-item"><span class="stat-name">${name}</span>: <span class="stat-val"${highlight}>${val}</span></div>`;
+        // Stamina + Energy bars side by side
+        const stmPct = target.maxbase[2] > 0 ? Math.max(0, (target.stamina || target.base[2]) / target.maxbase[2] * 100) : 0;
+        const nrgPct = target.maxEnergy > 0 ? Math.max(0, (target.energy || 0) / target.maxEnergy * 100) : 0;
+        const nrgState = target.getEnergyState ? target.getEnergyState() : { name: '未知', color: '#888' };
+        leftHtml += `<div style="display:flex;gap:10px;margin:4px 0;">`;
+        leftHtml += `<div style="flex:1;"><div style="font-size:0.7rem;color:var(--text-dim);margin-bottom:2px;">体力 ${target.stamina || target.base[2]}/${target.maxbase[2]}</div><div style="height:8px;background:var(--hp-bg);border-radius:4px;overflow:hidden;"><div style="height:100%;background:var(--hp-fill);width:${stmPct}%;transition:width 0.3s;"></div></div></div>`;
+        leftHtml += `<div style="flex:1;"><div style="font-size:0.7rem;color:var(--text-dim);margin-bottom:2px;">气力 ${target.energy || 0}/${target.maxEnergy} <span style="color:${nrgState.color}">[${nrgState.name}]</span></div><div style="height:8px;background:var(--mp-bg);border-radius:4px;overflow:hidden;"><div style="height:100%;background:var(--mp-fill);width:${nrgPct}%;transition:width 0.3s;"></div></div></div>`;
+        leftHtml += `</div>`;
+
+        // Total orgasm gauge
+        const totalGauge = target.totalOrgasmGauge || 0;
+        const chargeLv = target.chargeLevel || 0;
+        const chargeLabel = chargeLv > 0 ? `⚡C${chargeLv}` : '';
+        const gaugeColor = totalGauge >= 100 ? 'var(--danger)' : (totalGauge >= 80 ? 'var(--warning)' : 'var(--accent)');
+        leftHtml += `<div style="margin:6px 0;"><div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:2px;">绝顶槽 ${totalGauge}% ${chargeLabel}</div><div style="height:14px;background:rgba(255,255,255,0.05);border-radius:7px;overflow:hidden;border:1px solid var(--border);"><div style="height:100%;background:linear-gradient(90deg,${gaugeColor},${gaugeColor}88);width:${Math.min(100,totalGauge)}%;transition:width 0.3s;"></div></div></div>`;
+
+        // 8 part sub-gauges
+        const partCodes = ['C','V','A','B','N','O','W','P'];
+        const partNames = ['阴核','阴道','肛门','乳房','乳头','口腔','子宫','阴茎'];
+        const partColors = ['#e06c75','#c678dd','#e5c07b','#61afef','#61afef','#98c379','#c678dd','#e06c75'];
+        leftHtml += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:6px 0;">`;
+        for (let i = 0; i < 8; i++) {
+            const pg = target.partGauge ? (target.partGauge[i] || 0) : 0;
+            const pct = Math.min(100, Math.floor(pg / 10));
+            const flash = pg >= 800 ? 'animation:pulse 1s infinite;' : '';
+            const gold = pg >= 500 ? 'border-color:var(--accent);' : '';
+            const cd = target.orgasmCooldown ? target.orgasmCooldown[i] : 0;
+            leftHtml += `<div style="padding:3px 5px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:4px;${gold}">`;
+            leftHtml += `<div style="display:flex;justify-content:space-between;font-size:0.68rem;"><span style="color:${partColors[i]}">${partCodes[i]}</span><span style="color:var(--text-dim)">${partNames[i]}</span></div>`;
+            leftHtml += `<div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;margin-top:2px;"><div style="height:100%;background:${partColors[i]}44;width:${pct}%;${flash}"></div></div>`;
+            if (cd > 0) leftHtml += `<div style="font-size:0.6rem;color:var(--text-dim);text-align:right;">CD:${cd}</div>`;
+            leftHtml += `</div>`;
         }
         leftHtml += `</div>`;
 
-        // 右侧：头像 + 按钮
+        // Status tags
+        const tags = [];
+        if (nrgState.state) tags.push({ text: nrgState.name, color: nrgState.color });
+        if (target.isCharging) tags.push({ text: `蓄力C${chargeLv}`, color: '#e5c07b' });
+        const pEff = target.getPersonalityEffects ? target.getPersonalityEffects() : { activeModes: [] };
+        for (const mode of (pEff.activeModes || [])) tags.push({ text: mode, color: '#98c379' });
+        // Marks display (max 3)
+        for (let m = 0; m < 8; m++) {
+            const lv = target.mark[m] || 0;
+            if (lv > 0) tags.push({ text: `${['苦痛','快乐','屈服','反抗','恐怖','淫乱','反发','哀伤'][m]}${lv}`, color: 'var(--text-dim)' });
+        }
+        if (tags.length > 0) {
+            leftHtml += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;">`;
+            for (const t of tags.slice(0, 6)) {
+                leftHtml += `<span style="font-size:0.68rem;padding:2px 8px;background:rgba(255,255,255,0.04);border:1px solid ${t.color}44;color:${t.color};border-radius:10px;">${t.text}</span>`;
+            }
+            leftHtml += `</div>`;
+        }
+
+        // Hidden trait display
+        if (target.personality && target.personality.hidden) {
+            const ht = target.personality.hidden;
+            const htName = ht.revealed ? (typeof HIDDEN_TRAITS !== 'undefined' && HIDDEN_TRAITS[ht.traitId] ? HIDDEN_TRAITS[ht.traitId].name : '???') : '???';
+            const htColor = ht.revealed ? 'var(--accent)' : 'var(--text-dim)';
+            leftHtml += `<div style="font-size:0.7rem;color:${htColor};margin-top:4px;">隐藏特质: ${htName} ${ht.revealed ? (ht.full ? '(完全)' : '(部分)') : '(未解锁)'}</div>`;
+        }
+
+        // Penis ejaculation gauges (if any)
+        if (target.genitalConfig && target.genitalConfig.penises && target.genitalConfig.penises.length > 0) {
+            leftHtml += `<div style="display:flex;gap:6px;margin:4px 0;">`;
+            for (const penis of target.genitalConfig.penises) {
+                const ejPct = Math.min(100, (penis.ejaculationGauge || 0));
+                const borderColors = ['#e06c75','#61afef','#98c379'];
+                leftHtml += `<div style="flex:1;padding:3px 5px;background:rgba(255,255,255,0.03);border:1px solid ${borderColors[penis.id % 3]}44;border-radius:4px;">`;
+                leftHtml += `<div style="font-size:0.68rem;color:${borderColors[penis.id % 3]}">${penis.name} 射精槽</div>`;
+                leftHtml += `<div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;margin-top:2px;"><div style="height:100%;background:${borderColors[penis.id % 3]}66;width:${ejPct}%;"></div></div>`;
+                leftHtml += `</div>`;
+            }
+            leftHtml += `</div>`;
+        }
+
+        // Legacy PALAM (compact)
+        const palams = [[0,'C快'],[1,'V快'],[2,'A快'],[14,'B快'],[5,'欲情'],[4,'顺从'],[8,'羞耻'],[3,'润滑']];
+        leftHtml += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0;font-size:0.7rem;">`;
+        for (const [id, name] of palams) {
+            const val = target.palam[id] || 0;
+            if (val > 0) leftHtml += `<span style="color:var(--text-dim)">${name}:${val}</span>`;
+        }
+        leftHtml += `</div>`;
+
+        // === Right: Avatar + buttons ===
         let rightHtml = '';
         rightHtml += `<div class="train-avatar">👤</div>`;
         rightHtml += `<button class="game-btn danger" style="font-size:0.7rem;padding:3px 8px;width:90px;" onclick="G.endTrain()">⏹ 结束调教</button>`;
-        rightHtml += `<button class="game-btn" style="font-size:0.7rem;padding:3px 8px;width:90px;" onclick="UI.showTrainHistory()">📜 显示历史</button>`;
-        rightHtml += `<button class="game-btn" style="font-size:0.7rem;padding:3px 8px;width:90px;" onclick="UI.showTrainTargetInfo(0)">📋 角色信息</button>`;
+        rightHtml += `<button class="game-btn" style="font-size:0.7rem;padding:3px 8px;width:90px;" onclick="UI.showTrainHistory()">📜 历史</button>`;
+        rightHtml += `<button class="game-btn" style="font-size:0.7rem;padding:3px 8px;width:90px;" onclick="UI.showTrainTargetInfo(0)">📋 信息</button>`;
         if (assi) {
-            rightHtml += `<button class="game-btn" style="font-size:0.7rem;padding:3px 8px;width:90px;" onclick="G.switchTrainTarget()">🔄 切换为${assi.name}</button>`;
+            rightHtml += `<button class="game-btn" style="font-size:0.7rem;padding:3px 8px;width:90px;" onclick="G.switchTrainTarget()">🔄 切${assi.name}</button>`;
         } else {
-            rightHtml += `<button class="game-btn" style="font-size:0.7rem;padding:3px 8px;width:90px;opacity:0.4;" disabled title="无助手无法切换">🔄 切换对象</button>`;
+            rightHtml += `<button class="game-btn" style="font-size:0.7rem;padding:3px 8px;width:90px;opacity:0.4;" disabled>🔄 无助手</button>`;
         }
 
-        bar.innerHTML = `<div class="train-info-panel"><div class="train-info-left">${leftHtml}</div><div class="train-info-right">${rightHtml}</div></div>`;
+        // === Bystander panel (if present) ===
+        let bystanderHtml = '';
+        if (bystander) {
+            const bStm = bystander.stamina || bystander.base[2] || 0;
+            const bMaxStm = bystander.maxbase[2] || 1;
+            const bNrg = bystander.energy || 0;
+            const bMaxNrg = bystander.maxEnergy || 1;
+            const bGauge = bystander.totalOrgasmGauge || 0;
+            const bDom = bystander.getDominantPart ? bystander.getDominantPart() : { code: '-' };
+            bystanderHtml = `<div style="margin-top:8px;padding:6px 8px;background:rgba(255,255,255,0.02);border:1px dashed var(--border);border-radius:6px;">`;
+            bystanderHtml += `<div style="font-size:0.78rem;color:var(--accent-dim);margin-bottom:3px;">👁️ 旁观者: ${bystander.name} <span style="font-size:0.65rem;color:var(--text-dim)">(${bDom.code}主导 ${bGauge}%)</span></div>`;
+            bystanderHtml += `<div style="display:flex;gap:8px;">`;
+            bystanderHtml += `<div style="flex:1;"><div style="height:6px;background:var(--hp-bg);border-radius:3px;"><div style="height:100%;background:var(--hp-fill);width:${Math.max(0,bStm/bMaxStm*100)}%;"></div></div></div>`;
+            bystanderHtml += `<div style="flex:1;"><div style="height:6px;background:var(--mp-bg);border-radius:3px;"><div style="height:100%;background:var(--mp-fill);width:${Math.max(0,bNrg/bMaxNrg*100)}%;"></div></div></div>`;
+            bystanderHtml += `</div></div>`;
+        }
+
+        bar.innerHTML = `<div style="font-size:0.7rem;color:var(--text-dim);margin-bottom:4px;">第 ${game.trainCount + 1} 回</div>${assistantBar}<div class="train-info-panel"><div class="train-info-left">${leftHtml}${bystanderHtml}</div><div class="train-info-right">${rightHtml}</div></div>`;
         bar.style.display = 'block';
     },
 
@@ -329,6 +427,85 @@ const UI = {
         }
         html += '</div>';
         this.showModal("调教历史", html + `<div style="text-align:center;margin-top:10px;"><button class="game-btn" onclick="UI.closeModal()">关闭</button></div>`);
+    },
+
+    showReleasePreview() {
+        const game = G;
+        const target = game.getTarget();
+        if (!target) return;
+        if (!target.isCharging || target.chargeLevel <= 0) {
+            this.showToast(`${target.name} 没有在蓄力`, "warning");
+            return;
+        }
+
+        // Calculate preview
+        const chargeLv = target.chargeLevel || 0;
+        const chargeInfo = (typeof CHARGE_LEVELS !== 'undefined') ? CHARGE_LEVELS[chargeLv] : null;
+        const releaseMult = 1.0 + chargeLv * 0.5;
+
+        // Simulate part gains on release
+        const simulatedGauge = [...(target.partGauge || new Array(8).fill(0))];
+        for (let i = 0; i < 8; i++) {
+            simulatedGauge[i] = Math.floor(simulatedGauge[i] * releaseMult);
+        }
+
+        // Check what orgasm would trigger
+        const activeParts = [];
+        for (let i = 0; i < 8; i++) if (simulatedGauge[i] >= 800) activeParts.push(i);
+        let comboName = '单部位绝顶';
+        let comboMult = 1.0;
+        if (activeParts.length >= 5 && typeof COMBO_ORGASMS !== 'undefined') {
+            comboName = COMBO_ORGASMS['ULTIMATE']?.name || '极乐觉醒';
+            comboMult = COMBO_ORGASMS['ULTIMATE']?.multiplier || 4.0;
+        } else if (activeParts.length >= 4 && typeof COMBO_ORGASMS !== 'undefined') {
+            comboName = COMBO_ORGASMS['FULL']?.name || '全身共鸣';
+            comboMult = COMBO_ORGASMS['FULL']?.multiplier || 2.8;
+        } else if (activeParts.length >= 2 && typeof COMBO_ORGASMS !== 'undefined') {
+            const codes = activeParts.sort((a,b)=>a-b).map(i => (typeof ORGASM_PARTS !== 'undefined' ? ORGASM_PARTS[i].code : '?'));
+            const key = codes.join('+');
+            const combo = COMBO_ORGASMS[key];
+            if (combo) { comboName = combo.name; comboMult = combo.multiplier; }
+            else if (codes.length >= 2) {
+                const fb = codes[0] + '+' + codes[1];
+                for (const k in COMBO_ORGASMS) {
+                    if (k.includes(codes[0]) && k.includes(codes[1]) && COMBO_ORGASMS[k].parts.length === 2) {
+                        comboName = COMBO_ORGASMS[k].name; comboMult = COMBO_ORGASMS[k].multiplier; break;
+                    }
+                }
+            }
+        }
+
+        const partNames = ['阴核','阴道','肛门','乳房','乳头','口腔','子宫','阴茎'];
+        const activeNames = activeParts.map(i => partNames[i]).join(' + ');
+
+        let html = '<div style="padding:8px;">';
+        html += `<div style="font-size:1rem;font-weight:bold;color:var(--accent);margin-bottom:8px;">释放许可预览</div>`;
+        html += `<div style="font-size:0.85rem;color:var(--text);margin-bottom:6px;">${target.name} 当前蓄力等级: C${chargeLv}</div>`;
+        html += `<div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:10px;">释放倍率: x${releaseMult.toFixed(1)} ${chargeInfo ? `| 蓄力倍率: x${chargeInfo.multiplier}` : ''}</div>`;
+
+        if (activeParts.length > 0) {
+            html += `<div style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:10px;">`;
+            html += `<div style="font-size:0.8rem;color:var(--warning);margin-bottom:4px;">预计触发: ${comboName}</div>`;
+            html += `<div style="font-size:0.75rem;color:var(--text-dim);">活跃部位: ${activeNames || '-'}</div>`;
+            html += `<div style="font-size:0.75rem;color:var(--text-dim);">组合倍率: x${comboMult.toFixed(1)}</div>`;
+            html += `</div>`;
+        } else {
+            html += `<div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:10px;">释放后可能没有部位达到绝顶阈值...</div>`;
+        }
+
+        // Personality reaction preview
+        const pEff = target.getPersonalityEffects ? target.getPersonalityEffects() : null;
+        if (pEff && pEff.activeModes && pEff.activeModes.length > 0) {
+            html += `<div style="font-size:0.75rem;color:var(--success);margin-bottom:10px;">性格修正: ${pEff.activeModes.join(' / ')}</div>`;
+        }
+
+        html += `<div style="display:flex;gap:10px;justify-content:center;margin-top:12px;">`;
+        html += `<button class="game-btn accent" onclick="UI.closeModal();G.selectCommand(990);">确认释放</button>`;
+        html += `<button class="game-btn" onclick="UI.closeModal();">取消</button>`;
+        html += `</div>`;
+        html += `</div>`;
+
+        this.showModal('释放许可', html);
     },
 
     showTrainTargetInfo(page = 0) {
@@ -409,7 +586,45 @@ const UI = {
         }
         cmdHtml += '</div>';
 
-        const html = `<div class="train-command-panel"><div class="train-categories">${catHtml}</div><div class="train-commands">${cmdHtml}</div></div>`;
+        // === NEW (P4): Master skills, assistant cmds, recovery cmds ===
+        let extraHtml = '<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px;">';
+
+        // Recovery row
+        extraHtml += '<div style="display:flex;gap:6px;margin-bottom:6px;">';
+        extraHtml += `<button class="game-btn" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(998)" title="恢复体力和气力">💚 安抚</button>`;
+        extraHtml += `<button class="game-btn" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(999)" title="大幅恢复">💤 休息</button>`;
+        extraHtml += '</div>';
+
+        // Assistant row
+        const hasAssi = game.getAssi() !== null;
+        extraHtml += '<div style="display:flex;gap:6px;margin-bottom:6px;">';
+        extraHtml += `<button class="game-btn ${hasAssi ? '' : 'filter-on'}" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(900)" ${hasAssi ? '' : 'disabled'} title="让助手代替执行">👤 助手代行</button>`;
+        extraHtml += `<button class="game-btn ${hasAssi ? '' : 'filter-on'}" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(901)" ${hasAssi ? '' : 'disabled'} title="助手参与调教">👥 助手参与</button>`;
+        extraHtml += '</div>';
+
+        // Master skills row
+        extraHtml += '<div style="display:flex;gap:6px;">';
+        extraHtml += `<button class="game-btn danger" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(992)" title="强制进入蓄力状态">⚡ 强制蓄力</button>`;
+        extraHtml += `<button class="game-btn warning" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(991)" title="在绝顶前阻止快感">🔒 边缘控制</button>`;
+        extraHtml += `<button class="game-btn accent" style="flex:1;font-size:0.72rem;" onclick="UI.showReleasePreview()" title="释放蓄力快感">🔓 释放许可</button>`;
+        extraHtml += `<button class="game-btn danger" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(989)" title="强制触发绝顶">💥 强制绝顶</button>`;
+        extraHtml += '</div>';
+
+        extraHtml += '</div>';
+
+        // Turn preview (shows last command cost as reference)
+        const target = game.getTarget();
+        let previewHtml = '';
+        if (target && game.selectcom >= 0) {
+            const meta = (typeof getTrainMeta === 'function') ? getTrainMeta(game.selectcom) : null;
+            const stmCost = meta ? (meta.staminaCost?.target || 0) : 0;
+            const nrgCost = meta ? (meta.energyCost?.target || 0) : 0;
+            if (stmCost > 0 || nrgCost > 0) {
+                previewHtml = `<div style="font-size:0.65rem;color:var(--text-dim);margin-bottom:4px;text-align:right;">上回合消耗: 体力-${stmCost} 气力-${nrgCost}</div>`;
+            }
+        }
+
+        const html = `<div class="train-command-panel"><div class="train-categories">${catHtml}</div><div class="train-commands">${previewHtml}${cmdHtml}</div></div>${extraHtml}`;
         this.setButtons(html);
     },
 
