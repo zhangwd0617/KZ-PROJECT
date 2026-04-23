@@ -88,7 +88,7 @@ class DayEndSystem {
                     dailyEvents.push({
                         type: 'daily',
                         title: `🤰 ${c.name}的肚子变大了`,
-                        text: `${c.name}的妊娠已经过了一半，身体变得敏感而脆弱……`
+                        text: `${c.name}的妊娠已经过了一半，身体变得敏感而脆弱...`
                     });
                 }
             }
@@ -140,7 +140,7 @@ class DayEndSystem {
         if (newcomers.length > 0) {
             g.flag[100] = 1; // 标记有入侵
             // 批量入侵事件加入日常事件队列
-            let invaderNames = newcomers.map(h => `${h.name} Lv.${h.level}`).join('、');
+            let invaderNames = newcomers.map(h => `${h.name} Lv.${h.level}`).join(',');
             const goalInfo = newcomers.length === 1 ? `
 攻略目标：${HERO_GOAL_DEFS[newcomers[0].cflag[951]]?.name || '讨伐魔王'}` : '';
             dailyEvents.push({
@@ -370,7 +370,7 @@ ${invaderNames}${goalInfo}
                 const goalId = hero.cflag[951];
                 const goalDef = goalId && HERO_GOAL_DEFS[goalId] ? HERO_GOAL_DEFS[goalId] : null;
                 const goalText = goalDef ? `【${goalDef.icon} ${goalDef.name}】` : '';
-                const mottoHtml = motto ? `<div style="margin:8px 0;padding:8px 12px;background:var(--bg-card);border-left:3px solid var(--accent);border-radius:0 4px 4px 0;font-style:italic;color:var(--accent);font-size:0.85rem;">「${motto}」</div>` : '';
+                const mottoHtml = motto ? `<div style="margin:8px 0;padding:8px 12px;background:var(--bg-card);border-left:3px solid var(--accent);border-radius:0 4px 4px 0;font-style:italic;color:var(--accent);font-size:0.85rem;">"${motto}"</div>` : '';
 
                 // 把移动概览+探索详情合并为一个事件弹窗
                 let eventText = moveOverview;
@@ -396,7 +396,7 @@ ${invaderNames}${goalInfo}
                     if (typeof g._tryCureStatusAilment === 'function') {
                         const cured = g._tryCureStatusAilment(hero, "town_rest");
                         if (cured && cured.length > 0) retreatText += `
-解除状态：${cured.join('、')}`;
+解除状态：${cured.join(',')}`;
                     }
                     const mask = hero.cflag[920] || 0;
                     if ((mask & 1) !== 0) retreatText += `
@@ -457,7 +457,7 @@ ${invaderNames}${goalInfo}
                             hero.gold += comDef.rewardGold;
                             hero.fame += comDef.rewardFame; // 个人声望
                             g.addFame(comDef.rewardFame);
-                            taskRewardText = `委托「${comDef.name}」完成！获得${comDef.rewardGold}G，个人声望+${comDef.rewardFame}，魔王声望+${comDef.rewardFame}`;
+                            taskRewardText = `委托"${comDef.name}"完成！获得${comDef.rewardGold}G，个人声望+${comDef.rewardFame}，魔王声望+${comDef.rewardFame}`;
                         } else {
                             taskRewardText = '委托完成！';
                         }
@@ -476,7 +476,7 @@ ${invaderNames}${goalInfo}
                 }
             }
             if (retreatHeroes.length > 0) {
-                UI.showToast('勇者 ' + retreatHeroes.join('、') + ' 退回小镇恢复', 'info');
+                UI.showToast('勇者 ' + retreatHeroes.join(',') + ' 退回小镇恢复', 'info');
             }
 
             // === 奴隶/魔王任务处理 ===

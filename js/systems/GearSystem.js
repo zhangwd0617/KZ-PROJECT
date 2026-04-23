@@ -425,12 +425,12 @@ class GearSystem {
                     // 前勇者：等级+10
                     c.level = Math.min(200, c.level + 10);
                     c.cflag[9] = c.level;
-                    msg = "等级提升了10级！但身体感到异常……";
+                    msg = "等级提升了10级！但身体感到异常...";
                 } else {
                     // 普通勇者：服从度+1
                     if (!c.mark) c.mark = new Array(20).fill(0);
                     c.mark[0] = Math.min(3, (c.mark[0] || 0) + 1);
-                    msg = "服从度上升了……但感觉不太对劲……";
+                    msg = "服从度上升了...但感觉不太对劲...";
                 }
             } else {
                 // 正常净化药水：清除所有负面效果

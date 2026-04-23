@@ -39,7 +39,7 @@ const TRIPLE_ROUTE_SYNERGY = {
     "0+1+2": { name: "极乐殉道者", desc: "在痛苦与快乐中献上一切", bonus: { pleasureMult: 1.30, painGain: 0.10, obedienceGain: 0.10 } },
     "0+1+3": { name: "羞耻献身者", desc: "在羞耻与欲望中完全臣服", bonus: { desireGain: 0.15, shameGain: 0.15, obedienceGain: 0.10 } },
     "0+2+4": { name: "痛苦执行官", desc: "以痛苦执行支配，忠犬般的暴君", bonus: { painGain: 0.15, dominanceGain: 0.15, obedienceGain: 0.10 } },
-    "1+2+3": { name: "羞耻痛觉奴", desc: "在羞耻、痛苦与欲望中迷失自我", bonus: { pleasureMult: 1.25, shameGain: 0.15, painGain: 0.10 } },
+    "1+2+3": { name: "羞耻痛觉奴", desc: "在羞耻,痛苦与欲望中迷失自我", bonus: { pleasureMult: 1.25, shameGain: 0.15, painGain: 0.10 } },
     "1+3+4": { name: "欲望展示者", desc: "以暴露与支配宣示无尽的欲望", bonus: { desireGain: 0.20, shameGain: 0.10, dominanceGain: 0.15 } },
     "2+3+4": { name: "公开处刑者", desc: "在众目睽睽下以痛苦确立支配", bonus: { painGain: 0.15, shameGain: 0.15, dominanceGain: 0.15, publicBonus: 0.25 } }
 };

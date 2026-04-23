@@ -466,6 +466,20 @@ window.TRAIN_DEFS = {
     201: { name: "助手", category: "system", group: "system" },
     208: { name: "触手", category: "arena", group: "arena" },
 
+    // === 恢复 ===
+    998: { name: "安抚", category: "recovery", group: "special" },
+    999: { name: "休息", category: "recovery", group: "special" },
+
+    // === 助手 ===
+    900: { name: "助手代行", category: "assistant", group: "assistant" },
+    901: { name: "助手参与", category: "assistant", group: "assistant" },
+
+    // === 魔王技能 ===
+    989: { name: "强制绝顶", category: "master", group: "special" },
+    990: { name: "释放许可", category: "master", group: "special" },
+    991: { name: "边缘控制", category: "master", group: "special" },
+    992: { name: "强制蓄力", category: "master", group: "special" },
+
 };
 
 // 指令分组（用于过滤）
@@ -476,8 +490,8 @@ window.TRAIN_GROUPS = {
     "anal": [25,26,27,28,29],
     "service": [30,31,32,33,34,35,36,37,38,123,125,126],
     "sm": [40,41,42,43,44,45,46,47,48,49],
-    "assistant": [60,61,62,63,64,65,66,67,68,69,70,71],
-    "special": [50,51,52,53,54,55,56,57,58,59,72,73,110],
+    "assistant": [60,61,62,63,64,65,66,67,68,69,70,71,900,901],
+    "special": [50,51,52,53,54,55,56,57,58,59,72,73,110,989,990,991,992,998,999],
     "rough": [80,81,82,83,84,85,87,90,111,124,127],
     "monster": [100],
     "arena": [200,208],

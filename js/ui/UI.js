@@ -294,11 +294,28 @@ const UI = {
         const gaugeColor = totalGauge >= 100 ? 'var(--danger)' : (totalGauge >= 80 ? 'var(--warning)' : 'var(--accent)');
         leftHtml += `<div style="margin:6px 0;"><div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:2px;">绝顶槽 ${totalGauge}% ${chargeLabel}</div><div style="height:14px;background:rgba(255,255,255,0.05);border-radius:7px;overflow:hidden;border:1px solid var(--border);"><div style="height:100%;background:linear-gradient(90deg,${gaugeColor},${gaugeColor}88);width:${Math.min(100,totalGauge)}%;transition:width 0.3s;"></div></div></div>`;
 
-        // 8 part sub-gauges
+        // Dominant part hint (compact)
         const partCodes = ['C','V','A','B','N','O','W','P'];
         const partNames = ['阴核','阴道','肛门','乳房','乳头','口腔','子宫','阴茎'];
         const partColors = ['#e06c75','#c678dd','#e5c07b','#61afef','#61afef','#98c379','#c678dd','#e06c75'];
-        leftHtml += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:6px 0;">`;
+        let maxPart = -1, maxVal = -1;
+        for (let i = 0; i < 8; i++) {
+            const pg = target.partGauge ? (target.partGauge[i] || 0) : 0;
+            if (pg > maxVal) { maxVal = pg; maxPart = i; }
+        }
+        if (maxPart >= 0 && maxVal > 0) {
+            const pct = Math.min(100, Math.floor(maxVal / 10));
+            leftHtml += `<div style="display:flex;align-items:center;gap:6px;margin:4px 0;font-size:0.68rem;">`;
+            leftHtml += `<span style="color:var(--text-dim)">主导:</span>`;
+            leftHtml += `<span style="color:${partColors[maxPart]}">${partCodes[maxPart]} ${partNames[maxPart]}</span>`;
+            leftHtml += `<span style="color:var(--text-dim)">${pct}%</span>`;
+            leftHtml += `</div>`;
+        }
+
+        // Collapsible 8-part detail panel
+        leftHtml += `<details style="margin:2px 0;">`;
+        leftHtml += `<summary style="font-size:0.65rem;padding:2px 8px;cursor:pointer;color:var(--text-dim);list-style:none;background:rgba(255,255,255,0.03);border-radius:4px;">▼ 部位详情</summary>`;
+        leftHtml += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:4px;">`;
         for (let i = 0; i < 8; i++) {
             const pg = target.partGauge ? (target.partGauge[i] || 0) : 0;
             const pct = Math.min(100, Math.floor(pg / 10));
@@ -306,12 +323,12 @@ const UI = {
             const gold = pg >= 500 ? 'border-color:var(--accent);' : '';
             const cd = target.orgasmCooldown ? target.orgasmCooldown[i] : 0;
             leftHtml += `<div style="padding:3px 5px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:4px;${gold}">`;
-            leftHtml += `<div style="display:flex;justify-content:space-between;font-size:0.68rem;"><span style="color:${partColors[i]}">${partCodes[i]}</span><span style="color:var(--text-dim)">${partNames[i]}</span></div>`;
-            leftHtml += `<div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;margin-top:2px;"><div style="height:100%;background:${partColors[i]}44;width:${pct}%;${flash}"></div></div>`;
-            if (cd > 0) leftHtml += `<div style="font-size:0.6rem;color:var(--text-dim);text-align:right;">CD:${cd}</div>`;
+            leftHtml += `<div style="display:flex;justify-content:space-between;font-size:0.65rem;"><span style="color:${partColors[i]}">${partCodes[i]}</span><span style="color:var(--text-dim)">${partNames[i]}</span></div>`;
+            leftHtml += `<div style="height:4px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-top:2px;"><div style="height:100%;background:${partColors[i]}44;width:${pct}%;${flash}"></div></div>`;
+            if (cd > 0) leftHtml += `<div style="font-size:0.58rem;color:var(--text-dim);text-align:right;">CD:${cd}</div>`;
             leftHtml += `</div>`;
         }
-        leftHtml += `</div>`;
+        leftHtml += `</div></details>`;
 
         // Status tags
         const tags = [];
@@ -506,7 +523,7 @@ const UI = {
         }
 
         html += `<div style="display:flex;gap:10px;justify-content:center;margin-top:12px;">`;
-        html += `<button class="game-btn accent" onclick="UI.closeModal();G.selectCommand(990);">确认释放</button>`;
+        html += `<button class="game-btn accent" onclick="UI.closeModal();G._executeMasterSkill(990);G.trainCount++;UI.renderTrain(G);">确认释放</button>`;
         html += `<button class="game-btn" onclick="UI.closeModal();">取消</button>`;
         html += `</div>`;
         html += `</div>`;
@@ -592,33 +609,7 @@ const UI = {
         }
         cmdHtml += '</div>';
 
-        // === NEW (P4): Master skills, assistant cmds, recovery cmds ===
-        let extraHtml = '<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px;">';
-
-        // Recovery row
-        extraHtml += '<div style="display:flex;gap:6px;margin-bottom:6px;">';
-        extraHtml += `<button class="game-btn" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(998)" title="恢复体力和气力">💚 安抚</button>`;
-        extraHtml += `<button class="game-btn" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(999)" title="大幅恢复">💤 休息</button>`;
-        extraHtml += '</div>';
-
-        // Assistant row
-        const hasAssi = game.getAssi() !== null;
-        extraHtml += '<div style="display:flex;gap:6px;margin-bottom:6px;">';
-        extraHtml += `<button class="game-btn ${hasAssi ? '' : 'filter-on'}" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(900)" ${hasAssi ? '' : 'disabled'} title="让助手代替执行">👤 助手代行</button>`;
-        extraHtml += `<button class="game-btn ${hasAssi ? '' : 'filter-on'}" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(901)" ${hasAssi ? '' : 'disabled'} title="助手参与调教">👥 助手参与</button>`;
-        extraHtml += '</div>';
-
-        // Master skills row
-        extraHtml += '<div style="display:flex;gap:6px;">';
-        extraHtml += `<button class="game-btn danger" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(992)" title="强制进入蓄力状态">⚡ 强制蓄力</button>`;
-        extraHtml += `<button class="game-btn warning" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(991)" title="在绝顶前阻止快感">🔒 边缘控制</button>`;
-        extraHtml += `<button class="game-btn accent" style="flex:1;font-size:0.72rem;" onclick="UI.showReleasePreview()" title="释放蓄力快感">🔓 释放许可</button>`;
-        extraHtml += `<button class="game-btn danger" style="flex:1;font-size:0.72rem;" onclick="G.selectCommand(989)" title="强制触发绝顶">💥 强制绝顶</button>`;
-        extraHtml += '</div>';
-
-        extraHtml += '</div>';
-
-        // Turn preview (shows last command cost as reference)
+        // Turn preview (compact)
         const target = game.getTarget();
         let previewHtml = '';
         if (target && game.selectcom >= 0) {
@@ -626,11 +617,11 @@ const UI = {
             const stmCost = meta ? (meta.staminaCost?.target || 0) : 0;
             const nrgCost = meta ? (meta.energyCost?.target || 0) : 0;
             if (stmCost > 0 || nrgCost > 0) {
-                previewHtml = `<div style="font-size:0.65rem;color:var(--text-dim);margin-bottom:4px;text-align:right;">上回合消耗: 体力-${stmCost} 气力-${nrgCost}</div>`;
+                previewHtml = `<div style="font-size:0.6rem;color:var(--text-dim);margin-bottom:3px;text-align:right;">上回合: 体-${stmCost} 气-${nrgCost}</div>`;
             }
         }
 
-        const html = `<div class="train-command-panel"><div class="train-categories">${catHtml}</div><div class="train-commands">${previewHtml}${cmdHtml}</div></div>${extraHtml}`;
+        const html = `<div class="train-command-panel"><div class="train-categories">${catHtml}</div><div class="train-commands">${previewHtml}${cmdHtml}</div></div>`;
         this.setButtons(html);
     },
 
@@ -885,7 +876,7 @@ const UI = {
         const endedDay = game.day - 1; // day已在DayEndSystem中推进，显示时要减1
         this.appendText(`【第 ${endedDay} 天结束】\n`, "accent");
         this.appendText(`所有角色的体力恢复了。`);
-        this.appendText(`新的一天开始了……`);
+        this.appendText(`新的一天开始了...`);
         this.clearButtons();
         this.setButtons(`<div class="btn-grid"><button class="game-btn accent" onclick="G.setState('SHOP')">进入第 ${game.day} 天</button></div>`);
     },
@@ -1194,9 +1185,9 @@ const UI = {
 
         let confirmText = '';
         if (taskType === 3) {
-            confirmText = `确定要让 ${c.name} 执行「${def.icon} ${def.name}」吗？\n\n${def.desc}`;
+            confirmText = `确定要让 ${c.name} 执行"${def.icon} ${def.name}"吗？\n\n${def.desc}`;
         } else {
-            confirmText = `确定要让 ${c.name} 从第${floor}层出发执行「${def.icon} ${def.name}」吗？\n\n${def.desc}\n\n📍 出发楼层：第${floor}层`;
+            confirmText = `确定要让 ${c.name} 从第${floor}层出发执行"${def.icon} ${def.name}"吗？\n\n${def.desc}\n\n📍 出发楼层：第${floor}层`;
         }
 
         if (!confirm(confirmText)) return;
@@ -1460,7 +1451,7 @@ const UI = {
         for (let i = 0; i < 1000; i++) {
             if (c.talent[i] > 0 && TALENT_DEFS[i]) {
                 const def = TALENT_DEFS[i];
-                // 跳过 appearance group（发色、瞳色等数值型外观已在外貌描述中体现）
+                // 跳过 appearance group（发色,瞳色等数值型外观已在外貌描述中体现）
                 if (def.group === 'appearance') continue;
                 const lv = def.type === 'level' ? ` ${c.talent[i]}` : '';
                 tags.push({ name: def.name + lv, cls: groupClass[def.group] || '' });
@@ -1833,7 +1824,7 @@ const UI = {
             // 触发特殊对话弹窗
             UI.showModal('洗脑解除', `
                 <p>${c.name}颤抖着将至尊戒指从手指上取下。</p>
-                <p style="color:var(--accent);margin-top:8px;">「我……我想起来了……我为什么会在这里……」</p>
+                <p style="color:var(--accent);margin-top:8px;">"我...我想起来了...我为什么会在这里..."</p>
                 <p style="color:var(--danger);margin-top:8px;">洗脑效果已经解除，但${c.name}的意识仍然混乱。作为对魔王的冒犯，她被关入监狱等待处置。</p>
                 <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;">
                     <button class="game-btn" onclick="UI.closeModal()">关入监狱</button>
@@ -2409,7 +2400,7 @@ const UI = {
         this.clearText();
         this.appendText(`【道具商店】\n`, "accent");
         this.appendText(`持有金钱: ${game.money}G`);
-        this.appendText(`点击商品查看详情并购买。升级「高级道具商店」可解锁更多商品。`);
+        this.appendText(`点击商品查看详情并购买。升级"高级道具商店"可解锁更多商品。`);
         this.appendDivider();
 
         this.clearButtons();

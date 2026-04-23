@@ -68,7 +68,7 @@ class TrainSystem {
         // 7. 实时检查自动素质获取（技能Lv+EXP达标时立即获得）
         const newTalents = this.game.checkAutoTalents(target);
         for (const t of newTalents) {
-            UI.appendText(`【素质觉醒】${target.name}获得了「${t.name}」！\n`, "accent");
+            UI.appendText(`【素质觉醒】${target.name}获得了"${t.name}"！\n`, "accent");
         }
 
         // 8. 魔王调教经验+1
@@ -214,20 +214,20 @@ class TrainSystem {
     // ========== Caress (0-9) ==========
     _execCaress(comId, target, master) {
         const reactions = {
-            0: `${target.name}的肌肤因接触而泛起红潮，呼吸逐渐变得急促……`,
-            1: `${target.name}的秘处微微颤抖，爱液顺着大腿内侧缓缓流出……`,
-            2: `${target.name}的肛门因陌生的触感而紧张收缩，发出细微的呻吟……`,
-            3: `${target.name}羞耻得满脸通红，手指却不由自主地加快了速度……`,
-            4: `${target.name}的口腔被填满，唾液顺着嘴角滑落，眼神逐渐迷离……`,
-            5: `${target.name}的乳头因刺激而挺立，胸口剧烈起伏着……`,
-            6: `${target.name}的舌头被动地回应着，身体逐渐软化在吻中……`,
-            7: `${target.name}羞耻地别过脸去，私处却因暴露而微微湿润……`,
-            8: `${target.name}的阴道内壁紧紧地缠绕着侵入的手指，体温不断攀升……`,
-            9: `${target.name}因肛门被舔舐而浑身颤抖，羞耻与快感交织在一起……`,
-            122: `${target.name}的秘唇被龟头摩擦得充血肿胀，发出难耐的喘息……`,
-            135: `${target.name}自己舔舐着自己的秘处，淫靡的水声在房间中回响……`
+            0: `${target.name}的肌肤因接触而泛起红潮，呼吸逐渐变得急促...`,
+            1: `${target.name}的秘处微微颤抖，爱液顺着大腿内侧缓缓流出...`,
+            2: `${target.name}的肛门因陌生的触感而紧张收缩，发出细微的呻吟...`,
+            3: `${target.name}羞耻得满脸通红，手指却不由自主地加快了速度...`,
+            4: `${target.name}的口腔被填满，唾液顺着嘴角滑落，眼神逐渐迷离...`,
+            5: `${target.name}的乳头因刺激而挺立，胸口剧烈起伏着...`,
+            6: `${target.name}的舌头被动地回应着，身体逐渐软化在吻中...`,
+            7: `${target.name}羞耻地别过脸去，私处却因暴露而微微湿润...`,
+            8: `${target.name}的阴道内壁紧紧地缠绕着侵入的手指，体温不断攀升...`,
+            9: `${target.name}因肛门被舔舐而浑身颤抖，羞耻与快感交织在一起...`,
+            122: `${target.name}的秘唇被龟头摩擦得充血肿胀，发出难耐的喘息...`,
+            135: `${target.name}自己舔舐着自己的秘处，淫靡的水声在房间中回响...`
         };
-        UI.appendText((reactions[comId] || `${target.name}的身体做出了反应……`) + "\n");
+        UI.appendText((reactions[comId] || `${target.name}的身体做出了反应...`) + "\n");
 
         const cSens = target.abl[0];
         const vSens = target.abl[2];
@@ -317,18 +317,18 @@ class TrainSystem {
     // ========== Tools (10-19) ==========
     _execTool(comId, target, master) {
         const reactions = {
-            10: `${target.name}的阴蒂在振动下剧烈颤抖，腰部不受控制地向上挺起……`,
-            11: `${target.name}的阴道深处被振动杖刺激着，淫液大量涌出……`,
-            12: `${target.name}的肛门被蠕虫侵入，肠壁因异物感而不断收缩……`,
-            13: `${target.name}的阴蒂被夹子夹住，敏感的突起因持续的压迫而充血……`,
-            14: `${target.name}的乳头被夹子夹紧，乳尖挺立成诱人的形状……`,
-            15: `${target.name}的乳房被搾乳器不断吸吮，乳汁从乳头中渗出……`,
-            16: `${target.name}看着飞机杯被使用，脸上泛起复杂的红晕……`,
-            17: `${target.name}的身体被水流冲刷着，皮肤泛起一层诱人的粉红色……`,
-            18: `${target.name}的肛门一颗颗吞入珠子，肠壁紧紧包裹着异物……`,
-            19: `${target.name}的肛门被珠子撑开又收缩，强烈的排泄感让身体痉挛……`
+            10: `${target.name}的阴蒂在振动下剧烈颤抖，腰部不受控制地向上挺起...`,
+            11: `${target.name}的阴道深处被振动杖刺激着，淫液大量涌出...`,
+            12: `${target.name}的肛门被蠕虫侵入，肠壁因异物感而不断收缩...`,
+            13: `${target.name}的阴蒂被夹子夹住，敏感的突起因持续的压迫而充血...`,
+            14: `${target.name}的乳头被夹子夹紧，乳尖挺立成诱人的形状...`,
+            15: `${target.name}的乳房被搾乳器不断吸吮，乳汁从乳头中渗出...`,
+            16: `${target.name}看着飞机杯被使用，脸上泛起复杂的红晕...`,
+            17: `${target.name}的身体被水流冲刷着，皮肤泛起一层诱人的粉红色...`,
+            18: `${target.name}的肛门一颗颗吞入珠子，肠壁紧紧包裹着异物...`,
+            19: `${target.name}的肛门被珠子撑开又收缩，强烈的排泄感让身体痉挛...`
         };
-        UI.appendText((reactions[comId] || `${target.name}对道具产生了反应……`) + "\n");
+        UI.appendText((reactions[comId] || `${target.name}对道具产生了反应...`) + "\n");
 
         let cGain = 0, vGain = 0, bGain = 0, aGain = 0, pain = 0;
         const cSens = target.abl[0];
@@ -347,7 +347,7 @@ class TrainSystem {
             case 12: // Anal worm
                 if (target.tequip[13]) {
                     target.tequip[13] = 0;
-                    UI.appendText(`${target.name}体内的蠕虫被取出了……\n`);
+                    UI.appendText(`${target.name}体内的蠕虫被取出了...\n`);
                 } else {
                     aGain = RAND_RANGE(30, 60) + aSens * 8;
                     pain = RAND_RANGE(10, 25);
@@ -357,7 +357,7 @@ class TrainSystem {
             case 13: // Clitoris cap
                 if (target.tequip[14]) {
                     target.tequip[14] = 0;
-                    UI.appendText(`${target.name}的阴蒂夹被取下了……\n`);
+                    UI.appendText(`${target.name}的阴蒂夹被取下了...\n`);
                 } else {
                     target.tequip[14] = 1;
                     cGain = RAND_RANGE(25, 50) + cSens * 8;
@@ -366,7 +366,7 @@ class TrainSystem {
             case 14: // Nipple cap
                 if (target.tequip[15]) {
                     target.tequip[15] = 0;
-                    UI.appendText(`${target.name}的乳头夹被取下了……\n`);
+                    UI.appendText(`${target.name}的乳头夹被取下了...\n`);
                 } else {
                     target.tequip[15] = 1;
                     bGain = RAND_RANGE(20, 40) + bSens * 6;
@@ -375,13 +375,13 @@ class TrainSystem {
             case 15: // Milking machine
                 if (target.tequip[16]) {
                     target.tequip[16] = 0;
-                    UI.appendText(`${target.name}的搾乳器被取下了……\n`);
+                    UI.appendText(`${target.name}的搾乳器被取下了...\n`);
                 } else {
                     target.tequip[16] = 1;
                     bGain = RAND_RANGE(30, 50) + bSens * 8;
                     if (target.hasTalent(130)) {
                         target.addExp(54, 1); // Milk spray exp
-                        UI.appendText(`乳汁从${target.name}的胸部流出……\n`);
+                        UI.appendText(`乳汁从${target.name}的胸部流出...\n`);
                     }
                 }
                 break;
@@ -392,7 +392,7 @@ class TrainSystem {
             case 17: // Shower
                 if (target.tequip[17]) {
                     target.tequip[17] = 0;
-                    UI.appendText(`${target.name}的淋浴关掉了……\n`);
+                    UI.appendText(`${target.name}的淋浴关掉了...\n`);
                 } else {
                     target.tequip[17] = 1;
                     cGain = RAND_RANGE(10, 25) + cSens * 3;
@@ -409,7 +409,7 @@ class TrainSystem {
                     aGain = RAND_RANGE(50, 100) + aSens * 12;
                     pain = RAND_RANGE(20, 40);
                     target.tequip[19] = 0;
-                    UI.appendText(`珠子被一颗颗拉出……\n`);
+                    UI.appendText(`珠子被一颗颗拉出...\n`);
                 } else {
                     aGain = RAND_RANGE(30, 60) + aSens * 8;
                     pain = RAND_RANGE(15, 30);
@@ -549,7 +549,7 @@ class TrainSystem {
         // Lubrication check
         if (target.palam[3] < 1000 && target.tequip[20] === 0) {
             pain += RAND_RANGE(20, 40);
-            UI.appendText(`太干燥了……${target.name}痛苦不堪。\n`);
+            UI.appendText(`太干燥了...${target.name}痛苦不堪。\n`);
         }
 
         target.addSource(2, aGain);
@@ -564,15 +564,15 @@ class TrainSystem {
     // ========== Service (30-38) ==========
     _execService(comId, target, master) {
         const reactions = {
-            30: `${target.name}的手指缠绕着肉棒，熟练地上下撸动着……`,
+            30: `${target.name}的手指缠绕着肉棒，熟练地上下撸动着...`,
             31: `${target.name}的口腔被填满，唾液顺着嘴角滑落，眼神逐渐迷离......`,
             32: `${target.name}的乳房夹紧肉棒，乳沟间传来的摩`,
-            33: `${target.name}用大腿夹住摩擦……`,
-            34: `${target.name}骑在${master.name}身上侍奉……`,
-            35: `${target.name}将身体涂满泡沫，淫靡地贴在${master.name}身上滑动……`,
-            36: `${target.name}骑在${master.name}身上，坚定地进行着肛交……`,
-            37: `${target.name}将舌头压在${master.name}的肛门上，顺从地舔舐着……`,
-            38: `${target.name}用脚侍奉了${master.name}……`
+            33: `${target.name}用大腿夹住摩擦...`,
+            34: `${target.name}骑在${master.name}身上侍奉...`,
+            35: `${target.name}将身体涂满泡沫，淫靡地贴在${master.name}身上滑动...`,
+            36: `${target.name}骑在${master.name}身上，坚定地进行着肛交...`,
+            37: `${target.name}将舌头压在${master.name}的肛门上，顺从地舔舐着...`,
+            38: `${target.name}用脚侍奉了${master.name}...`
         };
         UI.appendText((reactions[comId] || `${target.name}的身体因侍奉而颤抖......`) + "\n");
 
@@ -668,16 +668,16 @@ class TrainSystem {
     // ========== SM (40-49) ==========
     _execSM(comId, target, master) {
         const msgs = {
-            40: `${master.name}让${target.name}趴在自己膝上，手掌重重地落在臀肉上……`,
-            41: `${master.name}用鞭子抽打了${target.name}……`,
-            42: `${master.name}用针刺了${target.name}……`,
-            43: `${master.name}给${target.name}戴上了眼罩……`,
-            44: `${master.name}用绳索绑住了${target.name}……`,
-            45: `${master.name}给${target.name}戴上了口球……`,
-            46: `${master.name}向${target.name}的肠道灌入温热的液体，并用栓子堵住……`,
-            47: `${master.name}将${target.name}装入束缚装中……`,
-            48: `${master.name}踩踏了${target.name}……`,
-            49: `${master.name}将电极接在${target.name}的肛门上，释放出电脉冲……`
+            40: `${master.name}让${target.name}趴在自己膝上，手掌重重地落在臀肉上...`,
+            41: `${master.name}用鞭子抽打了${target.name}...`,
+            42: `${master.name}用针刺了${target.name}...`,
+            43: `${master.name}给${target.name}戴上了眼罩...`,
+            44: `${master.name}用绳索绑住了${target.name}...`,
+            45: `${master.name}给${target.name}戴上了口球...`,
+            46: `${master.name}向${target.name}的肠道灌入温热的液体，并用栓子堵住...`,
+            47: `${master.name}将${target.name}装入束缚装中...`,
+            48: `${master.name}踩踏了${target.name}...`,
+            49: `${master.name}将电极接在${target.name}的肛门上，释放出电脉冲...`
         };
         UI.appendText((msgs[comId] || "进行了SM行为。") + "\n");
 
@@ -703,7 +703,7 @@ class TrainSystem {
             case 43: // Blindfold
                 if (target.tequip[10]) {
                     target.tequip[10] = 0;
-                    UI.appendText(`${target.name}的眼罩被摘下了……\n`);
+                    UI.appendText(`${target.name}的眼罩被摘下了...\n`);
                 } else {
                     target.tequip[10] = 1;
                     fear += 20;
@@ -714,7 +714,7 @@ class TrainSystem {
             case 44: // Rope
                 if (target.tequip[11]) {
                     target.tequip[11] = 0;
-                    UI.appendText(`${target.name}身上的绳索被解开了……\n`);
+                    UI.appendText(`${target.name}身上的绳索被解开了...\n`);
                 } else {
                     target.tequip[11] = 1;
                     pain += RAND_RANGE(10, 20);
@@ -725,7 +725,7 @@ class TrainSystem {
             case 45: // Ball gag
                 if (target.tequip[12]) {
                     target.tequip[12] = 0;
-                    UI.appendText(`${target.name}的口球被取下了……\n`);
+                    UI.appendText(`${target.name}的口球被取下了...\n`);
                 } else {
                     target.tequip[12] = 1;
                     fear += 30;
@@ -736,7 +736,7 @@ class TrainSystem {
             case 46: // Enema + plug
                 if (target.tequip[46]) {
                     target.tequip[46] = 0;
-                    UI.appendText(`${target.name}体内的液体和栓子被排出了……\n`);
+                    UI.appendText(`${target.name}体内的液体和栓子被排出了...\n`);
                     target.addPalam(8, RAND_RANGE(30, 60));
                     target.addPalam(11, RAND_RANGE(20, 40));
                 } else {
@@ -750,7 +750,7 @@ class TrainSystem {
             case 47: // Bondage suit
                 if (target.tequip[47]) {
                     target.tequip[47] = 0;
-                    UI.appendText(`${target.name}从束缚装中被释放出来……\n`);
+                    UI.appendText(`${target.name}从束缚装中被释放出来...\n`);
                 } else {
                     target.tequip[47] = 1;
                     pain = RAND_RANGE(10, 30);
@@ -767,7 +767,7 @@ class TrainSystem {
             case 49: // Anal electrode
                 if (target.tequip[49]) {
                     target.tequip[49] = 0;
-                    UI.appendText(`${target.name}身上的电极被拆除了……\n`);
+                    UI.appendText(`${target.name}身上的电极被拆除了...\n`);
                 } else {
                     target.tequip[49] = 1;
                     pain = RAND_RANGE(40, 80);
@@ -807,31 +807,31 @@ class TrainSystem {
 
         switch (comId) {
             case 50: // Lotion
-                UI.appendText(`${master.name}在${target.name}身上涂了润滑液……\n`);
+                UI.appendText(`${master.name}在${target.name}身上涂了润滑液...\n`);
                 target.tequip[20] = 1;
                 target.addPalam(3, RAND_RANGE(200, 400));
                 target.addSource(17, RAND_RANGE(5, 10));
                 break;
             case 51: // Aphrodisiac
-                UI.appendText(`${master.name}让${target.name}服下了媚药……\n`);
+                UI.appendText(`${master.name}让${target.name}服下了媚药...\n`);
                 target.tequip[21] = 1;
                 target.addPalam(5, 200); // Lust surge
                 target.addPalam(0, RAND_RANGE(50, 100));
                 target.addPalam(3, RAND_RANGE(100, 200));
                 break;
             case 52: // Diuretic
-                UI.appendText(`${master.name}让${target.name}服下了利尿剂……\n`);
+                UI.appendText(`${master.name}让${target.name}服下了利尿剂...\n`);
                 target.tequip[22] = 1;
                 target.addPalam(11, RAND_RANGE(10, 20));
                 target.addExp(31, 1);
                 break;
             case 53: // Crystal ball
-                UI.appendText(`${master.name}让${target.name}在水晶球中看到自己的倒影……\n`);
+                UI.appendText(`${master.name}让${target.name}在水晶球中看到自己的倒影...\n`);
                 target.addPalam(8, RAND_RANGE(30, 60)); // Shame
                 target.addPalam(11, RAND_RANGE(10, 20));
                 break;
             case 54: // Outdoor play
-                UI.appendText(`${master.name}将${target.name}带到户外的开放空气中……\n`);
+                UI.appendText(`${master.name}将${target.name}带到户外的开放空气中...\n`);
                 target.tequip[54] = 1;
                 target.addPalam(8, RAND_RANGE(40, 80)); // Shame
                 target.addPalam(11, RAND_RANGE(10, 30));
@@ -841,32 +841,32 @@ class TrainSystem {
                 }
                 break;
             case 55: // Do nothing
-                UI.appendText(`${master.name}什么都没做，只是带着意味深长的微笑看着${target.name}……\n`);
+                UI.appendText(`${master.name}什么都没做，只是带着意味深长的微笑看着${target.name}...\n`);
                 target.addPalam(11, RAND_RANGE(5, 15));
                 target.addPalam(10, RAND_RANGE(5, 15)); // Fear
                 break;
             case 56: // Conversation
-                UI.appendText(`${master.name}与${target.name}轻声交谈，话语中暗藏深意……\n`);
+                UI.appendText(`${master.name}与${target.name}轻声交谈，话语中暗藏深意...\n`);
                 target.addSource(17, RAND_RANGE(20, 40));
                 target.addSource(19, RAND_RANGE(10, 20));
                 target.addExp(73, 1); // Conversation exp
                 break;
             case 57: // Humiliation play
-                UI.appendText(`${master.name}将${target.name}摆成羞耻的姿势……\n`);
+                UI.appendText(`${master.name}将${target.name}摆成羞耻的姿势...\n`);
                 target.tequip[57] = 1;
                 target.addPalam(8, RAND_RANGE(50, 100));
                 target.addPalam(11, RAND_RANGE(10, 30));
                 target.addSource(17, RAND_RANGE(10, 20));
                 break;
             case 58: // Bath play
-                UI.appendText(`${master.name}将${target.name}带到了浴室……\n`);
+                UI.appendText(`${master.name}将${target.name}带到了浴室...\n`);
                 target.tequip[58] = 1;
                 target.addPalam(3, RAND_RANGE(100, 200));
                 target.hp += RAND_RANGE(10, 20); // 恢复少量体力
                 target.addSource(17, RAND_RANGE(10, 20));
                 break;
             case 59: // Newlywed play
-                UI.appendText(`${master.name}与${target.name}玩起了新婚角色扮演……\n`);
+                UI.appendText(`${master.name}与${target.name}玩起了新婚角色扮演...\n`);
                 target.tequip[59] = 1;
                 target.addPalam(5, RAND_RANGE(20, 40));
                 target.addSource(17, RAND_RANGE(20, 40));
@@ -883,20 +883,20 @@ class TrainSystem {
         const mName = master.name;
 
         const msgs = {
-            60: `${assiName}深深吻上了${tName}，舌头交缠在一起……`,
-            61: `${mName}强迫${tName}为${assiName}舔阴……`,
-            62: `${mName}在${tName}的眼前侵犯了${assiName}……`,
-            63: `${tName}与${assiName}将秘处贴在一起摩擦着……`,
-            64: `${mName}和${assiName}从两端同时侵犯了${tName}……`,
-            65: `${mName}让${assiName}侵犯${tName}，自己在一旁观看……`,
-            66: `${tName}同时将${mName}和${assiName}含入口中……`,
-            67: `${tName}给${assiName}足交，脚趾缠绕着肉棒……`,
-            68: `${tName}用嘴同时侍奉着${mName}和${assiName}……`,
-            69: `${tName}与${assiName}以六九式交缠在一起，双方的嘴都没闲着……`,
-            70: `${tName}与${assiName}同时用大腿夹住${mName}摩擦……`,
-            71: `${tName}与${assiName}同时用胸部夹住${mName}摩擦……`
+            60: `${assiName}深深吻上了${tName}，舌头交缠在一起...`,
+            61: `${mName}强迫${tName}为${assiName}舔阴...`,
+            62: `${mName}在${tName}的眼前侵犯了${assiName}...`,
+            63: `${tName}与${assiName}将秘处贴在一起摩擦着...`,
+            64: `${mName}和${assiName}从两端同时侵犯了${tName}...`,
+            65: `${mName}让${assiName}侵犯${tName}，自己在一旁观看...`,
+            66: `${tName}同时将${mName}和${assiName}含入口中...`,
+            67: `${tName}给${assiName}足交，脚趾缠绕着肉棒...`,
+            68: `${tName}用嘴同时侍奉着${mName}和${assiName}...`,
+            69: `${tName}与${assiName}以六九式交缠在一起，双方的嘴都没闲着...`,
+            70: `${tName}与${assiName}同时用大腿夹住${mName}摩擦...`,
+            71: `${tName}与${assiName}同时用胸部夹住${mName}摩擦...`
         };
-        UI.appendText((msgs[comId] || `${assiName}也参与了调教……`) + "\n");
+        UI.appendText((msgs[comId] || `${assiName}也参与了调教...`) + "\n");
 
         let yield_ = RAND_RANGE(15, 30);
         let cGain = 0, vGain = 0, aGain = 0, bGain = 0;
@@ -997,7 +997,7 @@ class TrainSystem {
         if (RAND(100) < rate) {
             target.talent[153] = 1;
             target.cflag[800] = 0; // 怀孕天数
-            UI.appendText(`【${target.name}的体内被注入了精液……似乎怀孕了。】\n`);
+            UI.appendText(`【${target.name}的体内被注入了精液...似乎怀孕了。】\n`);
         }
     }
 
@@ -1251,7 +1251,7 @@ class TrainSystem {
                 target.addExp(3, climaxTypes.length); // 射精经验
                 if (target.talent[1]) {
                     target.removeTalent(1);
-                    UI.appendText(`【${target.name}失去了童贞……】\n`);
+                    UI.appendText(`【${target.name}失去了童贞...】\n`);
                 }
             }
         }
@@ -1275,7 +1275,7 @@ class TrainSystem {
             // 低湿润状态下进行V/A相关活动时显示提示
             if (wetGain >= 30 && target.palam[3] < 1500 && !target.tequip[20]) {
                 if ((target.source[1] || 0) > 0 || (target.source[2] || 0) > 0) {
-                    UI.appendText(`【自然湿润】${target.name}的私处因情欲而湿润了……(+${wetGain})\n`);
+                    UI.appendText(`【自然湿润】${target.name}的私处因情欲而湿润了...(+${wetGain})\n`);
                 }
             }
         }
@@ -1310,8 +1310,8 @@ class TrainSystem {
     // ========== Cosmetic (72-73) ==========
     _execCosmetic(comId, target, master) {
         const msgs = {
-            72: `${master.name}仔细地剃去了${target.name}的阴毛……`,
-            73: `${master.name}为${target.name}梳理了发型，改变了形象……`
+            72: `${master.name}仔细地剃去了${target.name}的阴毛...`,
+            73: `${master.name}为${target.name}梳理了发型，改变了形象...`
         };
         UI.appendText((msgs[comId] || "进行了美容整形。") + "\n");
 
@@ -1331,14 +1331,14 @@ class TrainSystem {
     // ========== Rough / Extreme (80-90) ==========
     _execRough(comId, target, master) {
         const msgs = {
-            80: `${master.name}抓住${target.name}的头，将阳具深深插入喉咙……`,
-            81: `${master.name}将整只拳头塞入了${target.name}的阴道……`,
-            82: `${master.name}将拳头推入了${target.name}的肛门……`,
-            83: `${master.name}同时将双手塞入${target.name}的前后两穴……`,
-            84: `${master.name}从内部压迫着${target.name}的G点……`,
-            85: `${target.name}忍不住释放出一股尿液……`,
-            87: `${master.name}用穿环刺穿了${target.name}的身体……`,
-            90: `${master.name}强行贯穿了${target.name}的乳头……`
+            80: `${master.name}抓住${target.name}的头，将阳具深深插入喉咙...`,
+            81: `${master.name}将整只拳头塞入了${target.name}的阴道...`,
+            82: `${master.name}将拳头推入了${target.name}的肛门...`,
+            83: `${master.name}同时将双手塞入${target.name}的前后两穴...`,
+            84: `${master.name}从内部压迫着${target.name}的G点...`,
+            85: `${target.name}忍不住释放出一股尿液...`,
+            87: `${master.name}用穿环刺穿了${target.name}的身体...`,
+            90: `${master.name}强行贯穿了${target.name}的乳头...`
         };
         UI.appendText((msgs[comId] || "进行了极端行为。") + "\n");
 
@@ -1403,7 +1403,7 @@ class TrainSystem {
             case 87: // Piercing
                 if (target.tequip[87]) {
                     target.tequip[87] = 0;
-                    UI.appendText(`${target.name}身上的穿环被取下了……\n`);
+                    UI.appendText(`${target.name}身上的穿环被取下了...\n`);
                 } else {
                     target.tequip[87] = 1;
                     pain = RAND_RANGE(40, 80);
@@ -1457,7 +1457,7 @@ class TrainSystem {
     // ========== Monster / Tentacle (100) ==========
     _execMonster(comId, target, master) {
         const msgs = {
-            100: `触手从召唤阵中涌出，缠绕住${target.name}的四肢……`
+            100: `触手从召唤阵中涌出，缠绕住${target.name}的四肢...`
         };
         UI.appendText((msgs[comId] || "怪物袭击了。") + "\n");
 
@@ -1482,7 +1482,7 @@ class TrainSystem {
 
     // ========== Free Training (150) ==========
     _execFree(comId, target, master) {
-        UI.appendText(`${master.name}让${target.name}自由行动，观察着反应……\n`);
+        UI.appendText(`${master.name}让${target.name}自由行动，观察着反应...\n`);
         target.addPalam(5, RAND_RANGE(10, 30));
         target.addSource(17, RAND_RANGE(10, 20));
         target.addSource(19, RAND_RANGE(10, 20));
@@ -1492,10 +1492,10 @@ class TrainSystem {
     // ========== Arena / Colosseum (200, 208) ==========
     _execArena(comId, target, master) {
         const arenaMsgs = {
-            200: `${target.name}被丢入斗技场，被迫为生存而战……`,
-            208: `无数触手从四面八方缠住${target.name}，钻入每一个孔穴……`
+            200: `${target.name}被丢入斗技场，被迫为生存而战...`,
+            208: `无数触手从四面八方缠住${target.name}，钻入每一个孔穴...`
         };
-        UI.appendText((arenaMsgs[comId] || `${target.name}在斗技场中战斗着……`) + "\n");
+        UI.appendText((arenaMsgs[comId] || `${target.name}在斗技场中战斗着...`) + "\n");
 
         let pain = RAND_RANGE(40, 80);
         let fear = RAND_RANGE(30, 60);
@@ -1538,11 +1538,11 @@ class TrainSystem {
         if (comId === 110) {
             const isDressed = target.tequip[110];
             if (isDressed) {
-                UI.appendText(`${master.name}为${target.name}脱去了衣物……\n`);
+                UI.appendText(`${master.name}为${target.name}脱去了衣物...\n`);
                 target.tequip[110] = 0;
                 target.addPalam(8, RAND_RANGE(20, 40));
             } else {
-                UI.appendText(`${master.name}为${target.name}穿上了衣服……\n`);
+                UI.appendText(`${master.name}为${target.name}穿上了衣服...\n`);
                 target.tequip[110] = 1;
                 target.addPalam(8, RAND_RANGE(10, 20));
             }

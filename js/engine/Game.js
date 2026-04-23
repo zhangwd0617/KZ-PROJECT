@@ -218,13 +218,13 @@ class Game {
         UI.appendText("━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
         UI.appendText("在黑暗的王座之间，沉睡了千年的魔王缓缓睁开了双眼。\n");
         UI.appendText("腐朽的城堡重新升腾起魔力的雾气，魔族的眷属们从石棺中苏醒。\n\n");
-        UI.appendText("『吾主，欢迎归来。』\n");
+        UI.appendText("\u300c\u543e\u4e3b\uff0c\u6b22\u8fce\u5f52\u6765\u3002\u300d\n");
         UI.appendText("忠诚的臣仆跪伏在地，向新生的魔王献上敬意。\n\n");
         UI.appendText("然而，久远的沉睡让魔王的魔力几近枯竭。\n");
         UI.appendText("想要恢复昔日的力量，就需要“养分”——人类的欲望与快感的结晶。\n\n");
-        UI.appendText("『去，为吾主抓来合适的猎物。』\n\n");
+        UI.appendText("\u300c\u53bb\uff0c\u4e3a\u543e\u4e3b\u6293\u6765\u5408\u9002\u7684\u730e\u7269\u3002\u300d\n\n");
         UI.appendText("魔族的爪牙潜入夜色之中。\n");
-        UI.appendText("它们的目标是边境村庄里，那个传闻中纯洁而倔强的乡下少女……\n\n");
+        UI.appendText("它们的目标是边境村庄里，那个传闻中纯洁而倔强的乡下少女...\n\n");
         UI.appendText("━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
         UI.appendText("【莉莉】成为了你的奴隶。\n");
         UI.appendText("这位来自边境村落的少女，眼中还燃烧着不屈的火焰。\n");
@@ -353,7 +353,10 @@ class Game {
         this.selectcom = comId;
 
         // === NEW (P2/P4): Master skills, assistant, recovery commands ===
-        if (comId >= 989 && comId <= 992) {
+        if (comId === 990) {
+            UI.showReleasePreview();
+            return;
+        } else if (comId >= 989 && comId <= 992) {
             this._executeMasterSkill(comId);
         } else if (comId === 900 || comId === 901) {
             this._executeAssistantCommand(comId);
@@ -680,12 +683,12 @@ class Game {
             // 最终确认基础素质
             const targetNew = this.checkAutoTalents(target);
             for (const t of targetNew) {
-                UI.appendText(`【${target.name}获得了「${t.name}」的素质！】\n`, "accent");
+                UI.appendText(`【${target.name}获得了"${t.name}"的素质！】\n`, "accent");
             }
             // 上位Talent升级判定（仅在调教结束后）
             const targetAdvanced = this._checkAdvancedTalentUpgrade(target);
             for (const t of targetAdvanced) {
-                UI.appendText(`【${target.name}的素质进化为「${t.name}」！】\n`, "accent");
+                UI.appendText(`【${target.name}的素质进化为"${t.name}"！】\n`, "accent");
             }
         }
 
@@ -695,11 +698,11 @@ class Game {
 
             const assiNew = this.checkAutoTalents(assi);
             for (const t of assiNew) {
-                UI.appendText(`【${assi.name}获得了「${t.name}」的素质！】\n`, "accent");
+                UI.appendText(`【${assi.name}获得了"${t.name}"的素质！】\n`, "accent");
             }
             const assiAdvanced = this._checkAdvancedTalentUpgrade(assi);
             for (const t of assiAdvanced) {
-                UI.appendText(`【${assi.name}的素质进化为「${t.name}」！】\n`, "accent");
+                UI.appendText(`【${assi.name}的素质进化为"${t.name}"！】\n`, "accent");
             }
         }
 
@@ -735,7 +738,7 @@ class Game {
         if (bystander.energy < bystander.maxEnergy * 0.3) states.push("移开视线");
         if (bystander.energy < bystander.maxEnergy * 0.2) states.push("请求参与");
         if (states.length > 0) {
-            UI.appendText(`【${bystander.name}\u65c1\u89c2\u4e2d：${states.join('、')}】\n`, "dim");
+            UI.appendText(`【${bystander.name}\u65c1\u89c2\u4e2d：${states.join(',')}】\n`, "dim");
         }
     }
 
@@ -756,7 +759,7 @@ class Game {
 
     // ========== TURNEND ==========
     eventTurnEnd() {
-        // Phase1: 日常结算（恢复、怀孕、事件、天数推进）
+        // Phase1: 日常结算（恢复,怀孕,事件,天数推进）
         this.dayEndSystem.processPhase1();
         if (this.time < 3) {
             this.time++;
@@ -769,7 +772,7 @@ class Game {
     }
 
     eventPhase2() {
-        // Phase2: 勇者移动、战斗、奴隶探索
+        // Phase2: 勇者移动,战斗,奴隶探索
         try {
             this.dayEndSystem.processPhase2();
         } catch (e) {
@@ -914,7 +917,7 @@ class Game {
             c.talent[121] = 1;
             c.talent[123] = 1;
         }
-        return { success: true, msg: `${c.name} 的乳腺被改造激活，开始泌乳。胸部变得更加丰满了……` };
+        return { success: true, msg: `${c.name} 的乳腺被改造激活，开始泌乳。胸部变得更加丰满了...` };
     }
 
     bodyModifyFutanari(index) {
@@ -1029,7 +1032,7 @@ class Game {
 
     _generateSpecimenDesc(chara, method) {
         const descs = {
-            specimen: `${chara.name}的遗体被魔王的炼金术士精心处理。肌肤被注入了防腐魔药，保持着生前最后的表情——那是混杂着恐惧与屈辱的神情。双眼被换成了宝石，在黑暗中依然倒映着魔王城的烛火。她的身体被摆成跪伏的姿态，仿佛仍在向魔王献上永恒的臣服。旁边的铭牌记载着她生前的等级与罪状：「入侵魔王城，下场如此。」`
+            specimen: `${chara.name}的遗体被魔王的炼金术士精心处理。肌肤被注入了防腐魔药，保持着生前最后的表情——那是混杂着恐惧与屈辱的神情。双眼被换成了宝石，在黑暗中依然倒映着魔王城的烛火。她的身体被摆成跪伏的姿态，仿佛仍在向魔王献上永恒的臣服。旁边的铭牌记载着她生前的等级与罪状："入侵魔王城，下场如此。"`
         };
         return descs[method] || descs.specimen;
     }
@@ -1773,7 +1776,7 @@ class Game {
                         // 拔刀相助：关系好的勇者加入战斗
                         const squad = [hero, ...helpers];
                         const combat = this._doTeamCombat(squad, [monster]);
-                        const helperNames = helpers.map(h => h.name).join('、');
+                        const helperNames = helpers.map(h => h.name).join(',');
                         results.push({
                             type: "scombat",
                             name: `拔刀相助：遭遇${monster.name}`,
@@ -1866,7 +1869,7 @@ class Game {
                     const healAmt = Math.floor(hero.maxHp * (event.value || 30) / 100);
                     hero.hp = Math.min(hero.maxHp, hero.hp + healAmt);
                     const cured = this._tryCureStatusAilment(hero, "healer_event");
-                    results.push({ type: "healer", name: "治疗师的帮助", description: `恢复${healAmt}HP` + (cured.length > 0 ? `，解除：${cured.join('、')}` : ''), icon: "💊" });
+                    results.push({ type: "healer", name: "治疗师的帮助", description: `恢复${healAmt}HP` + (cured.length > 0 ? `，解除：${cured.join(',')}` : ''), icon: "💊" });
                 } else if (event.type === 'curse') {
                     speedMod -= 2;
                     this._addStatusAilment(hero, "curse", 5);
@@ -2202,7 +2205,7 @@ class Game {
         return {
             type: 'floor_shop',
             name: '🏪 地下城商店',
-            description: `${hero.name}在地下城商店浏览，${bought.length > 0 ? '购买了：' + bought.join('、') : '没有购买任何物品'}`,
+            description: `${hero.name}在地下城商店浏览，${bought.length > 0 ? '购买了：' + bought.join(',') : '没有购买任何物品'}`,
             icon: '🏪',
             bought: bought
         };
@@ -2439,7 +2442,7 @@ class Game {
                             if (skillResult.cleanse) {
                                 // 净化自身异常
                                 const cured = this._tryCureStatusAilment(hero, "skill_cleanse");
-                                if (cured.length > 0) combatLog.push(`  → ${cured.join('、')}`);
+                                if (cured.length > 0) combatLog.push(`  → ${cured.join(',')}`);
                             }
                             if (skillResult.berserk) {
                                 const b = skillResult.buff;
@@ -2734,7 +2737,7 @@ class Game {
             modChance = Math.max(0, Math.min(95, modChance));
             if (RAND(100) < modChance) {
                 this._convertHeroToSlave(hero);
-                return { type: 'surrender', message: `${hero.name}再次被魔王捕【..她的身体比意志更先屈服了。「欢迎回来，我的奴隶。」魔王在她耳边低语。` };
+                return { type: 'surrender', message: `${hero.name}再次被魔王捕【..她的身体比意志更先屈服了。"欢迎回来，我的奴隶。"魔王在她耳边低语。` };
             }
         }
         if (surrenderResult.success) {
@@ -3220,7 +3223,7 @@ class Game {
             if (slave.abl[11] < 5) slave.abl[11]++; // 欲望+1
             // 魔王获得调教经验
             this.masterExp += 5;
-            rewardText = `\n🏰 【魔王的爱奖励】\n${slave.name}回到魔王宫复命，魔王对她的表现非常满意。\n「做得很好，值得奖励。」魔王将她拉入怀中…\n在魔王的宠爱下，${slave.name}的身体变得火热，顺从心增加了。\n获得：绝顶经【3、快乐刻【1、顺【欲望上升、魔王经【5`;
+            rewardText = `\n🏰 【魔王的爱奖励】\n${slave.name}回到魔王宫复命，魔王对她的表现非常满意。\n"做得很好，值得奖励。"魔王将她拉入怀中…\n在魔王的宠爱下，${slave.name}的身体变得火热，顺从心增加了。\n获得：绝顶经【3,快乐刻【1,顺【欲望上升,魔王经【5`;
         } else {
             rewardText = `\n${slave.name}顺利返回魔王宫复命。`;
         }
@@ -3229,7 +3232,7 @@ class Game {
         return {
             name: slave.name,
             type: 'complete',
-            text: `${squadText}完成了地下城探索！累计获得${totalExp}EXP、持有金${totalGold}G，${rewardText}`,
+            text: `${squadText}完成了地下城探索！累计获得${totalExp}EXP,持有金${totalGold}G，${rewardText}`,
             exp: totalExp,
             gold: totalGold,
             reward: triggerReward
@@ -3658,7 +3661,7 @@ class Game {
                 g.items = [];
             }
             if (takenNames.length > 0) {
-                parts.push(`没收了装备：${takenNames.join('、')}（已收入收藏馆）`);
+                parts.push(`没收了装备：${takenNames.join(',')}（已收入收藏馆）`);
             }
         }
 
@@ -3783,7 +3786,7 @@ class Game {
     // 小队治疗职业自动恢复
     _applySquadHealing(squad) {
         if (!squad || squad.length < 2) return;
-        const healerClasses = [202, 205, 209]; // 神官、炼金术士、巫女
+        const healerClasses = [202, 205, 209]; // 神官,炼金术士,巫女
         const healers = squad.filter(m => healerClasses.includes(m.cflag[950] || 0));
         if (healers.length === 0) return;
         for (const member of squad) {
@@ -3960,7 +3963,7 @@ class Game {
             const spyTotalHp = spies.reduce((s, h) => s + h.hp, 0);
             if (totalHeroHp < (spyTotalHp + monster.hp) * 0.25) {
                 betrayed = true;
-                combatLog.push(`⚠️ ${spies.map(s => s.name).join('、')} 叛变了！转而攻击勇者！`);
+                combatLog.push(`⚠️ ${spies.map(s => s.name).join(',')} 叛变了！转而攻击勇者！`);
             }
         }
 
@@ -4095,7 +4098,7 @@ class Game {
                             }
                             if (skillResult.cleanse) {
                                 const cured = this._tryCureStatusAilment(hero, "skill_cleanse");
-                                if (cured.length > 0) combatLog.push(`  → ${cured.join('、')}`);
+                                if (cured.length > 0) combatLog.push(`  → ${cured.join(',')}`);
                             }
                             if (skillResult.invincible) {
                                 combatLog.push(`  → ${hero.name}进入无敌状态`);
@@ -4277,7 +4280,7 @@ class Game {
             const rightTotalHp = rightUnits.reduce((s, u) => s + u.hp, 0);
             if (leftTotalHp < (spies.reduce((s, u) => s + u.hp, 0) + rightTotalHp) * 0.25) {
                 betrayed = true;
-                combatLog.push(`💀 ${spies.map(s => s.name).join('、')} 叛变了！转而攻击同伴！`);
+                combatLog.push(`💀 ${spies.map(s => s.name).join(',')} 叛变了！转而攻击同伴！`);
             }
         }
 
@@ -4380,7 +4383,7 @@ class Game {
                             if (skillResult.ailment) combatLog.push(`  → ${target.name}被施加了异常效果！`);
                             if (skillResult.cleanse) {
                                 const cured = this._tryCureStatusAilment(actor.entity, "skill_cleanse");
-                                if (cured.length > 0) combatLog.push(`  → ${cured.join('、')}`);
+                                if (cured.length > 0) combatLog.push(`  → ${cured.join(',')}`);
                             }
                             continue;
                         }
@@ -4477,9 +4480,9 @@ class Game {
                 for (const u of realLeftAlive) {
                     u.entity.exp[0] = (u.entity.exp[0] || 0) + expPerMember;
                 }
-                combatLog.push(`【胜利】${aliveLeft.map(u => u.name).join('、')}击败了敌人(战斗${rounds}回合) 每人获得${expPerMember}EXP`);
+                combatLog.push(`【胜利】${aliveLeft.map(u => u.name).join(',')}击败了敌人(战斗${rounds}回合) 每人获得${expPerMember}EXP`);
             } else {
-                combatLog.push(`【胜利】${aliveLeft.map(u => u.name).join('、')}获胜(战斗${rounds}回合)`);
+                combatLog.push(`【胜利】${aliveLeft.map(u => u.name).join(',')}获胜(战斗${rounds}回合)`);
             }
             if (!options.noDrop) {
                 const elite = rightUnits.find(u => u.entity.eliteType);
@@ -4513,7 +4516,7 @@ class Game {
                 }
             }
         } else if (defeated) {
-            combatLog.push(`【败北】${leftUnits.map(u => u.name).join('、')}被全灭了...`);
+            combatLog.push(`【败北】${leftUnits.map(u => u.name).join(',')}被全灭了...`);
         } else if (draw) {
             combatLog.push(`【平手】从战斗中撤退了`);
         } else {
@@ -4722,7 +4725,7 @@ class Game {
 
     // ========== 相性系统 ==========
 
-    // 生成角色的相性值 (0-100)，基于种族、职业、性格
+    // 生成角色的相性值 (0-100)，基于种族,职业,性格
     generateAffinity(entity) {
         const race = entity.talent[314] || 1;
         const jobClass = entity.cflag[950] || 200;
@@ -4892,9 +4895,9 @@ class Game {
         slave.cstr[341] = `${def.icon} ${def.name}`;
 
         if (taskType === 3) {
-            return { success: true, msg: `${slave.name}开始执行「${def.icon} ${def.name}」` };
+            return { success: true, msg: `${slave.name}开始执行"${def.icon} ${def.name}"` };
         } else {
-            return { success: true, msg: `${slave.name}从第${floor}层出发执行「${def.icon} ${def.name}」` };
+            return { success: true, msg: `${slave.name}从第${floor}层出发执行"${def.icon} ${def.name}"` };
         }
     }
 
@@ -5292,7 +5295,7 @@ class Game {
             hero.cflag[983] = 0;
             hero.cflag[984] = 0;
             const floorDef = DUNGEON_FLOOR_DEFS[targetFloor];
-            hero.cstr[340] = `前往第${targetFloor}层${floorDef ? '「' + floorDef.name + '」' : ''}，击败关底Boss`;
+            hero.cstr[340] = `前往第${targetFloor}层${floorDef ? '"' + floorDef.name + '"' : ''}，击败关底Boss`;
         } else {
             // 40% 完成委托
             const comIds = Object.keys(COMMISSION_DEFS);
@@ -5384,7 +5387,7 @@ class Game {
                 names.push(`${STATUS_AILMENT_DEFS[key].name}(${turns}T)`);
             }
         }
-        return names.join("、");
+        return names.join(",");
     }
 
     _applyStatusAilmentEffects(hero) {
