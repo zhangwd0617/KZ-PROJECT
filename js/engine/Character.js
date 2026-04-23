@@ -58,6 +58,40 @@ class Character {
         // Current training source accumulation
         this.source = new Array(30).fill(0);
 
+        // ========== NEW SYSTEMS (P1+) ==========
+        // Stamina & Energy (slave-only dual bars)
+        // stamina maps to base[2] with extension; energy uses cflag[16]
+        this._energy = 100;           // current energy (0-100)
+        this._maxEnergy = 100;        // max energy
+
+        // Orgasm system: 8 part gauges (C/V/A/B/N/O/W/P)
+        // C=0 Clitoris, V=1 Vagina, A=2 Anus, B=3 Breasts, N=4 Nipples, O=5 Mouth, W=6 Womb, P=7 Penis
+        this.partGauge = new Array(8).fill(0);
+        this.totalOrgasmGauge = 0;    // 0-100%+ (climax threshold)
+        this.orgasmCooldown = new Array(8).fill(0); // cooldown turns per part
+        this.lastOrgasmType = -1;     // last orgasm type id
+
+        // Charge state
+        this.isCharging = false;
+        this.chargeLevel = 0;         // 0-3 / overcharge
+        this.chargeTurns = 0;         // turns spent charging
+
+        // Personality (generated via PersonalitySystem)
+        this.personality = null;      // { main, sub:[], minors:[], hidden:{traitId,revealed,full,progress} }
+
+        // Genital configuration
+        this.genitalConfig = null;    // { hasVagina, hasWomb, penises:[], orgasmSystem }
+
+        // Route system
+        this.routeExp = new Array(5).fill(0);    // exp per route
+        this.routeLevel = new Array(5).fill(0);  // level per route (0-5)
+        this.trainLevel = 0;                     // overall train level
+        this.routePoints = 0;                    // points to allocate
+
+        // Assistant qualification
+        this._assistantBuff = null;
+        this._routeExpBonus = {};
+
         // 固有编号(角色管理用)
         this.id = Character._nextId++;
     }
@@ -90,6 +124,27 @@ class Character {
     get gold() { return this.cflag[800] || 0; }
     set gold(v) { this.cflag[800] = Math.max(0, v); }
     addGold(v) { this.gold += v; }
+
+    // ========== Energy (气力) ==========
+    get energy() { return this._energy; }
+    set energy(v) { this._energy = Math.max(0, Math.min(this._maxEnergy, v)); }
+    get maxEnergy() { return this._maxEnergy; }
+    set maxEnergy(v) { this._maxEnergy = Math.max(10, v); }
+    addEnergy(v) { this.energy += v; }
+
+    // ========== Energy state machine ==========
+    getEnergyState() {
+        const pct = this._maxEnergy > 0 ? this._energy / this._maxEnergy : 1;
+        if (pct >= 0.80) return { state: "awake", name: "\u6e05\u9192", multiplier: 1.00, color: "#98c379" };
+        if (pct >= 0.50) return { state: "wavering", name: "\u52a8\u6447", multiplier: 0.85, color: "#e5c07b" };
+        if (pct >= 0.25) return { state: "dazed", name: "\u604d\u60da", multiplier: 0.65, color: "#e06c75" };
+        if (pct >= 0.05) return { state: "collapsing", name: "\u5d29\u89e3", multiplier: 0.40, color: "#c678dd" };
+        return { state: "broken", name: "\u574f\u6389", multiplier: 0.20, color: "#8888a0" };
+    }
+
+    getEnergyMultiplier() {
+        return this.getEnergyState().multiplier;
+    }
 
     // ========== Talent check shortcuts ==========
     hasTalent(id) { return this.talent[id] > 0; }
@@ -280,6 +335,150 @@ class Character {
         }
     }
 
+    // ========== Route System ==========
+    addRouteExp(routeId, value) {
+        if (routeId < 0 || routeId >= 5 || value <= 0) return 0;
+        const mult = (typeof getRouteExpMultiplier === 'function') ? getRouteExpMultiplier(this, routeId) : 1.0;
+        const gain = Math.floor(value * mult);
+        const oldLv = this.routeLevel[routeId] || 0;
+        this.routeExp[routeId] = (this.routeExp[routeId] || 0) + gain;
+        // Level up thresholds: 0->1:100, 1->2:300, 2->3:600, 3->4:1000, 4->5:1500
+        const thresholds = [0, 100, 300, 600, 1000, 1500];
+        let newLv = oldLv;
+        while (newLv < 5 && this.routeExp[routeId] >= thresholds[newLv + 1]) {
+            newLv++;
+        }
+        if (newLv > oldLv) {
+            this.routeLevel[routeId] = newLv;
+            this.routePoints += (newLv - oldLv);
+            // Grant accelerator talent automatically
+            if (typeof onRouteLevelUp === 'function') {
+                for (let lv = oldLv + 1; lv <= newLv; lv++) {
+                    const result = onRouteLevelUp(this, routeId, lv);
+                    if (result && typeof UI !== 'undefined') UI.appendText(result.msg + "\n", "accent");
+                }
+            }
+            if (typeof applyRouteAccelerators === 'function') applyRouteAccelerators(this);
+        }
+        return gain;
+    }
+
+    addTrainExp(value) {
+        if (value <= 0) return;
+        const oldLevel = this.trainLevel || 0;
+        // Train exp thresholds (same pattern)
+        const thresholds = [0, 50, 150, 300, 500, 800, 1200, 1700, 2300, 3000];
+        this.trainLevel = (this.trainLevel || 0) + value;
+        let newLevel = 0;
+        while (newLevel < 9 && this.trainLevel >= thresholds[newLevel + 1]) newLevel++;
+        if (newLevel > oldLevel) {
+            this.routePoints += (newLevel - oldLevel) * 2;
+            if (typeof UI !== 'undefined') UI.appendText(`【${this.name}\u7684\u8c03\u6559\u7b49\u7ea7\u63d0\u5347\u5230 Lv.${newLevel}！\u83b7\u5f97${(newLevel - oldLevel) * 2}\u70b9\u8def\u7ebf\u70b9\u6570】\n`, "accent");
+        }
+    }
+
+    allocateRoutePoint(routeId) {
+        if (this.routePoints <= 0) return false;
+        if (routeId < 0 || routeId >= 5) return false;
+        this.routePoints--;
+        this.routeExp[routeId] = (this.routeExp[routeId] || 0) + 50;
+        // Re-check level up
+        const thresholds = [0, 100, 300, 600, 1000, 1500];
+        const oldLv = this.routeLevel[routeId] || 0;
+        let newLv = oldLv;
+        while (newLv < 5 && this.routeExp[routeId] >= thresholds[newLv + 1]) newLv++;
+        if (newLv > oldLv) {
+            this.routeLevel[routeId] = newLv;
+            if (typeof onRouteLevelUp === 'function') {
+                for (let lv = oldLv + 1; lv <= newLv; lv++) {
+                    const result = onRouteLevelUp(this, routeId, lv);
+                    if (result && typeof UI !== 'undefined') UI.appendText(result.msg + "\n", "accent");
+                }
+            }
+            if (typeof applyRouteAccelerators === 'function') applyRouteAccelerators(this);
+        }
+        return true;
+    }
+
+    checkTalentTree() {
+        if (typeof getUnlockableTalents !== 'function') return [];
+        const unlockable = getUnlockableTalents(this);
+        const results = [];
+        for (const { node } of unlockable) {
+            const result = tryUnlockTalent(this, node);
+            if (result && result.success) results.push(result);
+        }
+        return results;
+    }
+
+    // ========== Personality Effects (wrapper) ==========
+    getPersonalityEffects() {
+        if (typeof getPersonalityEffects === 'function') {
+            return getPersonalityEffects(this);
+        }
+        return { palamMods: {}, refuseMod: 0, staminaMod: 0, energyMod: 0, orgasmMod: 0, activeModes: [], uiColors: [] };
+    }
+
+    // ========== Orgasm System: Part Gauge ==========
+    addPartGain(partCode, value) {
+        const codeMap = { C: 0, V: 1, A: 2, B: 3, N: 4, O: 5, W: 6, P: 7 };
+        const idx = (typeof partCode === 'string') ? codeMap[partCode.toUpperCase()] : partCode;
+        if (idx === undefined || idx < 0 || idx >= 8) return 0;
+        if (this.orgasmCooldown[idx] > 0) {
+            value = Math.floor(value * 0.3); // 70% reduction during cooldown
+        }
+        this.partGauge[idx] = Math.max(0, (this.partGauge[idx] || 0) + Math.floor(value));
+        return this.partGauge[idx];
+    }
+
+    decayUnstimulatedParts(stimulatedArray) {
+        const stimulated = new Set(stimulatedArray || []);
+        for (let i = 0; i < 8; i++) {
+            if (!stimulated.has(i) && this.partGauge[i] > 0) {
+                this.partGauge[i] = Math.floor(this.partGauge[i] * 0.92); // 8% decay
+            }
+        }
+    }
+
+    getDominantPart() {
+        let max = 0, dom = -1;
+        for (let i = 0; i < 8; i++) {
+            if (this.partGauge[i] > max) { max = this.partGauge[i]; dom = i; }
+        }
+        return { index: dom, value: max, code: ["C","V","A","B","N","O","W","P"][dom] || null };
+    }
+
+    // ========== Assistant System ==========
+    isQualifiedAssistant() {
+        // Basic qualification: has at least one route level >= 2 OR has fallen talent (85/86/182)
+        const maxRoute = Math.max(...this.routeLevel);
+        const hasFallen = this.talent[85] || this.talent[86] || this.talent[182];
+        return maxRoute >= 2 || hasFallen;
+    }
+
+    getAssistantBuff() {
+        if (!this.isQualifiedAssistant()) return null;
+        return this._assistantBuff || null;
+    }
+
+    getFallenDepth() {
+        // Returns 0-5 based on fallen-related talents
+        if (this.talent[86]) return 5; // Blind faith
+        if (this.talent[182]) return 4; // Beloved
+        if (this.talent[85]) return 3; // Love
+        if (this.talent[76]) return 2; // Lewd
+        if (this.talent[70]) return 1; // Accept pleasure
+        return 0;
+    }
+
+    // ========== Hidden Trait ==========
+    checkHiddenTraitUnlock() {
+        if (typeof checkHiddenTraitUnlock === 'function') {
+            return checkHiddenTraitUnlock(this);
+        }
+        return null;
+    }
+
     // ========== 序列化 ==========
     serialize() {
         return {
@@ -303,7 +502,25 @@ class Character {
             relation: [...this.relation],
             affinity: this.affinity,
             fame: this.fame,
-            id: this.id
+            id: this.id,
+            // P1+ new fields
+            _energy: this._energy,
+            _maxEnergy: this._maxEnergy,
+            partGauge: [...this.partGauge],
+            totalOrgasmGauge: this.totalOrgasmGauge,
+            orgasmCooldown: [...this.orgasmCooldown],
+            lastOrgasmType: this.lastOrgasmType,
+            isCharging: this.isCharging,
+            chargeLevel: this.chargeLevel,
+            chargeTurns: this.chargeTurns,
+            personality: this.personality ? JSON.parse(JSON.stringify(this.personality)) : null,
+            genitalConfig: this.genitalConfig ? JSON.parse(JSON.stringify(this.genitalConfig)) : null,
+            routeExp: [...this.routeExp],
+            routeLevel: [...this.routeLevel],
+            trainLevel: this.trainLevel,
+            routePoints: this.routePoints,
+            _assistantBuff: this._assistantBuff ? JSON.parse(JSON.stringify(this._assistantBuff)) : null,
+            _routeExpBonus: JSON.parse(JSON.stringify(this._routeExpBonus || {}))
         };
     }
 
@@ -329,6 +546,24 @@ class Character {
         c.affinity = data.affinity !== undefined ? data.affinity : 50;
         c.fame = data.fame !== undefined ? data.fame : 0;
         c.id = data.id;
+        // P1+ backward compat: init new fields if missing
+        c._energy = data._energy !== undefined ? data._energy : 100;
+        c._maxEnergy = data._maxEnergy !== undefined ? data._maxEnergy : 100;
+        c.partGauge = data.partGauge ? [...data.partGauge] : new Array(8).fill(0);
+        c.totalOrgasmGauge = data.totalOrgasmGauge !== undefined ? data.totalOrgasmGauge : 0;
+        c.orgasmCooldown = data.orgasmCooldown ? [...data.orgasmCooldown] : new Array(8).fill(0);
+        c.lastOrgasmType = data.lastOrgasmType !== undefined ? data.lastOrgasmType : -1;
+        c.isCharging = data.isCharging || false;
+        c.chargeLevel = data.chargeLevel !== undefined ? data.chargeLevel : 0;
+        c.chargeTurns = data.chargeTurns !== undefined ? data.chargeTurns : 0;
+        c.personality = data.personality || null;
+        c.genitalConfig = data.genitalConfig || null;
+        c.routeExp = data.routeExp ? [...data.routeExp] : new Array(5).fill(0);
+        c.routeLevel = data.routeLevel ? [...data.routeLevel] : new Array(5).fill(0);
+        c.trainLevel = data.trainLevel !== undefined ? data.trainLevel : 0;
+        c.routePoints = data.routePoints !== undefined ? data.routePoints : 0;
+        c._assistantBuff = data._assistantBuff || null;
+        c._routeExpBonus = data._routeExpBonus || {};
         return c;
     }
 }

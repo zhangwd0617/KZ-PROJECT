@@ -4425,6 +4425,19 @@ class Game {
         // === 生成相性值 ===
         hero.affinity = this.generateAffinity(hero);
 
+        // P1+: init personality & genital config
+        if (typeof generatePersonality === 'function') {
+            hero.personality = generatePersonality(hero);
+        }
+        const isMale = hero.talent[122];
+        const isFuta = hero.talent[121];
+        hero.genitalConfig = {
+            hasVagina: !isMale || isFuta,
+            hasWomb: (!isMale || isFuta) && !hero.talent[123],
+            penises: isMale || isFuta ? [{ id: 0, name: "\u8089\u68d2", ejaculationGauge: 0, sensitivity: 1.0, linkedParts: ["V", "A", "O"] }] : [],
+            orgasmSystem: "standard"
+        };
+
         return hero;
     }
 

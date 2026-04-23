@@ -368,6 +368,19 @@ CharaTemplates.create = function(templateId) {
     c.maxHp = c.base[0]||800; c.hp=c.maxHp;
     c.maxMp = c.base[1]||500; c.mp=c.maxMp;
     c.level = c.cflag[9]||1;
+    // P1+: init personality & genital config
+    if (typeof generatePersonality === 'function') {
+        c.personality = generatePersonality(c);
+    }
+    // Simple genital config inference from existing talents
+    const isMale = c.talent[122];
+    const isFuta = c.talent[121];
+    c.genitalConfig = {
+        hasVagina: !isMale || isFuta,
+        hasWomb: (!isMale || isFuta) && !c.talent[123], // 123 = no-womb futa
+        penises: isMale || isFuta ? [{ id: 0, name: "\u8089\u68d2", ejaculationGauge: 0, sensitivity: 1.0, linkedParts: ["V", "A", "O"] }] : [],
+        orgasmSystem: "standard"
+    };
     return c;
 };
 
@@ -538,6 +551,18 @@ CharaTemplates.createRandomSlave = function(levelMin = 1, levelMax = 10) {
     CharaTemplates.generateAppearanceDesc(c);
 
     c.cflag[1] = 1; // 俘虏状态
+    // P1+: init personality & genital config
+    if (typeof generatePersonality === 'function') {
+        c.personality = generatePersonality(c);
+    }
+    const isMale2 = c.talent[122];
+    const isFuta2 = c.talent[121];
+    c.genitalConfig = {
+        hasVagina: !isMale2 || isFuta2,
+        hasWomb: (!isMale2 || isFuta2) && !c.talent[123],
+        penises: isMale2 || isFuta2 ? [{ id: 0, name: "\u8089\u68d2", ejaculationGauge: 0, sensitivity: 1.0, linkedParts: ["V", "A", "O"] }] : [],
+        orgasmSystem: "standard"
+    };
     return c;
 };
 
