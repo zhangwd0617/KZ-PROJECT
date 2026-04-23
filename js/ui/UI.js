@@ -814,7 +814,9 @@ const UI = {
             return;
         }
 
-        // === Resource bar: route levels + juel ===
+        this.clearButtons();
+
+        // Build resource bar directly into button HTML (appendText uses textContent, not innerHTML)
         const routeNames = ['\u987a\u4ece','\u6b32\u671b','\u75db\u82e6','\u9732\u51fa','\u652f\u914d'];
         const routeColors = ['#61afef','#e06c75','#c678dd','#e5c07b','#98c379'];
         const thresholds = [0, 100, 300, 600, 1000, 1500];
@@ -825,7 +827,6 @@ const UI = {
             const next = thresholds[Math.min(5, lv + 1)];
             routeLine += `<span style="color:${routeColors[r]};font-weight:bold;">${routeNames[r]}Lv${lv}</span><span style="color:var(--text-dim);font-size:0.68rem;">(${exp}/${next})</span>  `;
         }
-        this.appendText(`${target.name} 路线: ${routeLine}`);
 
         const keyJuel = [0,1,2,3,4,5,6,7,8,9,10,14,15];
         let juelLine = "";
@@ -834,12 +835,12 @@ const UI = {
                 juelLine += `${PALAM_DEFS[j]?.name || '珠'+j}:${target.juel[j]}  `;
             }
         }
-        if (juelLine) this.appendText(`珠子: ${juelLine}`);
-        else this.appendText("珠子: (暂无)");
-        this.appendDivider();
 
-        this.clearButtons();
         let html = '<div class="btn-grid btn-grid-3">';
+        html += `<div style="grid-column:1/-1;font-size:0.75rem;margin-bottom:6px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:6px;">`;
+        html += `<div style="margin-bottom:4px;line-height:1.6;">${target.name} 路线: ${routeLine}</div>`;
+        html += `<div style="color:var(--text-dim);">珠子: ${juelLine || '(暂无)'}</div>`;
+        html += `</div>`;
 
         // === Route Talents (unlockable first) ===
         const lockedTalents = [];

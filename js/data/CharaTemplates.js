@@ -368,6 +368,9 @@ CharaTemplates.create = function(templateId) {
     c.maxHp = c.base[0]||800; c.hp=c.maxHp;
     c.maxMp = c.base[1]||500; c.mp=c.maxMp;
     c.level = c.cflag[9]||1;
+    // Default stamina/energy if template didn't specify
+    if (!c.maxbase[2]) { c.maxbase[2] = 100; c.base[2] = 100; }
+    if (!c._maxEnergy) { c._maxEnergy = 100; c._energy = 100; }
     // P1+: init personality & genital config
     if (typeof generatePersonality === 'function') {
         c.personality = generatePersonality(c);

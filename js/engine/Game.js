@@ -197,8 +197,8 @@ class Game {
         master.affinity = this.generateAffinity(master);
         this.master = this.addCharaFromTemplate(master);
 
-        // Initial slave: 莉莉 (template 24) - 固定开局
-        const slave = CharaTemplates.create(24);
+        // Initial slave: fully random generated
+        const slave = CharaTemplates.createRandomSlave(1, 5);
         if (slave) {
             slave.cflag[1] = 1; // Captured status
             slave.affinity = this.generateAffinity(slave);
