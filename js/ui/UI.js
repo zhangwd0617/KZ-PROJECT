@@ -814,28 +814,71 @@ const UI = {
             return;
         }
 
-        this.appendText(`${target.name} 当前持有的珠:`);
+        // === Resource bar: route levels + juel ===
+        const routeNames = ['\u987a\u4ece','\u6b32\u671b','\u75db\u82e6','\u9732\u51fa','\u652f\u914d'];
+        const routeColors = ['#61afef','#e06c75','#c678dd','#e5c07b','#98c379'];
+        const thresholds = [0, 100, 300, 600, 1000, 1500];
+        let routeLine = '';
+        for (let r = 0; r < 5; r++) {
+            const lv = target.routeLevel ? (target.routeLevel[r] || 0) : 0;
+            const exp = target.routeExp ? (target.routeExp[r] || 0) : 0;
+            const next = thresholds[Math.min(5, lv + 1)];
+            routeLine += `<span style="color:${routeColors[r]};font-weight:bold;">${routeNames[r]}Lv${lv}</span><span style="color:var(--text-dim);font-size:0.68rem;">(${exp}/${next})</span>  `;
+        }
+        this.appendText(`${target.name} 路线: ${routeLine}`);
+
         const keyJuel = [0,1,2,3,4,5,6,7,8,9,10,14,15];
         let juelLine = "";
         for (const j of keyJuel) {
             if (target.juel[j] > 0) {
-                juelLine += `${PALAM_DEFS[j]?.name || '珠'+j}:${target.juel[j]} `;
+                juelLine += `${PALAM_DEFS[j]?.name || '珠'+j}:${target.juel[j]}  `;
             }
         }
-        if (juelLine) this.appendText(juelLine);
-        else this.appendText("  (暂无珠子)");
+        if (juelLine) this.appendText(`珠子: ${juelLine}`);
+        else this.appendText("珠子: (暂无)");
         this.appendDivider();
 
         this.clearButtons();
         let html = '<div class="btn-grid btn-grid-3">';
 
-        // 按分类显示能力
+        // === Route Talents (unlockable first) ===
+        const lockedTalents = [];
+        if (typeof TALENT_TREE !== 'undefined' && typeof TALENT_ROUTES !== 'undefined') {
+            let talentHtml = '';
+            let hasUnlockable = false;
+            for (const tid in TALENT_TREE) {
+                const node = TALENT_TREE[tid];
+                const hasTalent = target.talent[node.id] > 0;
+                if (hasTalent) continue;
+                const check = (typeof checkTalentTreeUnlock === 'function') ? checkTalentTreeUnlock(target, node) : { unlock: false };
+                const routeInfo = TALENT_ROUTES[node.route];
+                const juelType = routeInfo ? routeInfo.juelType : 0;
+                const juelName = PALAM_DEFS[juelType]?.name || '\u73e0';
+                const cost = (node.req && node.req.juel) ? `需:${juelName}\u00d7${node.req.juel}` : '';
+                if (check.unlock) {
+                    hasUnlockable = true;
+                    talentHtml += `<button class="game-btn accent" onclick="if(G.doRouteTalentUp(${node.id})) UI.renderAblUp(G)" title="${node.desc || ''}">`;
+                    talentHtml += `<div style="font-size:0.78rem;font-weight:bold;">${node.name}</div>`;
+                    talentHtml += `<div style="font-size:0.65rem;color:var(--text-dim);">${routeInfo ? routeInfo.name : ''} ${cost}</div>`;
+                    talentHtml += `<div style="font-size:0.6rem;color:var(--success);margin-top:2px;line-height:1.3;">${node.desc || ''}</div>`;
+                    talentHtml += `</button>`;
+                } else {
+                    lockedTalents.push({ node, check, routeInfo, cost });
+                }
+            }
+            if (hasUnlockable) {
+                html += `<div style="grid-column:1/-1;font-weight:bold;margin-top:4px;color:var(--accent);">\u3010\u8def\u7ebf\u5929\u8d4b - \u53ef\u89e3\u9501\u3011</div>`;
+                html += talentHtml;
+            }
+        }
+
+        // === ABL Upgrades (can-upgrade first) ===
         const categories = {
-            sensation: "【感觉】",
-            mental: "【精神/技术】",
-            fetish: "【性癖】",
-            addiction: "【中毒】",
-            otherworld: "【其他】"
+            sensation: "\u3010\u611f\u89c9\u3011",
+            mental: "\u3010\u7cbe\u795e/\u6280\u672f\u3011",
+            fetish: "\u3010\u6027\u7656\u3011",
+            addiction: "\u3010\u4e2d\u6bd2\u3011",
+            otherworld: "\u3010\u5176\u4ed6\u3011"
         };
 
         for (const cat in categories) {
@@ -848,13 +891,15 @@ const UI = {
                 if (!info) continue;
 
                 if (info.can) {
-                    catHtml += `<button class="game-btn accent" onclick="if(G.doAblUp(${i})) UI.renderAblUp(G)" title="需${PALAM_DEFS[info.juelType]?.name||''}×${info.need}">${def.name} ${lv}→${info.next}</button>`;
+                    catHtml += `<button class="game-btn accent" onclick="if(G.doAblUp(${i})) UI.renderAblUp(G)" title="\u9700${PALAM_DEFS[info.juelType]?.name||''}\u00d7${info.need}">`;
+                    catHtml += `<div style="font-size:0.78rem;">${def.name} ${lv}\u2192${info.next}</div>`;
+                    catHtml += `<div style="font-size:0.65rem;color:var(--text-dim);">\u9700:${PALAM_DEFS[info.juelType]?.name||''}\u00d7${info.need}</div>`;
+                    catHtml += `</button>`;
                 } else if (lv > 0 || info.hasJuel) {
-                    // 显示不可升级的原因
                     let reason = "";
-                    if (!info.expOk) reason += `${EXP_DEFS[Object.keys(ABLUP_CONDITIONS[i].expCond||{})[0]]?.name||'经验'}不足 `;
-                    else if (!info.markOk) reason += `刻印不足 `;
-                    else if (!info.hasJuel) reason += `珠不足`;
+                    if (!info.expOk) reason += `${EXP_DEFS[Object.keys(ABLUP_CONDITIONS[i].expCond||{})[0]]?.name||'\u7ecf\u9a8c'}\u4e0d\u8db3 `;
+                    else if (!info.markOk) reason += `\u523b\u5370\u4e0d\u8db3 `;
+                    else if (!info.hasJuel) reason += `\u73e0\u4e0d\u8db3`;
                     catHtml += `<button class="game-btn" disabled title="${reason}">${def.name} Lv.${lv}</button>`;
                 }
             }
@@ -864,7 +909,22 @@ const UI = {
             }
         }
 
-        html += `<button class="game-btn back-btn" onclick="G.finishAblUp()" style="grid-column:1/-1;">结束升级</button>`;
+        // === Locked route talents (collapsible) ===
+        if (lockedTalents.length > 0) {
+            html += `<details style="grid-column:1/-1;margin-top:8px;">`;
+            html += `<summary style="font-size:0.72rem;color:var(--text-dim);cursor:pointer;list-style:none;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">\u25bc \u672a\u89e3\u9501\u5929\u8d4b (${lockedTalents.length})</summary>`;
+            html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px;">`;
+            for (const { node, check, routeInfo, cost } of lockedTalents) {
+                html += `<button class="game-btn" disabled title="${check.reasons ? check.reasons.join('\uff0c') : ''}">`;
+                html += `<div style="font-size:0.72rem;">${node.name}</div>`;
+                html += `<div style="font-size:0.6rem;color:var(--text-dim);">${routeInfo ? routeInfo.name : ''} ${cost}</div>`;
+                html += `<div style="font-size:0.58rem;color:var(--danger);margin-top:1px;">${check.reasons ? check.reasons.join('\uff0c') : ''}</div>`;
+                html += `</button>`;
+            }
+            html += `</div></details>`;
+        }
+
+        html += `<button class="game-btn back-btn" onclick="G.finishAblUp()" style="grid-column:1/-1;margin-top:8px;">\u7ed3\u675f\u5347\u7ea7</button>`;
         html += '</div>';
         this.setButtons(html);
     },

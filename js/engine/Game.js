@@ -371,7 +371,7 @@ class Game {
         const target = this.getTarget();
         if (target && target.hp <= 0) {
             UI.appendText(`\n【${target.name}\u660f\u4e86\u8fc7\u53bb\u2026\u2026】\n`);
-            UI.waitClick(() => this.setState("AFTERTRAIN"));
+            this.setState("AFTERTRAIN");
             return;
         }
 
@@ -751,6 +751,22 @@ class Game {
             return true;
         }
         return false;
+    }
+
+    doRouteTalentUp(talentId) {
+        const target = this.getTarget();
+        if (!target) return false;
+        const node = (typeof TALENT_TREE !== 'undefined') ? TALENT_TREE[talentId] : null;
+        if (!node) return false;
+        const result = tryUnlockTalent(target, node);
+        if (result && result.success) {
+            UI.showToast(result.msg, "success");
+            if (typeof applyRouteAccelerators === 'function') applyRouteAccelerators(target);
+            return true;
+        } else {
+            UI.showToast(result.msg || '\u89e3\u9501\u5931\u8d25', "warning");
+            return false;
+        }
     }
 
     finishAblUp() {
