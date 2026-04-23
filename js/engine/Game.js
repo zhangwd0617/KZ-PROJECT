@@ -19,6 +19,7 @@ class Game {
         this.target = -1;   // 当前调教目标索引
         this.assi = -1;     // 助手索引
         this.master = 0;    // 魔王(玩家)索引
+        this.bystander = -1;  // 副奴隶索引(P2+)
 
         // Training related
         this.selectcom = -1;    // 当前选择的指令ID
@@ -323,8 +324,17 @@ class Game {
         this.trainCount = 0;
         this.selectcom = -1;
         this.tflag.fill(0);
+        this.bystander = (data && data.bystander !== undefined) ? data.bystander : -1;
         UI._trainHistory = [];
         UI._trainTextInited = false;
+
+        // Reset part gauges for new train session
+        if (target.partGauge) target.partGauge.fill(0);
+        if (target.orgasmCooldown) target.orgasmCooldown.fill(0);
+        target.totalOrgasmGauge = 0;
+        target.isCharging = false;
+        target.chargeLevel = 0;
+        target.chargeTurns = 0;
 
         // Train start dialogue
         this.dialogueSystem.onTrainStart(target);
@@ -341,19 +351,110 @@ class Game {
         UI._clearTrainCurrent();
 
         this.selectcom = comId;
-        this.trainSystem.execute(comId);
+
+        // === NEW (P2): Master skills & special commands ===
+        if (comId >= 989 && comId <= 992) {
+            this._executeMasterSkill(comId);
+        } else if (comId === 900 || comId === 901) {
+            this._executeAssistantCommand(comId);
+        } else {
+            this.trainSystem.execute(comId);
+        }
         this.trainCount++;
 
         // Check if target HP depleted
         const target = this.getTarget();
         if (target && target.hp <= 0) {
-            UI.appendText(`\n【${target.name}昏了过去……】\n`);
+            UI.appendText(`\n【${target.name}\u660f\u4e86\u8fc7\u53bb\u2026\u2026】\n`);
             UI.waitClick(() => this.setState("AFTERTRAIN"));
             return;
         }
 
         // 继续显示训练界面
         UI.renderTrain(this);
+    }
+
+    _executeMasterSkill(comId) {
+        const target = this.getTarget();
+        if (!target) return;
+        const master = this.getMaster();
+        switch (comId) {
+            case 989:
+                UI.appendText(`\n\u2500\u2500\u2500\u2500 \u5f3a\u5236\u7edd\u9876 [#${this.trainCount + 1}] \u2500\u2500\u2500\u2500\n`);
+                UI.appendText(`${master.name}\u4f7f\u7528\u9b54\u529b\u5f3a\u5236${target.name}\u8fbe\u5230\u7edd\u9876\uff01\n`, "danger");
+                for (let i = 0; i < 8; i++) target.addPartGain(i, 500);
+                if (typeof calculateTotalGauge === 'function') calculateTotalGauge(target);
+                if (typeof checkOrgasm === 'function') {
+                    const result = checkOrgasm(target);
+                    if (result && result.canClimax && typeof applyOrgasm === 'function') {
+                        const o = applyOrgasm(target, result);
+                        if (o && o.msg) UI.appendText(o.msg + "\n", "accent");
+                    }
+                }
+                master.mp -= 50;
+                break;
+            case 990:
+                UI.appendText(`\n\u2500\u2500\u2500\u2500 \u91ca\u653e\u8bb8\u53ef [#${this.trainCount + 1}] \u2500\u2500\u2500\u2500\n`);
+                UI.appendText(`${master.name}\u5141\u8bb8${target.name}\u91ca\u653e\u79ef\u84c4\u7684\u5feb\u611f\u2026\u2026\n`, "info");
+                if (target.isCharging && target.chargeLevel > 0) {
+                    target.isCharging = false;
+                    const releaseMult = 1.0 + target.chargeLevel * 0.5;
+                    for (let i = 0; i < 8; i++) {
+                        target.addPartGain(i, Math.floor((target.partGauge[i] || 0) * releaseMult * 0.3));
+                    }
+                    if (typeof calculateTotalGauge === 'function') calculateTotalGauge(target);
+                    if (typeof checkOrgasm === 'function') {
+                        const result = checkOrgasm(target);
+                        if (result && result.canClimax && typeof applyOrgasm === 'function') {
+                            const o = applyOrgasm(target, result);
+                            if (o && o.msg) UI.appendText(o.msg + "\n", "accent");
+                        }
+                    }
+                    target.chargeLevel = 0;
+                    target.chargeTurns = 0;
+                } else {
+                    UI.appendText(`\u4f46${target.name}\u5e76\u6ca1\u6709\u5728\u84c4\u529b\u2026\u2026\n`, "dim");
+                }
+                break;
+            case 991:
+                UI.appendText(`\n\u2500\u2500\u2500\u2500 \u8fb9\u7f18\u63a7\u5236 [#${this.trainCount + 1}] \u2500\u2500\u2500\u2500\n`);
+                UI.appendText(`${master.name}\u5728${target.name}\u5373\u5c06\u7edd\u9876\u7684\u77ac\u95f4\u963b\u6b62\u4e86\u5feb\u611f\u2026\u2026\n`, "warning");
+                target.isCharging = true;
+                target.chargeLevel = Math.min(3, (target.chargeLevel || 0) + 1);
+                target.chargeTurns = 0;
+                UI.appendText(`\u3010${target.name}\u8fdb\u5165\u84c4\u529b\u72b6\u6001 C${target.chargeLevel}\u3011\n`, "accent");
+                break;
+            case 992:
+                UI.appendText(`\n\u2500\u2500\u2500\u2500 \u5f3a\u5236\u84c4\u529b [#${this.trainCount + 1}] \u2500\u2500\u2500\u2500\n`);
+                UI.appendText(`${master.name}\u5f3a\u8feb${target.name}\u5fcd\u8010\u5feb\u611f\uff0c\u5f00\u59cb\u84c4\u529b\u2026\u2026\n`, "danger");
+                target.isCharging = true;
+                target.chargeLevel = Math.min(4, (target.chargeLevel || 0) + 1);
+                target.chargeTurns = 0;
+                if (target.chargeLevel >= 4) {
+                    UI.appendText(`\u3010${target.name}\u8fbe\u5230Overcharge\u72b6\u6001\uff01\u98ce\u9669\u6781\u9ad8\uff01\u3011\n`, "danger");
+                } else {
+                    UI.appendText(`\u3010${target.name}\u8fdb\u5165\u84c4\u529b\u72b6\u6001 C${target.chargeLevel}\u3011\n`, "accent");
+                }
+                target.energy -= 10;
+                break;
+        }
+    }
+
+    _executeAssistantCommand(comId) {
+        const assi = this.getAssi();
+        const target = this.getTarget();
+        if (comId === 900) {
+            if (!assi) { UI.appendText(`\u6ca1\u6709\u52a9\u624b\uff0c\u65e0\u6cd5\u4ee3\u884c\u3002\n`, "warning"); return; }
+            UI.appendText(`\n${assi.name}\u4ee3\u66ff\u9b54\u738b\u6267\u884c\u8c03\u6559\uff0c${target.name}\u7684\u4f53\u9a8c\u7565\u6709\u4e0d\u540c\u2026\u2026\n`, "info");
+            this.trainSystem.execute(this.selectcom >= 0 ? this.selectcom : 0);
+            if (assi.energy !== undefined) assi.energy -= 5;
+        } else if (comId === 901) {
+            if (!assi) { UI.appendText(`\u6ca1\u6709\u52a9\u624b\uff0c\u65e0\u6cd5\u53c2\u4e0e\u3002\n`, "warning"); return; }
+            UI.appendText(`\n${assi.name}\u52a0\u5165\u4e86\u8c03\u6559\uff0c${target.name}\u7684\u5feb\u611f\u500d\u589e\uff01\n`, "info");
+            this.trainSystem.execute(this.selectcom >= 0 ? this.selectcom : 0);
+            if (target.addPartGain) for (let i = 0; i < 8; i++) target.addPartGain(i, Math.floor((target.partGauge[i] || 0) * 0.2));
+            if (assi.energy !== undefined) assi.energy -= 3;
+        }
     }
 
     endTrain() {
@@ -474,10 +575,75 @@ class Game {
 
     eventAfterTrain() {
         const target = this.getTarget();
+        const assi = this.getAssi();
+        const bystander = this.bystander >= 0 ? this.characters[this.bystander] : null;
+
         if (target) {
             // train end dialogue
             this.dialogueSystem.onTrainEnd(target);
             target.endTrain();
+
+            // === NEW (P2): Route EXP settlement from source ===
+            if (target.source) {
+                const routeMap = [
+                    { palam: 4,  route: 0 },   // 顺从
+                    { palam: 5,  route: 1 },   // 欲情 -> 欲望
+                    { palam: 16, route: 2 },   // 痛苦
+                    { palam: 8,  route: 3 },   // 羞耻 -> 露出
+                    { palam: 20, route: 4 }    // 支配(反感/支配感)
+                ];
+                for (const m of routeMap) {
+                    const val = target.source[m.palam] || target.palam[m.palam] || 0;
+                    if (val > 0 && target.addRouteExp) {
+                        target.addRouteExp(m.route, Math.floor(val / 100));
+                    }
+                }
+            }
+
+            // === NEW (P2): Train level EXP ===
+            if (target.addTrainExp) {
+                target.addTrainExp(Math.floor(this.trainCount * 2));
+            }
+
+            // === NEW (P2): Energy natural decay ===
+            if (target.energy !== undefined) {
+                target.energy -= 2;
+            }
+
+            // === NEW (P2): Charge reaction settlement ===
+            if (target.isCharging && target.chargeLevel > 0) {
+                const pEff = target.getPersonalityEffects ? target.getPersonalityEffects() : null;
+                if (pEff && pEff.activeModes && pEff.activeModes.length > 0) {
+                    UI.appendText(`【${target.name}\u5728${pEff.activeModes.join('/')}\u6a21\u5f0f\u4e0b\u7ee7\u7eed\u84c4\u529b...】\n`, "info");
+                }
+                target.chargeTurns++;
+                // Risk of overcharge collapse
+                const chargeInfo = (typeof CHARGE_LEVELS !== 'undefined') ? CHARGE_LEVELS[target.chargeLevel] : null;
+                if (chargeInfo && chargeInfo.risk > 0 && Math.random() < chargeInfo.risk) {
+                    UI.appendText(`【${target.name}\u5728\u84c4\u529b\u4e2d\u5931\u63a7\u4e86\uff01】\n`, "danger");
+                    target.isCharging = false;
+                    target.chargeLevel = 0;
+                    target.chargeTurns = 0;
+                }
+            }
+
+            // === NEW (P2): Check talent tree first ===
+            if (target.checkTalentTree) {
+                const treeResults = target.checkTalentTree();
+                for (const r of treeResults) {
+                    if (r && r.msg) UI.appendText(r.msg + "\n", "accent");
+                }
+            }
+
+            // === NEW (P2): Hidden trait unlock check ===
+            if (target.checkHiddenTraitUnlock) {
+                const hiddenResult = target.checkHiddenTraitUnlock();
+                if (hiddenResult) {
+                    UI.appendText(hiddenResult.msg + "\n", "accent");
+                    if (hiddenResult.unlockLine) UI.appendText(hiddenResult.unlockLine + "\n", "dim");
+                }
+            }
+
             // 最终确认基础素质
             const targetNew = this.checkAutoTalents(target);
             for (const t of targetNew) {
@@ -489,8 +655,11 @@ class Game {
                 UI.appendText(`【${target.name}的素质进化为「${t.name}」！】\n`, "accent");
             }
         }
-        const assi = this.getAssi();
+
         if (assi) {
+            // === NEW (P2): Assistant energy decay ===
+            if (assi.energy !== undefined) assi.energy -= 1;
+
             const assiNew = this.checkAutoTalents(assi);
             for (const t of assiNew) {
                 UI.appendText(`【${assi.name}获得了「${t.name}」的素质！】\n`, "accent");
@@ -500,7 +669,41 @@ class Game {
                 UI.appendText(`【${assi.name}的素质进化为「${t.name}」！】\n`, "accent");
             }
         }
+
+        // === NEW (P2): Bystander processing ===
+        if (bystander) {
+            this.processBystander(bystander, target);
+        }
+
+        // Reset bystander for next train
+        this.bystander = -1;
+
         UI.renderAfterTrain(this);
+    }
+
+    processBystander(bystander, target) {
+        if (!bystander || !target) return;
+        // 副奴获得主奴20%旁观PALAM（转化为对应部位快感值的20%）
+        if (bystander.partGauge && target.partGauge) {
+            for (let i = 0; i < 8; i++) {
+                const val = target.partGauge[i] || 0;
+                if (val > 0 && bystander.addPartGain) {
+                    bystander.addPartGain(i, Math.floor(val * 0.2));
+                }
+            }
+        }
+        // 固定体力-3，气力-1
+        if (bystander.stamina !== undefined) bystander.stamina -= 3;
+        if (bystander.energy !== undefined) bystander.energy -= 1;
+
+        // 检查副奴状态
+        const states = [];
+        if (bystander.energy < bystander.maxEnergy * 0.5) states.push("脸红");
+        if (bystander.energy < bystander.maxEnergy * 0.3) states.push("移开视线");
+        if (bystander.energy < bystander.maxEnergy * 0.2) states.push("请求参与");
+        if (states.length > 0) {
+            UI.appendText(`【${bystander.name}\u65c1\u89c2\u4e2d：${states.join('、')}】\n`, "dim");
+        }
     }
 
     // ========== ABLUP ==========

@@ -53,9 +53,6 @@ class TrainSystem {
         // === 相性修正：魔王与目标之间的相性差影响调教效果 (+/-15%) ===
         this._applyAffinityEffect(target, master);
 
-        // === NEW (P2/P3): Part-based orgasm system ===
-        this._applyPartBasedSystem(comId, target, master);
-
         // 4. Post-process (SOURCE -> PALAM, climax/mark checks)
         this._postProcess(target, master);
 
@@ -1057,117 +1054,6 @@ class TrainSystem {
             s[8] = Math.floor((s[8] || 0) * 1.3 + 30);
             s[6] = Math.floor((s[6] || 0) * 1.2 + 20);
             s[16] = Math.floor((s[16] || 0) * 1.15 + 15);
-        }
-    }
-
-    // ========== Part-based Orgasm System (P2/P3) ==========
-    _applyPartBasedSystem(comId, target, master) {
-        const meta = (typeof getTrainMeta === 'function') ? getTrainMeta(comId) : null;
-        if (!meta || !meta.stimulatedParts || meta.stimulatedParts.length === 0) return;
-
-        // 1. Apply part gains
-        const stimulatedIdx = [];
-        for (const code of meta.stimulatedParts) {
-            const idxMap = { C: 0, V: 1, A: 2, B: 3, N: 4, O: 5, W: 6, P: 7 };
-            const idx = idxMap[code.toUpperCase()];
-            if (idx === undefined) continue;
-            stimulatedIdx.push(idx);
-
-            // Base value from palam source (if any) or default
-            let baseValue = 50; // default per-part gain
-            const palamMap = { C: 0, V: 1, A: 2, B: 14, N: 14, O: 15, W: 1, P: 0 };
-            const palamId = palamMap[code.toUpperCase()];
-            if (palamId !== undefined && target.source) {
-                const srcVal = target.source[palamId] || 0;
-                baseValue = Math.max(30, Math.floor(srcVal * 0.5));
-            }
-
-            // Apply personality/energy multiplier
-            const energyMult = target.getEnergyMultiplier ? target.getEnergyMultiplier() : 1.0;
-            let finalValue = Math.floor(baseValue * energyMult);
-
-            // Sensitivity multipliers
-            if (target._sensitivityMultipliers && target._sensitivityMultipliers[idx]) {
-                finalValue = Math.floor(finalValue * target._sensitivityMultipliers[idx]);
-            }
-
-            target.addPartGain(idx, finalValue);
-
-            // Penis ejaculation gauge (for P part or linked parts)
-            if (target.genitalConfig && target.genitalConfig.penises && target.genitalConfig.penises.length > 0) {
-                if (typeof addPenisEjaculationGauge === 'function') {
-                    addPenisEjaculationGauge(target, code, Math.floor(finalValue * 0.3));
-                }
-            }
-        }
-
-        // 2. Multi-part synergy bonus
-        const n = stimulatedIdx.length;
-        let synergy = 1.0;
-        if (n >= 5) synergy = 1.35;
-        else if (n >= 4) synergy = 1.25;
-        else if (n >= 3) synergy = 1.20;
-        else if (n >= 2) synergy = 1.10;
-        if (synergy > 1.0) {
-            for (const idx of stimulatedIdx) {
-                const bonus = Math.floor((target.partGauge[idx] || 0) * (synergy - 1.0));
-                target.addPartGain(idx, bonus);
-            }
-        }
-
-        // 3. Decay unstimulated parts
-        target.decayUnstimulatedParts(stimulatedIdx);
-
-        // 4. Calculate total gauge
-        if (typeof calculateTotalGauge === 'function') calculateTotalGauge(target);
-
-        // 5. Check orgasm
-        if (typeof checkOrgasm === 'function') {
-            const orgasmResult = checkOrgasm(target);
-            if (orgasmResult && orgasmResult.canClimax) {
-                // 6. Check ejaculation
-                let ejaculated = false;
-                if (typeof checkEjaculation === 'function') {
-                    const ejResults = checkEjaculation(target);
-                    if (ejResults && ejResults.length > 0) {
-                        ejaculated = true;
-                        if (typeof applyEjaculation === 'function') {
-                            const ejMsgs = applyEjaculation(target, ejResults);
-                            for (const m of ejMsgs) UI.appendText(m + "\n", "accent");
-                        }
-                    }
-                }
-
-                // 7. Sync pleasure (orgasm + ejaculation simultaneously)
-                if (ejaculated && orgasmResult.combo) {
-                    UI.appendText(`【\u540c\u6b65\u5feb\u611f\uff01\u5feb\u4e50\u500d\u7387x2.5】\n`, "accent");
-                    orgasmResult.multiplier = (orgasmResult.multiplier || 1.0) * 2.5;
-                }
-
-                // 8. Apply orgasm
-                if (typeof applyOrgasm === 'function') {
-                    const result = applyOrgasm(target, orgasmResult);
-                    if (result && result.msg) UI.appendText(result.msg + "\n", "accent");
-                    if (result && result.riskTriggered && result.riskType === "ultimate_awakening") {
-                        target.talent[291] = 1; // 全觉之体
-                    }
-                }
-
-                // Dialogue trigger
-                if (this.game.dialogueSystem) this.game.dialogueSystem.onPalamCng(target, "climax");
-            }
-        }
-
-        // 9. Apply stamina/energy costs from meta
-        target.stamina = (target.stamina || target.base[2] || 0) - (meta.staminaCost?.target || 0);
-        target.energy = (target.energy || 0) - (meta.energyCost?.target || 0);
-
-        // 10. Route EXP gain (post-train will also give bulk, this is per-command bonus)
-        for (let r = 0; r < 5; r++) {
-            const val = (meta.routeTags && meta.routeTags[['obedience','desire','pain','shame','dominance'][r]]) || 0;
-            if (val > 0 && target.addRouteExp) {
-                target.addRouteExp(r, val);
-            }
         }
     }
 
