@@ -270,7 +270,13 @@ const UI = {
         let leftHtml = '';
         const pregTag = target.talent[153] ? ` <span style="color:var(--accent);">🤰${target.cflag[800] || 0}d</span>` : '';
         const persName = target.getPersonalityName ? target.getPersonalityName() : '普通';
-        leftHtml += `<div class="status-name">${target.name} Lv.${target.level} · ${persName}${pregTag}</div>`;
+        // === NEW (P5): Compound label & route synergy ===
+        const compoundLabel = (typeof generateCompoundLabel === 'function') ? generateCompoundLabel(target) : '';
+        const synergyLabel = (typeof getSynergyLabel === 'function') ? getSynergyLabel(target) : '';
+        let labelTags = '';
+        if (compoundLabel) labelTags += ` <span style="color:var(--accent);font-size:0.78rem;">${compoundLabel}</span>`;
+        if (synergyLabel) labelTags += ` <span style="color:var(--warning);font-size:0.72rem;">[${synergyLabel}]</span>`;
+        leftHtml += `<div class="status-name">${target.name} Lv.${target.level} · ${persName}${pregTag}${labelTags}</div>`;
 
         // Stamina + Energy bars side by side
         const stmPct = target.maxbase[2] > 0 ? Math.max(0, (target.stamina || target.base[2]) / target.maxbase[2] * 100) : 0;

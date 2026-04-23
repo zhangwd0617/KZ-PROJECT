@@ -1180,6 +1180,7 @@ class TrainSystem {
                 if (typeof applyOrgasm === 'function') {
                     const result = applyOrgasm(target, orgasmResult);
                     if (result && result.msg) UI.appendText(result.msg + "\n", "accent");
+                    if (result && result.line) UI.appendText(result.line + "\n", "info");
                     if (result && result.riskTriggered && result.riskType === "ultimate_awakening") {
                         target.talent[291] = 1; // 全觉之体
                     }

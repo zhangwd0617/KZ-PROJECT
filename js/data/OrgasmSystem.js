@@ -217,6 +217,9 @@ function applyOrgasm(chara, result) {
     }
 
     chara.lastOrgasmType = baseTypeId;
+    // === NEW (P5): Personality orgasm line ===
+    const partCode = (typeof ORGASM_PARTS !== 'undefined' && ORGASM_PARTS[baseTypeId]) ? ORGASM_PARTS[baseTypeId].code : 'C';
+    const line = (typeof getOrgasmLine === 'function') ? getOrgasmLine(chara, partCode) : '';
     return {
         type: baseTypeId,
         combo,
@@ -224,7 +227,8 @@ function applyOrgasm(chara, result) {
         riskTriggered: false,
         msg: combo
             ? `【${chara.name}\u89e6\u53d1\u4e86${combo.name}\uff01(\u500d\u7387x${multiplier.toFixed(1)})】`
-            : `【${chara.name}\u8fbe\u5230\u4e86${baseType.name}\uff01】`
+            : `【${chara.name}\u8fbe\u5230\u4e86${baseType.name}\uff01】`,
+        line
     };
 }
 

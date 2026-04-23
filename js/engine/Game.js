@@ -391,6 +391,7 @@ class Game {
                     if (result && result.canClimax && typeof applyOrgasm === 'function') {
                         const o = applyOrgasm(target, result);
                         if (o && o.msg) UI.appendText(o.msg + "\n", "accent");
+                        if (o && o.line) UI.appendText(o.line + "\n", "info");
                     }
                 }
                 master.mp -= 50;
@@ -410,6 +411,7 @@ class Game {
                         if (result && result.canClimax && typeof applyOrgasm === 'function') {
                             const o = applyOrgasm(target, result);
                             if (o && o.msg) UI.appendText(o.msg + "\n", "accent");
+                            if (o && o.line) UI.appendText(o.line + "\n", "info");
                         }
                     }
                     target.chargeLevel = 0;
@@ -643,6 +645,11 @@ class Game {
                     UI.appendText(`【${target.name}\u5728${pEff.activeModes.join('/')}\u6a21\u5f0f\u4e0b\u7ee7\u7eed\u84c4\u529b...】\n`, "info");
                 }
                 target.chargeTurns++;
+                // === NEW (P5): Personality charge event ===
+                if (typeof getChargeEvent === 'function') {
+                    const ev = getChargeEvent(target);
+                    if (ev) UI.appendText(ev + "\n", "dim");
+                }
                 // Risk of overcharge collapse
                 const chargeInfo = (typeof CHARGE_LEVELS !== 'undefined') ? CHARGE_LEVELS[target.chargeLevel] : null;
                 if (chargeInfo && chargeInfo.risk > 0 && Math.random() < chargeInfo.risk) {
