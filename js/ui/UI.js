@@ -1686,10 +1686,12 @@ const UI = {
             const master = game.getMaster();
             if (master && master !== c) {
                 const diff = game._getAffinityDiff ? game._getAffinityDiff(c, master) : Math.abs((c.affinity || 50) - (master.affinity || 50));
+                const isFallen = (c.mark[2] >= 3) || c.talent[85] || (c.mark[0] >= 3);
                 let affinityLabel = '普通';
                 let affinityColor = '#aaaaaa';
-                if (diff <= 10) { affinityLabel = '灵魂共鸣 ✨'; affinityColor = '#ff44aa'; }
-                else if (diff <= 25) { affinityLabel = '心意相通 💕'; affinityColor = '#44ff88'; }
+                if (diff <= 10 && isFallen) { affinityLabel = '灵魂共鸣 ✨'; affinityColor = '#ff44aa'; }
+                else if (diff <= 10) { affinityLabel = '心意相通 💕'; affinityColor = '#44ff88'; }
+                else if (diff <= 25) { affinityLabel = '情投意合 💫'; affinityColor = '#66ccff'; }
                 else if (diff <= 45) { affinityLabel = '平平无奇 😐'; affinityColor = '#aaaaaa'; }
                 else if (diff <= 65) { affinityLabel = '格格不入 😤'; affinityColor = '#ff8844'; }
                 else { affinityLabel = '水火不容 💀'; affinityColor = '#ff3333'; }

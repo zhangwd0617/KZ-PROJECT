@@ -226,8 +226,9 @@ class Game {
         UI.appendText("魔族的爪牙潜入夜色之中。\n");
         UI.appendText("它们的目标是边境村庄里，那个传闻中纯洁而倔强的乡下少女...\n\n");
         UI.appendText("━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
-        UI.appendText("【莉莉】成为了你的奴隶。\n");
-        UI.appendText("这位来自边境村落的少女，眼中还燃烧着不屈的火焰。\n");
+        const slaveName = slave ? slave.name : '\u5c11\u5973';
+        UI.appendText(`【${slaveName}】成为了你的奴隶。\n`);
+        UI.appendText(`这位被捕获的${slaveName}，眼中还燃烧着不屈的火焰。\n`);
         UI.appendText("她的身体与心灵，都将成为你恢复魔力的源泉。\n\n");
         UI.appendText("调教，现在开始。\n");
         UI.waitClick(() => this.setState("SHOP"));

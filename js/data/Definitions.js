@@ -150,8 +150,10 @@ window.TALENT_DEFS = {
     208: { name: "格斗家", type: "bool", group: "job" },
     209: { name: "巫女", type: "bool", group: "job" },
     210: { name: "枪兵", type: "bool", group: "job" },
-    211: { name: "战士", type: "bool", group: "job" },
-    212: { name: "魔法师", type: "bool", group: "job" },
+    211: { name: "吟游诗人", type: "bool", group: "job" },
+    212: { name: "暗杀者", type: "bool", group: "job" },
+    213: { name: "医者", type: "bool", group: "job" },
+    214: { name: "舞娘", type: "bool", group: "job" },
     // 战斗技能
     240: { name: "战术", type: "level", group: "combat_skill" },
     241: { name: "魔术", type: "level", group: "combat_skill" },
@@ -1822,14 +1824,16 @@ window.RACE_AFFINITY = {
 
 // 职业相性基础值 (0-100) — 使用 cflag[950] 的英雄职业ID
 window.JOB_AFFINITY = {
-    211: 55, // 战士
-    212: 70, // 魔法师
+    211: 60, // 吟游诗人
+    212: 45, // 暗杀者
+    213: 75, // 医者
+    214: 65, // 舞娘
     202: 80, // 神官
     203: 35, // 盗贼
     204: 75, // 骑士
     205: 65, // 炼金术士
     206: 60, // 游侠
-    207: 70, // 舞者
+    207: 70, // 忍者(原舞者id被忍者使用)
     209: 78, // 巫女
     210: 58  // 枪兵
 };
