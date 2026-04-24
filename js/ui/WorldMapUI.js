@@ -1,6 +1,7 @@
 // ========== World Map UI Module ==========
 window.WorldMapUI = {
     render: function(game) {
+        try {
         const ui = window.UI;
         ui.hideTrainStatus();
         ui.clearText();
@@ -222,5 +223,10 @@ window.WorldMapUI = {
 
         draw();
         ui.setButtons('<button class="back-btn-top" onclick="G.setState(\'SHOP\')">← 返回</button>');
+        } catch (err) {
+            ui.appendText('\n[地图渲染错误] ' + err.name + ': ' + err.message, 'danger');
+            console.error('WorldMapUI render error:', err);
+            ui.setButtons('<button class="back-btn-top" onclick="G.setState(\'SHOP\')">← 返回</button>');
+        }
     }
 };
