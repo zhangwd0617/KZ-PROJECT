@@ -1429,8 +1429,10 @@ const UI = {
         const backstoryFields = [
             { key: 315, label: '勇者前生活' },
             { key: 316, label: '成为勇者理由' },
-            { key: 317, label: '喜欢的东西' },
-            { key: 320, label: '家族构成' }
+            { key: 317, label: '性弱点' },
+            { key: 320, label: '家族构成' },
+            { key: 318, label: '所属势力' },
+            { key: 321, label: '家乡' }
         ];
         let hasBackstory = false;
         for (const f of backstoryFields) {
@@ -1462,6 +1464,8 @@ const UI = {
                 <div style="font-size:0.9rem;line-height:1.6;margin-bottom:8px;">${appDesc}</div>
                 ${bodyFeat ? `<div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:8px;padding:4px 8px;background:var(--bg);border-radius:4px;">${bodyFeat}</div>` : ''}
                 <div class="chara-stat-grid">
+                    <div class="chara-stat-item"><span class="chara-stat-name">性别</span><span class="chara-stat-val">${c.talent[122] ? '男' : '女'}</span></div>
+                    <div class="chara-stat-item"><span class="chara-stat-name">种族</span><span class="chara-stat-val">${(TALENT_DEFS[314] && TALENT_DEFS[314].name) || '人类'}</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">年龄</span><span class="chara-stat-val">${age}岁</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">身高</span><span class="chara-stat-val">${height}cm</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">体重</span><span class="chara-stat-val">${weight}kg</span></div>

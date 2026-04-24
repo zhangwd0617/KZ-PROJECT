@@ -53,6 +53,9 @@ class TrainSystem {
         // === 相性修正：魔王与目标之间的相性差影响调教效果 (+/-15%) ===
         this._applyAffinityEffect(target, master);
 
+        // === 性弱点加成 ===
+        this._applyWeaknessBonus(comId, target, def);
+
         // === NEW (P2/P3): Part-based orgasm system ===
         this._applyPartBasedSystem(comId, target, master);
 
@@ -2167,6 +2170,71 @@ class TrainSystem {
             if (label) {
                 UI.appendText(`【相性】${label}\n`);
             }
+        }
+    }
+
+    // ========== 性弱点加成系统 ==========
+    _applyWeaknessBonus(comId, target, def) {
+        const weaknessType = target.cflag ? (target.cflag[954] || 0) : 0;
+        if (!weaknessType || weaknessType === 0) return;
+
+        const meta = (typeof getTrainMeta === 'function') ? getTrainMeta(comId) : null;
+        const parts = meta ? meta.stimulatedParts : [];
+        const rt = meta ? meta.routeTags : {};
+        let matched = false;
+        let matchedDesc = '';
+
+        switch (weaknessType) {
+            case 1: // 羞耻/暴露
+                if ((rt.shame >= 2) || [7, 43, 52, 53, 54, 57, 58, 59, 85].includes(comId) || def.category === 'cosmetic') {
+                    matched = true; matchedDesc = '羞耻暴露';
+                }
+                break;
+            case 2: // 痛苦/SM
+                if ((rt.pain >= 2) || def.category === 'sm' || def.category === 'rough') {
+                    matched = true; matchedDesc = '痛苦SM';
+                }
+                break;
+            case 3: // 口/服务
+                if ((parts && parts.includes('O')) || def.category === 'service') {
+                    matched = true; matchedDesc = '口腔服务';
+                }
+                break;
+            case 4: // 肛门
+                if (parts && parts.includes('A')) {
+                    matched = true; matchedDesc = '肛门刺激';
+                }
+                break;
+            case 5: // 胸部
+                if (parts && (parts.includes('B') || parts.includes('N'))) {
+                    matched = true; matchedDesc = '胸部刺激';
+                }
+                break;
+            case 6: // 阴道/阴蒂
+                if (parts && (parts.includes('C') || parts.includes('V') || parts.includes('W'))) {
+                    matched = true; matchedDesc = '阴部刺激';
+                }
+                break;
+            case 7: // 道具/机械
+                if (def.category === 'tool') {
+                    matched = true; matchedDesc = '道具机械';
+                }
+                break;
+            case 8: // 被视奸/言语羞辱
+                if ([7, 16, 43, 52, 53, 57, 85].includes(comId) || (rt.shame >= 3 && (!parts || parts.length <= 1)) || def.category === 'rough') {
+                    matched = true; matchedDesc = '视奸言语';
+                }
+                break;
+        }
+
+        if (matched) {
+            const bonus = 1.35; // +35%
+            for (let i = 0; i < target.source.length; i++) {
+                if (target.source[i] > 0) {
+                    target.source[i] = Math.floor(target.source[i] * bonus);
+                }
+            }
+            UI.appendText(`【性弱点触发】${target.name}的「${matchedDesc}」弱点被击中，快感+35%！\n`, 'accent');
         }
     }
 }
