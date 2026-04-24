@@ -263,7 +263,9 @@ const UI = {
         if (assi) {
             const buff = assi.getAssistantBuff ? assi.getAssistantBuff() : null;
             const hearts = '♥'.repeat(Math.min(3, assi.getFallenDepth ? assi.getFallenDepth() : 0));
-            assistantBar = `<div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">助手: <span style="color:var(--accent);">${assi.name}</span> ${hearts ? `[${hearts}]` : ''} ${buff ? `| 效果: ${buff.type}` : ''}</div>`;
+            const assiStamina = assi._assistantStamina !== undefined ? assi._assistantStamina : 80;
+            const assiMaxStamina = assi._assistantMaxStamina || 80;
+            assistantBar = `<div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">助手: <span style="color:var(--accent);">${assi.name}</span> ${hearts ? `[${hearts}]` : ''} ${buff ? `| ${buff.type}` : ''} <span style="font-size:0.62rem;opacity:0.7;">(${assiStamina}/${assiMaxStamina})</span></div>`;
         }
 
         // === Left: Main slave panel ===
@@ -286,6 +288,9 @@ const UI = {
         leftHtml += `<div style="flex:1;"><div style="font-size:0.7rem;color:var(--text-dim);margin-bottom:2px;">体力 ${target.stamina || target.base[2]}/${target.maxbase[2]}</div><div style="height:8px;background:var(--hp-bg);border-radius:4px;overflow:hidden;"><div style="height:100%;background:var(--hp-fill);width:${stmPct}%;transition:width 0.3s;"></div></div></div>`;
         leftHtml += `<div style="flex:1;"><div style="font-size:0.7rem;color:var(--text-dim);margin-bottom:2px;">气力 ${target.energy || 0}/${target.maxEnergy} <span style="color:${nrgState.color}">[${nrgState.name}]</span></div><div style="height:8px;background:var(--mp-bg);border-radius:4px;overflow:hidden;"><div style="height:100%;background:var(--mp-fill);width:${nrgPct}%;transition:width 0.3s;"></div></div></div>`;
         leftHtml += `</div>`;
+        if (nrgState.desc) {
+            leftHtml += `<div style="font-size:0.62rem;color:${nrgState.color};margin:2px 0 4px;opacity:0.85;">${nrgState.desc}</div>`;
+        }
 
         // Total orgasm gauge
         const totalGauge = target.totalOrgasmGauge || 0;
@@ -334,9 +339,33 @@ const UI = {
         const tags = [];
         if (nrgState.state) tags.push({ text: nrgState.name, color: nrgState.color });
         if (target.isCharging) tags.push({ text: `蓄力C${chargeLv}`, color: '#e5c07b' });
-        const pEff = target.getPersonalityEffects ? target.getPersonalityEffects() : { activeModes: [] };
-        for (const mode of (pEff.activeModes || [])) tags.push({ text: mode, color: '#98c379' });
-        // Marks display (max 3)
+        const pEff = target.getPersonalityEffects ? target.getPersonalityEffects() : { activeModes: [], uiColors: [] };
+        // === NEW (P3-5): Build personality effect tooltip ===
+        let pTooltip = '';
+        if (pEff) {
+            const modTexts = [];
+            if (pEff.refuseMod) modTexts.push(`拒绝率${pEff.refuseMod > 0 ? '+' : ''}${Math.round(pEff.refuseMod * 100)}%`);
+            if (pEff.staminaMod) modTexts.push(`体力${pEff.staminaMod > 0 ? '+' : ''}${Math.round(pEff.staminaMod * 100)}%`);
+            if (pEff.energyMod) modTexts.push(`气力${pEff.energyMod > 0 ? '+' : ''}${Math.round(pEff.energyMod * 100)}%`);
+            if (pEff.orgasmMod) modTexts.push(`绝顶${pEff.orgasmMod > 0 ? '+' : ''}${Math.round(pEff.orgasmMod * 100)}%`);
+            for (const k in pEff.palamMods || {}) {
+                const pid = parseInt(k);
+                const pname = (typeof PALAM_DEFS !== 'undefined' && PALAM_DEFS[pid]) ? PALAM_DEFS[pid].name : 'PALAM'+pid;
+                modTexts.push(`${pname}${pEff.palamMods[k] > 0 ? '+' : ''}${Math.round(pEff.palamMods[k] * 100)}%`);
+            }
+            if (modTexts.length > 0) pTooltip = modTexts.join(' | ');
+        }
+        for (let i = 0; i < (pEff.activeModes || []).length; i++) {
+            const mode = pEff.activeModes[i];
+            const color = (pEff.uiColors && pEff.uiColors[i]) ? pEff.uiColors[i] : '#98c379';
+            tags.push({ text: mode, color: color, title: pTooltip });
+        }
+        // === NEW (P2-4): Special body mode tags ===
+        if (target._specialMode) {
+            if (target._specialMode.wet) tags.push({ text: '湿滑', color: '#61afef' });
+            if (target._specialMode.milky) tags.push({ text: '泌乳', color: '#e5c07b' });
+            if (target._specialMode.lewd) tags.push({ text: '淫乱', color: '#c678dd' });
+        }
         for (let m = 0; m < 8; m++) {
             const lv = target.mark[m] || 0;
             if (lv > 0) tags.push({ text: `${['苦痛','快乐','屈服','反抗','恐怖','淫乱','反发','哀伤'][m]}${lv}`, color: 'var(--text-dim)' });
@@ -344,7 +373,8 @@ const UI = {
         if (tags.length > 0) {
             leftHtml += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;">`;
             for (const t of tags.slice(0, 6)) {
-                leftHtml += `<span style="font-size:0.68rem;padding:2px 8px;background:rgba(255,255,255,0.04);border:1px solid ${t.color}44;color:${t.color};border-radius:10px;">${t.text}</span>`;
+                const titleAttr = t.title ? ` title="${t.title}"` : '';
+                leftHtml += `<span style="font-size:0.68rem;padding:2px 8px;background:rgba(255,255,255,0.04);border:1px solid ${t.color}44;color:${t.color};border-radius:10px;cursor:help;"${titleAttr}>${t.text}</span>`;
             }
             leftHtml += `</div>`;
         }
@@ -354,7 +384,9 @@ const UI = {
             const ht = target.personality.hidden;
             const htName = ht.revealed ? (typeof HIDDEN_TRAITS !== 'undefined' && HIDDEN_TRAITS[ht.traitId] ? HIDDEN_TRAITS[ht.traitId].name : '???') : '???';
             const htColor = ht.revealed ? 'var(--accent)' : 'var(--text-dim)';
-            leftHtml += `<div style="font-size:0.7rem;color:${htColor};margin-top:4px;">隐藏特质: ${htName} ${ht.revealed ? (ht.full ? '(完全)' : '(部分)') : '(未解锁)'}</div>`;
+            const htProgress = ht.progress || 0;
+            const progressBar = ht.full ? '' : `<div style="height:4px;background:rgba(255,255,255,0.05);border-radius:2px;margin-top:2px;overflow:hidden;"><div style="height:100%;background:${htColor};width:${htProgress}%;transition:width 0.3s;"></div></div>`;
+            leftHtml += `<div style="font-size:0.7rem;color:${htColor};margin-top:4px;">隐藏特质: ${htName} ${ht.revealed ? (ht.full ? '(完全)' : '(部分)') : '(未解锁)'} ${!ht.full ? `(${htProgress}%)` : ''}</div>${progressBar}`;
         }
 
         // Penis ejaculation gauges (if any)
@@ -519,9 +551,10 @@ const UI = {
         // Personality reaction preview
         const pEff = target.getPersonalityEffects ? target.getPersonalityEffects() : null;
         if (pEff && pEff.activeModes && pEff.activeModes.length > 0) {
-            html += `<div style="font-size:0.75rem;color:var(--success);margin-bottom:10px;">性格修正: ${pEff.activeModes.join(' / ')}</div>`;
+            const modeColors = pEff.uiColors || [];
+            const coloredModes = pEff.activeModes.map((m, i) => `<span style="color:${modeColors[i] || '#98c379'}">${m}</span>`);
+            html += `<div style="font-size:0.75rem;color:var(--success);margin-bottom:10px;">性格修正: ${coloredModes.join(' / ')}</div>`;
         }
-
         html += `<div style="display:flex;gap:10px;justify-content:center;margin-top:12px;">`;
         html += `<button class="game-btn accent" onclick="UI.closeModal();G._executeMasterSkill(990);G.trainCount++;UI.renderTrain(G);">确认释放</button>`;
         html += `<button class="game-btn" onclick="UI.closeModal();">取消</button>`;
@@ -605,19 +638,49 @@ const UI = {
         const displayCmds = category === 'all' ? allCmds : (cmdByGroup[category] || []);
         let cmdHtml = '<div class="btn-grid btn-grid-4">';
         for (const cmd of displayCmds) {
-            cmdHtml += `<button class="game-btn" ${cmd.available ? '' : 'disabled'} onclick="G.selectCommand(${cmd.id})" title="${cmd.name}">${cmd.name}</button>`;
+            // === NEW (P2-5): Turn preview cost estimation ===
+            let costHint = cmd.name;
+            const cmdMeta = (typeof getTrainMeta === 'function') ? getTrainMeta(cmd.id) : null;
+            if (cmdMeta && cmd.available) {
+                const tStm = cmdMeta.staminaCost?.target || 0;
+                const tNrg = cmdMeta.energyCost?.target || 0;
+                const bStm = cmdMeta.staminaCost?.bystander || 0;
+                const bNrg = cmdMeta.energyCost?.bystander || 0;
+                let costParts = [];
+                if (tStm > 0 || tNrg > 0) costParts.push(`主:体-${tStm}气-${tNrg}`);
+                if (bStm > 0 || bNrg > 0) costParts.push(`副:体-${bStm}气-${bNrg}`);
+                if (costParts.length > 0) costHint += `\n[${costParts.join(' | ')}]`;
+            }
+            cmdHtml += `<button class="game-btn" ${cmd.available ? '' : 'disabled'} onclick="G.selectCommand(${cmd.id})" title="${costHint}">${cmd.name}</button>`;
         }
         cmdHtml += '</div>';
 
-        // Turn preview (compact)
+        // === NEW (P2-5): Turn preview cost estimation ===
         const target = game.getTarget();
+        const assi = game.getAssi();
+        const bystander = game.bystander >= 0 ? game.characters[game.bystander] : null;
         let previewHtml = '';
         if (target && game.selectcom >= 0) {
             const meta = (typeof getTrainMeta === 'function') ? getTrainMeta(game.selectcom) : null;
             const stmCost = meta ? (meta.staminaCost?.target || 0) : 0;
             const nrgCost = meta ? (meta.energyCost?.target || 0) : 0;
+            const bStmCost = meta ? (meta.staminaCost?.bystander || 0) : 0;
+            const bNrgCost = meta ? (meta.energyCost?.bystander || 0) : 0;
+            let previewParts = [];
             if (stmCost > 0 || nrgCost > 0) {
-                previewHtml = `<div style="font-size:0.6rem;color:var(--text-dim);margin-bottom:3px;text-align:right;">上回合: 体-${stmCost} 气-${nrgCost}</div>`;
+                previewParts.push(`<span style="color:#e06c75;">主奴:体-${stmCost} 气-${nrgCost}</span>`);
+            }
+            if (bystander && (bStmCost > 0 || bNrgCost > 0)) {
+                previewParts.push(`<span style="color:#61afef;">副奴:体-${bStmCost} 气-${bNrgCost}</span>`);
+            }
+            // Assistant cost preview for 900/901
+            if (assi && (game.selectcom === 900 || game.selectcom === 901)) {
+                const assiStm = game.selectcom === 900 ? 15 : 10;
+                const assiNrg = game.selectcom === 900 ? 5 : 3;
+                previewParts.push(`<span style="color:#98c379;">助手:体-${assiStm} 气-${assiNrg}</span>`);
+            }
+            if (previewParts.length > 0) {
+                previewHtml = `<div style="font-size:0.62rem;color:var(--text-dim);margin-bottom:4px;text-align:right;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:4px;">上回合消耗: ${previewParts.join(' | ')}</div>`;
             }
         }
 
@@ -840,6 +903,53 @@ const UI = {
         html += `<div style="grid-column:1/-1;font-size:0.75rem;margin-bottom:6px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:6px;">`;
         html += `<div style="margin-bottom:4px;line-height:1.6;">${target.name} 路线: ${routeLine}</div>`;
         html += `<div style="color:var(--text-dim);">珠子: ${juelLine || '(暂无)'}</div>`;
+        html += `</div>`;
+
+        // === NEW (P3-5): Personality & Hidden Trait Panel ===
+        if (target.personality) {
+            const p = target.personality;
+            const mainName = (typeof MAIN_PERSONALITY !== 'undefined' && MAIN_PERSONALITY[p.main]) ? MAIN_PERSONALITY[p.main].name : '???';
+            const subNames = (p.sub || []).map(sid => (typeof SUB_PERSONALITY !== 'undefined' && SUB_PERSONALITY[sid]) ? SUB_PERSONALITY[sid].name : '???');
+            html += `<div style="grid-column:1/-1;font-size:0.72rem;margin-bottom:6px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid var(--border);">`;
+            html += `<div style="margin-bottom:4px;"><span style="color:var(--accent);font-weight:bold;">性格:</span> <span style="color:var(--text);">${mainName}</span>${subNames.length > 0 ? ' <span style="color:var(--text-dim);">/ ' + subNames.join(' / ') + '</span>' : ''}</div>`;
+            if (p.hidden) {
+                const ht = p.hidden;
+                const htDef = (typeof HIDDEN_TRAITS !== 'undefined' && HIDDEN_TRAITS[ht.traitId]) ? HIDDEN_TRAITS[ht.traitId] : null;
+                const htName = ht.revealed ? (htDef ? htDef.name : '???') : '???';
+                const htColor = ht.revealed ? 'var(--accent)' : 'var(--text-dim)';
+                const htProgress = ht.progress || 0;
+                html += `<div style="display:flex;align-items:center;gap:8px;margin-top:4px;">`;
+                html += `<span style="color:${htColor};">隐藏: ${htName} ${ht.revealed ? (ht.full ? '(完全)' : '(部分)') : '(未解锁)'}</span>`;
+                if (!ht.full) {
+                    html += `<div style="flex:1;height:6px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;"><div style="height:100%;background:${htColor};width:${htProgress}%;transition:width 0.3s;"></div></div>`;
+                    html += `<span style="font-size:0.65rem;color:var(--text-dim);">${htProgress}%</span>`;
+                }
+                html += `</div>`;
+            }
+            html += `</div>`;
+        }
+
+        // === Route Allocation (1 main + 2 sub) ===
+        const allocLabel = target.getRouteAllocationLabel ? target.getRouteAllocationLabel() : '\u672a\u5206\u914d';
+        html += `<div style="grid-column:1/-1;font-size:0.75rem;margin-bottom:6px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid var(--border);">`;
+        html += `<div style="margin-bottom:6px;font-weight:bold;color:var(--accent);">\u8def\u7ebf\u5206\u914d: <span style="color:var(--text);">${allocLabel}</span></div>`;
+        html += `<div style="display:flex;gap:6px;flex-wrap:wrap;">`;
+        for (let r = 0; r < 5; r++) {
+            const isMain = target.mainRoute === r;
+            const isSub = target.subRoutes && target.subRoutes.includes(r);
+            let btnStyle = 'font-size:0.72rem;padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid ';
+            if (isMain) {
+                btnStyle += `${routeColors[r]};background:${routeColors[r]}22;color:${routeColors[r]};font-weight:bold;`;
+            } else if (isSub) {
+                btnStyle += `${routeColors[r]}88;background:${routeColors[r]}11;color:${routeColors[r]};border-style:dashed;`;
+            } else {
+                btnStyle += 'var(--border);background:transparent;color:var(--text-dim);';
+            }
+            const badge = isMain ? ' [\u4e3b]' : (isSub ? ' [\u8f85]' : '');
+            html += `<button class="game-btn" style="${btnStyle}" onclick="G.clickRouteAllocation(${r})" title="${isMain ? '\u70b9\u51fb\u53d6\u6d88\u4e3b\u8def\u7ebf' : (isSub ? '\u70b9\u51fb\u53d6\u6d88\u8f85\u52a9\u8def\u7ebf' : '\u70b9\u51fb\u9009\u62e9')}">${routeNames[r]}${badge}</button>`;
+        }
+        html += `</div>`;
+        html += `<div style="font-size:0.65rem;color:var(--text-dim);margin-top:4px;">\u4e3b\u8def\u7ebf100%\u7ecf\u9a8c\uff0c\u8f85\u52a9\u8def\u7ebf50%\uff0c\u5176\u4f59\u4e0d\u83b7\u53d6</div>`;
         html += `</div>`;
 
         // === Route Talents (unlockable first) ===

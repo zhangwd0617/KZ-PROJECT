@@ -103,10 +103,16 @@ function checkOrgasm(chara) {
     const chargeLv = getChargeLevel(chara);
     const chargeInfo = CHARGE_LEVELS[chargeLv];
 
-    // Check if any part is over local threshold (800 = local climax)
+    // Apply energy state orgasm threshold modifier
+    const energyState = chara.getEnergyState ? chara.getEnergyState() : { orgasmThresholdMod: 0 };
+    const thresholdMod = energyState.orgasmThresholdMod || 0;
+    const baseThreshold = 800;
+    const threshold = Math.max(200, Math.floor(baseThreshold * (1 + thresholdMod)));
+
+    // Check if any part is over local threshold
     const activeParts = [];
     for (let i = 0; i < 8; i++) {
-        if ((chara.partGauge[i] || 0) >= 800) activeParts.push(i);
+        if ((chara.partGauge[i] || 0) >= threshold) activeParts.push(i);
     }
 
     if (activeParts.length === 0 && chargeLv === 0) return null;
@@ -186,6 +192,17 @@ function applyOrgasm(chara, result) {
         chara.exp[parseInt(expId)] = (chara.exp[parseInt(expId)] || 0) + baseType.exp[expId];
     }
 
+    // === NEW (P2-3): Orgasm resonance - other parts gain gauge ===
+    const resonance = chara._accelOrgasmResonance || 0;
+    const climaxedParts = combo ? combo.parts : (result.activeParts || []);
+    if (resonance > 0 && chara.partGauge) {
+        for (let i = 0; i < 8; i++) {
+            if (!climaxedParts.includes(i)) {
+                chara.partGauge[i] = Math.floor((chara.partGauge[i] || 0) * (1 + resonance));
+            }
+        }
+    }
+
     // Reset gauge for climaxed parts
     if (combo) {
         for (const pi of combo.parts) {
@@ -197,6 +214,11 @@ function applyOrgasm(chara, result) {
             chara.partGauge[pi] = Math.floor((chara.partGauge[pi] || 0) * 0.3); // keep 30%
             chara.orgasmCooldown[pi] = 2;
         }
+    }
+
+    // === NEW (P3-3): Hidden trait progress from orgasm ===
+    if (typeof addHiddenTraitProgress === 'function') {
+        addHiddenTraitProgress(chara, 5 + Math.floor(Math.random() * 6)); // +5~10
     }
 
     // Reset total gauge

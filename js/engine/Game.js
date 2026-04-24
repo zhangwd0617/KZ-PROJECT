@@ -326,6 +326,7 @@ class Game {
         this.selectcom = -1;
         this.tflag.fill(0);
         this.bystander = (data && data.bystander !== undefined) ? data.bystander : -1;
+        this._assistantParticipatedThisTrain = false;
         UI._trainHistory = [];
         UI._trainTextInited = false;
 
@@ -337,6 +338,27 @@ class Game {
         target.chargeLevel = 0;
         target.chargeTurns = 0;
 
+        // Reset assistant stamina & rest flags
+        const assi = this.getAssi();
+        if (assi) {
+            assi._assistantStamina = assi._assistantMaxStamina || 80;
+            assi._assistantRestNextTurn = false;
+            // === NEW (P2-2): Stage5 assistant buffs - wetStart ===
+            if (assi._assistantBuff && assi._assistantBuff.wetStart) {
+                target.addPalam(3, assi._assistantBuff.wetStart); // 润滑PALAM
+                UI.appendText(`【${assi.name}的秘术让${target.name}提前湿润了...（润滑+${assi._assistantBuff.wetStart}）】\n`, 'info');
+            }
+            // === NEW (P2-2): postOrgasmBoost - apply if set from previous train ===
+            if (target._postOrgasmBoostNextTrain) {
+                const boostAmount = target._postOrgasmBoostNextTrain;
+                for (let i = 0; i < target.palam.length; i++) {
+                    if (target.palam[i] > 0) target.addPalam(i, boostAmount);
+                }
+                UI.appendText(`【${target.name}还沉浸在先前的绝顶余韵中...（全PALAM+${boostAmount}）】\n`, 'accent');
+                target._postOrgasmBoostNextTrain = 0;
+            }
+        }
+
         // Train start dialogue
         this.dialogueSystem.onTrainStart(target);
 
@@ -344,6 +366,41 @@ class Game {
     }
 
     selectCommand(comId) {
+        const target = this.getTarget();
+
+        // === P0: Faint check (崩解失神跳过下回合) ===
+        if (target && target._faintNextTurn) {
+            UI.appendText(`【${target.name}还处于失神状态，无法行动...】\n`, "dim");
+            target._faintNextTurn = false;
+            this.trainCount++;
+            // 体力归零检查
+            if (target.hp <= 0) {
+                UI.appendText(`\n【${target.name}昏了过去……】\n`);
+                this.setState("AFTERTRAIN");
+                return;
+            }
+            UI.renderTrain(this);
+            return;
+        }
+
+        // === P1: Assistant rest check ===
+        const assi = this.getAssi();
+        if (assi && assi._assistantRestNextTurn) {
+            UI.appendText(`【${assi.name}正在休息，无法行动...】\n`, "dim");
+            assi._assistantRestNextTurn = false;
+        }
+
+        // === P0: Self-destruct (坏掉时每回合-3%体力) ===
+        if (target && target.energy !== undefined && target.maxbase[2] > 0) {
+            const energyState = target.getEnergyState ? target.getEnergyState() : null;
+            if (energyState && energyState.special && energyState.special.effect === "self_destruct") {
+                const staminaLoss = Math.max(1, Math.floor(target.maxbase[2] * 0.03));
+                target.stamina = Math.max(0, target.stamina - staminaLoss);
+                target.base[2] = target.stamina;
+                UI.appendText(`【${target.name}在坏掉的状态下，肉体开始自毁...体力-${staminaLoss}】\n`, "danger");
+            }
+        }
+
         // 保存上次指令记录到历史，并清空当前显示
         if (this.trainCount > 0 && this.selectcom >= 0) {
             const prevDef = TRAIN_DEFS[this.selectcom];
@@ -357,6 +414,8 @@ class Game {
         if (comId === 990) {
             UI.showReleasePreview();
             return;
+        } else if (comId === 996) {
+            this._executeInsightEye();
         } else if (comId >= 989 && comId <= 992) {
             this._executeMasterSkill(comId);
         } else if (comId === 900 || comId === 901) {
@@ -369,7 +428,6 @@ class Game {
         this.trainCount++;
 
         // Check if target HP depleted
-        const target = this.getTarget();
         if (target && target.hp <= 0) {
             UI.appendText(`\n【${target.name}\u660f\u4e86\u8fc7\u53bb\u2026\u2026】\n`);
             this.setState("AFTERTRAIN");
@@ -378,6 +436,49 @@ class Game {
 
         // 继续显示训练界面
         UI.renderTrain(this);
+    }
+
+    _executeInsightEye() {
+        const target = this.getTarget();
+        const master = this.getMaster();
+        if (!target) return;
+        UI.appendText(`\n\u2500\u2500\u2500\u2500 \u6d1e\u5bdf\u4e4b\u773c [#${this.trainCount + 1}] \u2500\u2500\u2500\u2500\n`);
+        UI.appendText(`${master.name}\u6ce8\u89c6\u7740${target.name}\u7684\u5185\u5fc3\uff0c\u4f3c\u4e4e\u770b\u7a7f\u4e86\u4ec0\u4e48...\n`, "info");
+        // 主奴气力-10
+        if (target.energy !== undefined) {
+            target.energy = Math.max(0, target.energy - 10);
+        }
+        // 揭示隐藏特质
+        if (target.personality && target.personality.hidden) {
+            const h = target.personality.hidden;
+            if (!h.revealed) {
+                // === NEW (P3-3): Insight eye adds hidden trait progress ===
+                if (typeof addHiddenTraitProgress === 'function') {
+                    addHiddenTraitProgress(target, 15);
+                    UI.appendText(`【${target.name}\u7684\u9690\u85cf\u7279\u8d28\u8fdb\u5ea6\u589e\u52a0\u4e86\uff01\uff08+15\uff09\u3011\n`, "info");
+                }
+                if (typeof revealHiddenTrait === 'function') {
+                    const result = revealHiddenTrait(target);
+                    if (result && result.msg) UI.appendText(result.msg + "\n", "accent");
+                    if (result && result.unlockLine) UI.appendText(result.unlockLine + "\n", "dim");
+                } else {
+                    h.revealed = true;
+                    UI.appendText(`【${target.name}\u7684\u9690\u85cf\u7279\u8d28\u88ab\u5f3a\u884c\u63ed\u793a\u4e86\uff01\u3011\n`, "accent");
+                }
+            } else if (!h.full) {
+                // Already partially revealed, add progress toward full
+                if (typeof addHiddenTraitProgress === 'function') {
+                    addHiddenTraitProgress(target, 15);
+                    UI.appendText(`【${target.name}\u7684\u9690\u85cf\u7279\u8d28\u8fdb\u4e00\u6b65\u89e3\u9501\u4e2d...\uff08+15\uff09\u3011\n`, "info");
+                    const result = revealHiddenTrait(target);
+                    if (result && result.full) {
+                        UI.appendText(result.msg + "\n", "accent");
+                    }
+                }
+            }
+        } else {
+            UI.appendText(`【${target.name}\u6ca1\u6709\u9690\u85cf\u7684\u7279\u8d28\u6216\u5df2\u7ecf\u63ed\u793a\u3011\n`, "dim");
+        }
     }
 
     _executeMasterSkill(comId) {
@@ -449,19 +550,73 @@ class Game {
     }
 
     _executeAssistantCommand(comId) {
+        this._assistantParticipatedThisTrain = true;
         const assi = this.getAssi();
         const target = this.getTarget();
         if (comId === 900) {
-            if (!assi) { UI.appendText(`\u6ca1\u6709\u52a9\u624b\uff0c\u65e0\u6cd5\u4ee3\u884c\u3002\n`, "warning"); return; }
-            UI.appendText(`\n${assi.name}\u4ee3\u66ff\u9b54\u738b\u6267\u884c\u8c03\u6559\uff0c${target.name}\u7684\u4f53\u9a8c\u7565\u6709\u4e0d\u540c\u2026\u2026\n`, "info");
+            if (!assi) { UI.appendText(`没有助手，无法代行。\n`, "warning"); return; }
+            // 检查助手临时体力（<20%无法代行）
+            const assiStaminaPct = (assi._assistantMaxStamina || 80) > 0 ? (assi._assistantStamina / (assi._assistantMaxStamina || 80)) : 1;
+            if (assiStaminaPct < 0.20) {
+                UI.appendText(`【${assi.name}体力不足，无法代行...（${assi._assistantStamina}/${assi._assistantMaxStamina}）】\n`, "warning");
+                return;
+            }
+            UI.appendText(`\n${assi.name}代替魔王执行调教，${target.name}的体验略有不同……\n`, "info");
             this.trainSystem.execute(this.selectcom >= 0 ? this.selectcom : 0);
+            // 主奴获得90%PALAM（代行不如魔王熟练）
+            for (let i = 0; i < target.palam.length; i++) {
+                if (target.palam[i] > 0) target.palam[i] = Math.floor(target.palam[i] * 0.9);
+            }
+            // 消耗助手体力
+            assi._assistantStamina -= 15;
             if (assi.energy !== undefined) assi.energy -= 5;
+            // 代行后下回合自动休息
+            assi._assistantRestNextTurn = true;
+            UI.appendText(`【${assi.name}代行后需要休息一回合】\n`, "dim");
         } else if (comId === 901) {
-            if (!assi) { UI.appendText(`\u6ca1\u6709\u52a9\u624b\uff0c\u65e0\u6cd5\u53c2\u4e0e\u3002\n`, "warning"); return; }
-            UI.appendText(`\n${assi.name}\u52a0\u5165\u4e86\u8c03\u6559\uff0c${target.name}\u7684\u5feb\u611f\u500d\u589e\uff01\n`, "info");
+            if (!assi) { UI.appendText(`没有助手，无法参与。\n`, "warning"); return; }
+            // 检查助手体力
+            if (assi._assistantStamina <= 0) {
+                UI.appendText(`【${assi.name}已经脱力，无法参与...】\n`, "warning");
+                return;
+            }
+            UI.appendText(`\n${assi.name}加入了调教，${target.name}的快感倍增！\n`, "info");
             this.trainSystem.execute(this.selectcom >= 0 ? this.selectcom : 0);
-            if (target.addPartGain) for (let i = 0; i < 8; i++) target.addPartGain(i, Math.floor((target.partGauge[i] || 0) * 0.2));
+
+            // 同性/同路线检测
+            const sameSex = (assi.talent[121] && target.talent[121]) || (assi.talent[122] && target.talent[122]);
+            const sameRoute = (assi.mainRoute >= 0 && assi.mainRoute === target.mainRoute);
+            let bonuses = [];
+            if (sameSex) bonuses.push("同性共鸣：羞耻+20%");
+            if (sameRoute) bonuses.push("同路线共鸣：+25%");
+            if (bonuses.length > 0) UI.appendText(`【${bonuses.join("、")}】\n`, "info");
+
+            // 主奴部位快感加成
+            if (target.addPartGain) {
+                for (let i = 0; i < 8; i++) {
+                    let boost = 0.2;
+                    if (sameRoute) boost += 0.25;
+                    target.addPartGain(i, Math.floor((target.partGauge[i] || 0) * boost));
+                }
+            }
+            // 助手获得70%PALAM（简化）
+            if (assi.addPartGain) {
+                for (let i = 0; i < 8; i++) {
+                    let ratio = 0.7;
+                    if (sameSex) ratio += 0.20;
+                    if (sameRoute) ratio += 0.25;
+                    assi.addPartGain(i, Math.floor((target.partGauge[i] || 0) * ratio));
+                }
+            }
+
+            // 消耗助手体力
+            assi._assistantStamina -= 10;
             if (assi.energy !== undefined) assi.energy -= 3;
+
+            // 检查助手脱力
+            if (assi._assistantStamina <= 0) {
+                UI.appendText(`【${assi.name}在参与中脱力了...】\n`, "danger");
+            }
         }
     }
 
@@ -615,6 +770,40 @@ class Game {
             this.dialogueSystem.onTrainEnd(target);
             target.endTrain();
 
+            // === P0: Collapse settlement (energy 0%) ===
+            if (target.energy !== undefined && target._maxEnergy > 0 && target.energy <= 0) {
+                UI.appendText(`【${target.name}精神崩溃了...】\n`, "danger");
+                // One-time talent gain based on main route
+                const mainRoute = target.mainRoute;
+                const routeTalentMap = {
+                    0: 70,   // 顺从路线 -> 顺从之心
+                    1: 71,   // 欲望路线 -> 欲望之火
+                    2: 76,   // 痛苦路线 -> 痛苦承受
+                    3: 72,   // 露出路线 -> 露出癖
+                    4: 73    // 支配路线 -> 支配欲
+                };
+                const routeNames = ['顺从', '欲望', '痛苦', '露出', '支配'];
+                if (mainRoute >= 0 && routeTalentMap[mainRoute] !== undefined) {
+                    const tid = routeTalentMap[mainRoute];
+                    if (!target.talent[tid]) {
+                        target.talent[tid] = 1;
+                        const tName = (typeof TALENT_DEFS !== 'undefined' && TALENT_DEFS[tid]) ? TALENT_DEFS[tid].name : '路线感悟';
+                        UI.appendText(`【崩溃中顿悟】${target.name}获得了「${tName}」！\n`, "accent");
+                    }
+                } else {
+                    UI.appendText(`【${target.name}在${routeNames[mainRoute] || '未知'}路线中获得了新的感悟...】\n`, "accent");
+                }
+                // Recover 15% energy for next train
+                const recoverEnergy = Math.floor(target._maxEnergy * 0.15);
+                target.energy = recoverEnergy;
+                UI.appendText(`【${target.name}的气力恢复至${recoverEnergy}】\n`, "info");
+                // === NEW (P3-3): Collapse adds hidden trait progress ===
+                if (typeof addHiddenTraitProgress === 'function') {
+                    addHiddenTraitProgress(target, 20);
+                    UI.appendText(`【${target.name}在崩溃中触及了深层潜意识...（隐藏进度+20）】\n`, "accent");
+                }
+            }
+
             // === NEW (P2): Route EXP settlement from source ===
             if (target.source) {
                 const routeMap = [
@@ -624,10 +813,21 @@ class Game {
                     { palam: 8,  route: 3 },   // 羞耻 -> 露出
                     { palam: 20, route: 4 }    // 支配(反感/支配感)
                 ];
+                // Check assistant same-route exp multiplier (Stage5 buff)
+                let sameRouteMult = 1.0;
+                if (assi && assi._assistantBuff && assi._assistantBuff.sameRouteExpMult) {
+                    if (target.mainRoute >= 0 && assi.mainRoute === target.mainRoute) {
+                        sameRouteMult = assi._assistantBuff.sameRouteExpMult;
+                    }
+                }
                 for (const m of routeMap) {
                     const val = target.source[m.palam] || target.palam[m.palam] || 0;
                     if (val > 0 && target.addRouteExp) {
-                        target.addRouteExp(m.route, Math.floor(val / 100));
+                        let expGain = Math.floor(val / 100);
+                        if (sameRouteMult > 1.0 && m.route === target.mainRoute) {
+                            expGain = Math.floor(expGain * sameRouteMult);
+                        }
+                        target.addRouteExp(m.route, expGain);
                     }
                 }
             }
@@ -720,26 +920,56 @@ class Game {
 
     processBystander(bystander, target) {
         if (!bystander || !target) return;
-        // 副奴获得主奴20%旁观PALAM（转化为对应部位快感值的20%）
+
+        const turns = this.trainCount || 1;
+        bystander._bystanderCount++;
+
+        // Pleasure transfer ratio: 20% base, 40% when assistant participates
+        const assistantJoined = this._assistantParticipatedThisTrain;
+        let pleasureRatio = assistantJoined ? 0.4 : 0.2;
+
+        // 副奴获得主奴部位快感传导
         if (bystander.partGauge && target.partGauge) {
             for (let i = 0; i < 8; i++) {
                 const val = target.partGauge[i] || 0;
                 if (val > 0 && bystander.addPartGain) {
-                    bystander.addPartGain(i, Math.floor(val * 0.2));
+                    bystander.addPartGain(i, Math.floor(val * pleasureRatio));
                 }
             }
         }
-        // 固定体力-3，气力-1
-        if (bystander.stamina !== undefined) bystander.stamina -= 3;
-        if (bystander.energy !== undefined) bystander.energy -= 1;
+
+        // 每回合消耗：体力-3，气力-1
+        const staminaLoss = 3 * turns;
+        const baseEnergyLoss = 1 * turns;
+        // 每3回合累计一次+1气力惩罚
+        const extraPenalty = Math.floor(turns / 3);
+        const totalEnergyLoss = baseEnergyLoss + extraPenalty;
+
+        if (bystander.stamina !== undefined) bystander.stamina = Math.max(0, bystander.stamina - staminaLoss);
+        if (bystander.energy !== undefined) bystander.energy = Math.max(0, bystander.energy - totalEnergyLoss);
+
+        // 副奴学习技能经验+1
+        if (bystander.addTrainExp) {
+            bystander.addTrainExp(1);
+        }
+
+        // 助手参与时触发「混乱」状态：拒绝率-20%
+        if (assistantJoined) {
+            bystander._bystanderConfused = true;
+            if (bystander.refuseMod !== undefined) {
+                bystander.refuseMod = (bystander.refuseMod || 0) - 0.20;
+            }
+        }
 
         // 检查副奴状态
         const states = [];
-        if (bystander.energy < bystander.maxEnergy * 0.5) states.push("脸红");
-        if (bystander.energy < bystander.maxEnergy * 0.3) states.push("移开视线");
-        if (bystander.energy < bystander.maxEnergy * 0.2) states.push("请求参与");
+        if (bystander.energy < bystander.maxEnergy * 0.5) states.push('脸红');
+        if (bystander.energy < bystander.maxEnergy * 0.3) states.push('移开视线');
+        if (bystander.energy < bystander.maxEnergy * 0.2) states.push('请求参与');
+        if (assistantJoined) states.push('混乱');
         if (states.length > 0) {
-            UI.appendText(`【${bystander.name}\u65c1\u89c2\u4e2d：${states.join(',')}】\n`, "dim");
+            const penaltyInfo = extraPenalty > 0 ? ' (累计惩罚-' + extraPenalty + ')' : '';
+            UI.appendText('【' + bystander.name + '旁观中：' + states.join(',') + penaltyInfo + '】\n', 'dim');
         }
     }
 
@@ -768,6 +998,24 @@ class Game {
             UI.showToast(result.msg || '\u89e3\u9501\u5931\u8d25', "warning");
             return false;
         }
+    }
+
+    clickRouteAllocation(routeId) {
+        const target = this.getTarget();
+        if (!target) return;
+        if (target.mainRoute === routeId) {
+            target.setMainRoute(-1);
+        } else if (target.subRoutes.includes(routeId)) {
+            target.toggleSubRoute(routeId);
+        } else if (target.mainRoute < 0) {
+            target.setMainRoute(routeId);
+        } else {
+            const result = target.toggleSubRoute(routeId);
+            if (result && result.action === 'full') {
+                UI.showToast('\u8f85\u52a9\u8def\u7ebf\u6700\u591a2\u6761', "warning");
+            }
+        }
+        UI.renderAblUp(this);
     }
 
     finishAblUp() {

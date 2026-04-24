@@ -88,9 +88,20 @@ class Character {
         this.trainLevel = 0;                     // overall train level
         this.routePoints = 0;                    // points to allocate
 
+        // Route allocation (V2.0 doc: 1 main + 2 sub max)
+        this.mainRoute = -1;                     // -1 = not chosen, 0-4 = main route
+        this.subRoutes = [];                     // max 2 auxiliary routes
+
         // Assistant qualification
         this._assistantBuff = null;
         this._routeExpBonus = {};
+
+        // Assistant temporary stamina (V3.0 doc: enabled during delegate/participate, max 80)
+        this._assistantStamina = 80;
+        this._assistantMaxStamina = 80;
+
+        // Bystander tracking
+        this._bystanderCount = 0;                // cumulative bystander sessions
 
         // 固有编号(角色管理用)
         this.id = Character._nextId++;
@@ -132,18 +143,109 @@ class Character {
     set maxEnergy(v) { this._maxEnergy = Math.max(10, v); }
     addEnergy(v) { this.energy += v; }
 
-    // ========== Energy state machine ==========
+    // ========== Energy state machine (V3.0 doc) ==========
+    // Boundaries: 81% / 51% / 31% / 11% / 1%
+    // Lower energy = higher PALAM gain (mental defense collapse)
     getEnergyState() {
         const pct = this._maxEnergy > 0 ? this._energy / this._maxEnergy : 1;
-        if (pct >= 0.80) return { state: "awake", name: "\u6e05\u9192", multiplier: 1.00, color: "#98c379" };
-        if (pct >= 0.50) return { state: "wavering", name: "\u52a8\u6447", multiplier: 0.85, color: "#e5c07b" };
-        if (pct >= 0.25) return { state: "dazed", name: "\u604d\u60da", multiplier: 0.65, color: "#e06c75" };
-        if (pct >= 0.05) return { state: "collapsing", name: "\u5d29\u89e3", multiplier: 0.40, color: "#c678dd" };
-        return { state: "broken", name: "\u574f\u6389", multiplier: 0.20, color: "#8888a0" };
+        if (pct > 0.81) {
+            return {
+                state: "awake", name: "\u6e05\u9192",
+                palamMult: 0.85, refuseMod: 0.15, orgasmThresholdMod: 0.25,
+                desc: "\u62d2\u7edd\u7387+15% \u7edd\u9876\u95e8\u69db+25%",
+                color: "#98c379",
+                special: { name: "\u6323\u624e", chance: 0.10, effect: "struggle" }
+            };
+        }
+        if (pct > 0.51) {
+            return {
+                state: "wavering", name: "\u52a8\u6447",
+                palamMult: 1.00, refuseMod: 0, orgasmThresholdMod: 0,
+                desc: "\u57fa\u51c6\u7ebf",
+                color: "#e5c07b", special: null
+            };
+        }
+        if (pct > 0.31) {
+            return {
+                state: "dazed", name: "\u604d\u60da",
+                palamMult: 1.25, refuseMod: -0.20, orgasmThresholdMod: -0.20,
+                desc: "\u62d2\u7edd\u7387-20% \u7edd\u9876\u95e8\u69d4-20% \u7f9e\u803b\u8f6c\u5feb\u4e50",
+                color: "#e06c75",
+                special: { name: "\u7f9e\u803b\u8f6c\u5feb\u4e50", effect: "shame_to_joy" }
+            };
+        }
+        if (pct > 0.11) {
+            return {
+                state: "collapsing", name: "\u5d29\u89e3",
+                palamMult: 1.50, refuseMod: -0.40, orgasmThresholdMod: -0.35,
+                desc: "\u62d2\u7edd\u7387-40% \u7edd\u9876\u95e8\u69d4-35% 10%\u5931\u795e",
+                color: "#c678dd",
+                special: { name: "\u5931\u795e", chance: 0.10, effect: "faint" }
+            };
+        }
+        if (pct > 0.01) {
+            return {
+                state: "broken", name: "\u574f\u6389",
+                palamMult: 1.80, refuseMod: 0, orgasmThresholdMod: -0.50,
+                desc: "\u62d2\u7edd\u73870% \u7edd\u9876\u95e8\u69d4-50% \u6bcf\u56de\u5408-3%\u4f53\u529b",
+                color: "#ff3333",
+                special: { name: "\u4f53\u529b\u81ea\u6bc1", effect: "self_destruct" }
+            };
+        }
+        // 0% - collapsed
+        return {
+            state: "collapsed", name: "\u5d29\u6e83",
+            palamMult: 2.00, refuseMod: 0, orgasmThresholdMod: -0.50,
+            desc: "PALAM\u00d72.0 \u7d20\u8d28\u83b7\u53d6 \u4e0b\u56de\u5408\u6062\u590d15%",
+            color: "#ff0000",
+            special: { name: "\u5d29\u6e83\u7ed3\u7b97", effect: "collapse_settlement" }
+        };
     }
 
     getEnergyMultiplier() {
-        return this.getEnergyState().multiplier;
+        return this.getEnergyState().palamMult || 1.0;
+    }
+
+    // ========== Route allocation (1 main + 2 sub) ==========
+    getRouteExpMultiplier(routeId) {
+        if (this.mainRoute < 0) return 1.0; // not chosen: all routes 100%
+        if (routeId === this.mainRoute) return 1.0;
+        if (this.subRoutes.includes(routeId)) return 0.5;
+        return 0.0; // other routes get no exp
+    }
+
+    setMainRoute(routeId) {
+        if (routeId < -1 || routeId >= 5) return false;
+        this.mainRoute = routeId;
+        // Remove from subRoutes if present
+        if (routeId >= 0) {
+            this.subRoutes = this.subRoutes.filter(r => r !== routeId);
+        }
+        return true;
+    }
+
+    toggleSubRoute(routeId) {
+        if (routeId < 0 || routeId >= 5) return { action: 'invalid', routeId };
+        if (routeId === this.mainRoute) return { action: 'isMain', routeId };
+        const idx = this.subRoutes.indexOf(routeId);
+        if (idx >= 0) {
+            this.subRoutes.splice(idx, 1);
+            return { action: 'removed', routeId };
+        } else {
+            if (this.subRoutes.length >= 2) return { action: 'full', routeId };
+            this.subRoutes.push(routeId);
+            return { action: 'added', routeId };
+        }
+    }
+
+    getRouteAllocationLabel() {
+        const names = ['顺从','欲望','痛苦','露出','支配'];
+        if (this.mainRoute < 0) return '未分配';
+        let s = names[this.mainRoute];
+        if (this.subRoutes.length > 0) {
+            s += ' + ' + this.subRoutes.map(r => names[r]).join('/');
+        }
+        return s;
     }
 
     // ========== Talent check shortcuts ==========
@@ -338,7 +440,7 @@ class Character {
     // ========== Route System ==========
     addRouteExp(routeId, value) {
         if (routeId < 0 || routeId >= 5 || value <= 0) return 0;
-        const mult = (typeof getRouteExpMultiplier === 'function') ? getRouteExpMultiplier(this, routeId) : 1.0;
+        const mult = this.getRouteExpMultiplier(routeId);
         const gain = Math.floor(value * mult);
         const oldLv = this.routeLevel[routeId] || 0;
         this.routeExp[routeId] = (this.routeExp[routeId] || 0) + gain;
@@ -456,9 +558,29 @@ class Character {
         return maxRoute >= 2 || hasFallen;
     }
 
+    getFallenDepth() {
+        const maxRouteLv = Math.max(...this.routeLevel);
+        if (maxRouteLv >= 5) return 3;
+        if (maxRouteLv >= 4) return 2;
+        if (maxRouteLv >= 3) return 1;
+        return 0;
+    }
+
     getAssistantBuff() {
         if (!this.isQualifiedAssistant()) return null;
-        return this._assistantBuff || null;
+        const depth = this.getFallenDepth();
+        if (depth === 0) return null;
+        const mainRoute = this.mainRoute >= 0 ? this.mainRoute : 0;
+        const routeLabels = ['\u8f85\u52a9\u4e2d', '\u717d\u60c5\u4e2d', '\u65bd\u538b\u4e2d', '\u5c55\u793a\u4e2d', '\u9a7e\u5fa1\u4e2d'];
+        const label = routeLabels[mainRoute] || '\u8f85\u52a9\u4e2d';
+        return {
+            type: label,
+            depth: depth,
+            hearts: '\u2665'.repeat(depth),
+            palamBoost: depth * 0.10,
+            refuseMod: depth >= 2 ? -(depth - 1) * 0.05 : 0,
+            stage5: this._assistantBuff || null
+        };
     }
 
     getFallenDepth() {
@@ -519,6 +641,9 @@ class Character {
             routeLevel: [...this.routeLevel],
             trainLevel: this.trainLevel,
             routePoints: this.routePoints,
+            mainRoute: this.mainRoute,
+            subRoutes: [...this.subRoutes],
+            _bystanderCount: this._bystanderCount,
             _assistantBuff: this._assistantBuff ? JSON.parse(JSON.stringify(this._assistantBuff)) : null,
             _routeExpBonus: JSON.parse(JSON.stringify(this._routeExpBonus || {}))
         };
@@ -562,6 +687,9 @@ class Character {
         c.routeLevel = data.routeLevel ? [...data.routeLevel] : new Array(5).fill(0);
         c.trainLevel = data.trainLevel !== undefined ? data.trainLevel : 0;
         c.routePoints = data.routePoints !== undefined ? data.routePoints : 0;
+        c.mainRoute = data.mainRoute !== undefined ? data.mainRoute : -1;
+        c.subRoutes = data.subRoutes ? [...data.subRoutes] : [];
+        c._bystanderCount = data._bystanderCount || 0;
         c._assistantBuff = data._assistantBuff || null;
         c._routeExpBonus = data._routeExpBonus || {};
         return c;

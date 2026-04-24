@@ -131,6 +131,9 @@ const TRAIN_COMMAND_META = {
     991:{ stimulatedParts: ["C"],             staminaCost: { target: 5, bystander: 0 }, energyCost: { target: 10, bystander: 0 }, routeTags: { obedience: 0, desire: 3, pain: 0, shame: 0, dominance: 3 }, ejaculationParts: [], affectsBystander: false, isMasterSkill: true },
     992:{ stimulatedParts: ["C"],             staminaCost: { target: 5, bystander: 0 }, energyCost: { target: 15, bystander: 0 }, routeTags: { obedience: 0, desire: 0, pain: 0, shame: 0, dominance: 5 }, ejaculationParts: [], affectsBystander: false, isMasterSkill: true },
 
+    // === NEW: Insight Eye (996) ===
+    996:{ stimulatedParts: [],               staminaCost: { target: 0, bystander: 0 }, energyCost: { target: 10, bystander: 0 }, routeTags: { obedience: 0, desire: 0, pain: 0, shame: 0, dominance: 0 }, ejaculationParts: [], affectsBystander: false, isMasterSkill: true, desc: "洞察之眼：消耗1回合，主奴气力-10，揭示隐藏特质" },
+
     // === NEW: Recovery (998-999) ===
     998:{ stimulatedParts: [],               staminaCost: { target: -20, bystander: 0 }, energyCost: { target: -10, bystander: 0 }, routeTags: { obedience: 2, desire: 0, pain: -2, shame: 0, dominance: 0 }, ejaculationParts: [], affectsBystander: false },
     999:{ stimulatedParts: [],               staminaCost: { target: -30, bystander: 0 }, energyCost: { target: -15, bystander: 0 }, routeTags: { obedience: 1, desire: 0, pain: -1, shame: 0, dominance: 0 }, ejaculationParts: [], affectsBystander: false },

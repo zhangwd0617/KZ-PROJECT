@@ -56,8 +56,24 @@ class TrainSystem {
         // === NEW (P2/P3): Part-based orgasm system ===
         this._applyPartBasedSystem(comId, target, master);
 
+        // === P2: Assistant Stage5 SM buff ===
+        const assi = this.game.getAssi();
+        if (assi && assi._assistantBuff && assi._assistantBuff.smMult) {
+            const def2 = TRAIN_DEFS[comId];
+            if (def2 && def2.category === "sm") {
+                for (let i = 0; i < target.source.length; i++) {
+                    if (target.source[i] > 0) {
+                        target.source[i] = Math.floor(target.source[i] * assi._assistantBuff.smMult);
+                    }
+                }
+            }
+        }
+
         // 4. Post-process (SOURCE -> PALAM, climax/mark checks)
         this._postProcess(target, master);
+
+        // === P2: Assistant Stage5 buff effects (after post-process) ===
+        this._applyAssistantStage5Buff(target);
 
         // 5. Narration: result description (TRAIN_MESSAGE_A)
         this.game.dialogueSystem.narrateResult(target, comId);
@@ -73,6 +89,13 @@ class TrainSystem {
 
         // 8. 魔王调教经验+1
         this.game.masterExp++;
+
+        // === NEW (P3-3): Hidden trait progress from training intensity ===
+        const meta = (typeof getTrainMeta === 'function') ? getTrainMeta(comId) : null;
+        const stimulatedParts = meta?.stimulatedParts?.length || 0;
+        if (stimulatedParts >= 3 && typeof addHiddenTraitProgress === 'function') {
+            addHiddenTraitProgress(target, 2 + RAND(4)); // +2~5
+        }
     }
 
     // 记录角色状态快照
@@ -1123,6 +1146,13 @@ class TrainSystem {
                 finalValue = Math.floor(finalValue * target._sensitivityMultipliers[idx]);
             }
 
+            // === NEW (P2-4): Lewd part sensation talents ===
+            const lewdPartMap = { 0: 230, 1: 232, 2: 233, 3: 231 }; // C->230, V->232, A->233, B->231
+            const lewdTalentId = lewdPartMap[idx];
+            if (lewdTalentId && target.talent[lewdTalentId]) {
+                finalValue = Math.floor(finalValue * 1.30);
+            }
+
             target.addPartGain(idx, finalValue);
 
             // Penis ejaculation gauge (for P part or linked parts)
@@ -1186,14 +1216,33 @@ class TrainSystem {
                     }
                 }
 
+                // === NEW (P2-2): Stage5 assistant buff - postOrgasmBoost ===
+                const assiOrgasm = this.game.getAssi();
+                if (assiOrgasm && assiOrgasm._assistantBuff && assiOrgasm._assistantBuff.postOrgasmBoost) {
+                    target._postOrgasmBoostNextTrain = assiOrgasm._assistantBuff.postOrgasmBoost;
+                    UI.appendText(`【${assiOrgasm.name}的秘术将快感封印在${target.name}体内...（下回合全PALAM+${assiOrgasm._assistantBuff.postOrgasmBoost}）】\n`, 'accent');
+                }
+
                 // Dialogue trigger
                 if (this.game.dialogueSystem) this.game.dialogueSystem.onPalamCng(target, "climax");
             }
         }
 
         // 9. Apply stamina/energy costs from meta
-        target.stamina = (target.stamina || target.base[2] || 0) - (meta.staminaCost?.target || 0);
-        target.energy = (target.energy || 0) - (meta.energyCost?.target || 0);
+        let stmCost = meta.staminaCost?.target || 0;
+        let nrgCost = meta.energyCost?.target || 0;
+        // === NEW (P2-3): Stamina save accelerator ===
+        if (target._accelStaminaSave > 0 && stmCost > 0) {
+            stmCost = Math.floor(stmCost * (1 - target._accelStaminaSave));
+        }
+        // === NEW (P3-1): Personality stamina/energy mods ===
+        const pEffCost = target.getPersonalityEffects ? target.getPersonalityEffects() : null;
+        if (pEffCost) {
+            if (pEffCost.staminaMod) stmCost = Math.floor(stmCost * (1 - pEffCost.staminaMod));
+            if (pEffCost.energyMod) nrgCost = Math.floor(nrgCost * (1 - pEffCost.energyMod));
+        }
+        target.stamina = (target.stamina || target.base[2] || 0) - stmCost;
+        target.energy = (target.energy || 0) - nrgCost;
 
         // 10. Route EXP gain (post-train will also give bulk, this is per-command bonus)
         for (let r = 0; r < 5; r++) {
@@ -1205,17 +1254,111 @@ class TrainSystem {
     }
 
     // ========== Post-process ==========
+    _applyAssistantStage5Buff(target) {
+        const assi = this.game.getAssi();
+        if (!assi || !assi._assistantBuff) return;
+        const buff = assi._assistantBuff;
+        const effects = [];
+
+        // 顺从: 每回合+50恭顺PALAM
+        if (buff.perTurnPalam) {
+            for (const [pid, val] of Object.entries(buff.perTurnPalam)) {
+                target.addPalam(parseInt(pid), val);
+                effects.push(`恭顺+${val}`);
+            }
+        }
+
+        // 欲望: 快乐×1.25
+        if (buff.joyMult && target.palam[5] > 0) {
+            target.palam[5] = Math.floor(target.palam[5] * buff.joyMult);
+            effects.push(`快乐×${buff.joyMult}`);
+        }
+
+        // 痛苦: 痛苦80%转快乐
+        if (buff.painToJoy && target.palam[9] > 0) {
+            const transfer = Math.floor(target.palam[9] * buff.painToJoy);
+            target.palam[9] -= transfer;
+            target.palam[5] = (target.palam[5] || 0) + transfer;
+            effects.push(`痛苦→快乐+${transfer}`);
+        }
+
+        // 露出: 羞耻×1.3
+        if (buff.shameMult && target.palam[8] > 0) {
+            target.palam[8] = Math.floor(target.palam[8] * buff.shameMult);
+            effects.push(`羞耻×${buff.shameMult}`);
+        }
+
+        // 露出: 副奴在场羞耻×1.2
+        if (buff.bystanderShameMult && this.game.bystander >= 0 && target.palam[8] > 0) {
+            target.palam[8] = Math.floor(target.palam[8] * buff.bystanderShameMult);
+            effects.push(`副奴羞耻×${buff.bystanderShameMult}`);
+        }
+
+        // 支配: 反感50%转恭顺
+        if (buff.hateToObey && target.palam[11] > 0) {
+            const transfer = Math.floor(target.palam[11] * buff.hateToObey);
+            target.palam[11] -= transfer;
+            target.palam[4] = (target.palam[4] || 0) + transfer;
+            effects.push(`反感→恭顺+${transfer}`);
+        }
+
+        if (effects.length > 0) {
+            UI.appendText(`【${assi.name}助手增益】${effects.join('\u3001')}】\n`, "info");
+        }
+    }
+
     _postProcess(target, master) {
         // 先应用TEQUIP持续性效果
         this._applyTequipEffects(target);
 
-        // Apply SOURCE to PALAM (使用映射转换)
+        // Apply SOURCE to PALAM with energy state modifier
+        const energyState = target.getEnergyState ? target.getEnergyState() : { palamMult: 1.0 };
+        let palamMult = energyState.palamMult || 1.0;
+
+        // 失神检查（崩解状态）：本回合PALAMx1.8（从1.5提升）
+        let faintChance = energyState.special?.chance || 0.10;
+        // === NEW (P3-4): Proud/Noble personalities resist faint ===
+        if (target.talent[11] || target.talent[13]) faintChance *= 0.5;
+        if (energyState.special && energyState.special.effect === "faint" && Math.random() < faintChance) {
+            palamMult *= 1.2; // 1.5 * 1.2 = 1.8
+            target._faintNextTurn = true;
+            UI.appendText(`【${target.name}在崩解中失神了...本回合PALAM暴增，下回合无法行动】\n`, "danger");
+        }
+
         for (let i = 0; i < target.source.length; i++) {
             if (target.source[i] > 0) {
                 const palamId = SOURCE_TO_PALAM[i];
                 if (palamId !== undefined && palamId >= 0) {
-                    target.addPalam(palamId, target.source[i]);
+                    target.addPalam(palamId, Math.floor(target.source[i] * palamMult));
                 }
+            }
+        }
+
+        // 挣扎检查（清醒状态）：10%概率PALAM-30%
+        let struggleChance = energyState.special?.chance || 0.10;
+        // === NEW (P3-4): Timid/Calm personalities struggle more ===
+        if (target.talent[10] || target.talent[14] || target.talent[163]) struggleChance += 0.10;
+        if (energyState.special && energyState.special.effect === "struggle" && Math.random() < struggleChance) {
+            UI.appendText(`【${target.name}在清醒状态下挣扎抵抗...PALAM获取-30%】\n`, "warning");
+            for (let i = 0; i < target.palam.length; i++) {
+                const delta = target.palam[i] - (before.palam[i] || 0);
+                if (delta > 0) {
+                    target.palam[i] = Math.max(before.palam[i] || 0, target.palam[i] - Math.floor(delta * 0.3));
+                }
+            }
+        }
+
+        // 恍惚：羞耻30%转化为快乐（欲情）
+        if (energyState.special && energyState.special.effect === "shame_to_joy") {
+            const shameDelta = (target.palam[8] || 0) - (before.palam[8] || 0);
+            if (shameDelta > 0) {
+                let transferRatio = 0.3;
+                // === NEW (P3-4): Passionate/Lewd personalities convert more shame ===
+                if (target.talent[17] || target.talent[76]) transferRatio = 0.5;
+                const transfer = Math.floor(shameDelta * transferRatio);
+                target.palam[8] = Math.max(0, (target.palam[8] || 0) - transfer);
+                target.palam[5] = (target.palam[5] || 0) + transfer;
+                UI.appendText(`【${target.name}在恍惚中，羞耻转化为快乐...（+${transfer}）】\n`, "info");
             }
         }
 
@@ -1281,23 +1424,34 @@ class TrainSystem {
         }
 
         // Check mark acquisition
+        // === NEW (P2-2): Stage5 assistant buff - markExpMult ===
+        const assiMark = this.game.getAssi();
+        let markChanceBase = 3;
+        let markExpMult = 1.0;
+        if (assiMark && assiMark._assistantBuff && assiMark._assistantBuff.markExpMult) {
+            markExpMult = assiMark._assistantBuff.markExpMult;
+            markChanceBase = Math.max(1, Math.floor(markChanceBase / markExpMult));
+        }
         if (target.palam[9] > 5000 && target.mark[0] < 3) { // Pain -> Pain mark
-            if (RAND(3) === 0) {
-                target.addMark(0, 1);
+            if (RAND(markChanceBase) === 0) {
+                const addLv = Math.max(1, Math.floor(1 * markExpMult));
+                target.addMark(0, addLv);
                 UI.appendText(`【${target.name}获得了苦痛刻印 Lv.${target.mark[0]}】\n`);
                 if (this.game.dialogueSystem) this.game.dialogueSystem.onMarkCng(target, "pain_lv" + target.mark[0]);
             }
         }
         if (target.palam[5] > 8000 && target.mark[1] < 3) { // Lust -> Pleasure mark
-            if (RAND(3) === 0) {
-                target.addMark(1, 1);
+            if (RAND(markChanceBase) === 0) {
+                const addLv = Math.max(1, Math.floor(1 * markExpMult));
+                target.addMark(1, addLv);
                 UI.appendText(`【${target.name}获得了快乐刻印 Lv.${target.mark[1]}】\n`);
                 if (this.game.dialogueSystem) this.game.dialogueSystem.onMarkCng(target, "pleasure_lv" + target.mark[1]);
             }
         }
         if (target.palam[6] > 6000 && target.mark[2] < 3) { // Yield -> Yield mark
-            if (RAND(3) === 0) {
-                target.addMark(2, 1);
+            if (RAND(markChanceBase) === 0) {
+                const addLv = Math.max(1, Math.floor(1 * markExpMult));
+                target.addMark(2, addLv);
                 UI.appendText(`【${target.name}获得了屈服刻印 Lv.${target.mark[2]}】\n`);
                 if (this.game.dialogueSystem) this.game.dialogueSystem.onMarkCng(target, "yield_lv" + target.mark[2]);
             }
@@ -1678,6 +1832,45 @@ class TrainSystem {
             target.source[4] = Math.floor((target.source[4] || 0) * 1.3);
         }
 
+        // === NEW (P2-4): Lewd part sensation talents ===
+        if (target.talent[230]) { // 淫核感觉上升
+            target.source[0] = Math.floor((target.source[0] || 0) * 1.3);
+        }
+        if (target.talent[231]) { // 淫乳感觉上升
+            target.source[14] = Math.floor((target.source[14] || 0) * 1.3);
+        }
+        if (target.talent[232]) { // 淫壶感觉上升
+            target.source[1] = Math.floor((target.source[1] || 0) * 1.3);
+        }
+        if (target.talent[233]) { // 淫肛感觉上升
+            target.source[2] = Math.floor((target.source[2] || 0) * 1.3);
+        }
+
+        // === NEW (P2-4): Special body modes ===
+        // Wet mode: 容易湿 + 高润滑
+        if (target.talent[42] && target.palam[3] > 3000) {
+            target._specialMode = target._specialMode || {};
+            target._specialMode.wet = true;
+            // V/A快感额外+20%
+            target.source[1] = Math.floor((target.source[1] || 0) * 1.2);
+            target.source[2] = Math.floor((target.source[2] || 0) * 1.2);
+        }
+        // Milk mode: 母乳体质
+        if (target.talent[130]) {
+            target._specialMode = target._specialMode || {};
+            target._specialMode.milky = true;
+            // B部位刺激时额外产生母乳/羞耻感
+            if ((target.source[14] || 0) > 0) {
+                target.addPalam(3, 10); // 微量润滑
+                target.addPalam(8, 15); // 羞耻
+            }
+        }
+        // Incontinence mode: 绝顶相关失禁 (简化实现)
+        if (target.talent[76] && target.palam[5] > 6000) { // 淫乱 + 高快乐
+            target._specialMode = target._specialMode || {};
+            target._specialMode.lewd = true;
+        }
+
         // === 技术/知识(50-55) ===
         if (target.talent[50]) { // 学习快
             target.source[19] = Math.floor((target.source[19] || 0) * 1.3);
@@ -1923,6 +2116,18 @@ class TrainSystem {
             for (let i = 0; i < target.source.length; i++) {
                 if (target.source[i] > 0) {
                     target.source[i] = Math.floor(target.source[i] * 1.5);
+                }
+            }
+        }
+
+        // === NEW (P3-1): Personality dynamic palamMods ===
+        const pEff = target.getPersonalityEffects ? target.getPersonalityEffects() : null;
+        if (pEff && pEff.palamMods) {
+            for (const k in pEff.palamMods) {
+                const pid = parseInt(k);
+                const mod = pEff.palamMods[k];
+                if (target.source[pid] > 0 && mod !== 0) {
+                    target.source[pid] = Math.floor(target.source[pid] * (1 + mod));
                 }
             }
         }

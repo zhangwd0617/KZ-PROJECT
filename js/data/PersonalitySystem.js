@@ -237,8 +237,14 @@ function generatePersonality(seedChara) {
     const sub1 = subPool.splice(RAND(subPool.length), 1)[0];
     const sub2 = subPool[RAND(subPool.length)];
 
-    // Pick 2-3 minors
-    const minorCount = 2 + RAND(2);
+    // === NEW (P3-2): Minor trait count distribution ===
+    // 50%:0 / 30%:1 / 15%:2 / 5%:3
+    const minorRoll = RAND(100);
+    let minorCount;
+    if (minorRoll < 50) minorCount = 0;
+    else if (minorRoll < 80) minorCount = 1;
+    else if (minorRoll < 95) minorCount = 2;
+    else minorCount = 3;
     const minors = [];
     const minorPool = [...minorIds];
     for (let i = 0; i < minorCount && minorPool.length > 0; i++) {
