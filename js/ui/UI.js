@@ -151,7 +151,7 @@ const UI = {
         html += `<button class="game-btn danger" onclick="G.shopAction('dispose')">⚔️ 奴隶处分</button>`;
         html += `<button class="game-btn" onclick="G.setState('MUSEUM')">🏛️ 收藏馆</button>`;
         html += `<button class="game-btn" onclick="UI.renderWorldWiki()">📚 世界百科</button>`;
-        html += `<button class="game-btn" onclick="window.open('worldmap.html','_blank')">🗺️ 世界地图</button>`;
+        html += `<button class="game-btn" onclick="G.setState('MAP')">🗺️ 世界地图</button>`;
         if (game._dayPhase === 1) {
             html += `<button class="game-btn primary" onclick="G.eventPhase2()">👁️ 观察勇者行动</button>`;
         } else {
@@ -4538,5 +4538,9 @@ const UI = {
             '• 堕落者队员 + 堕落者队员 = 配合度+10%（同病相怜）<br/>' +
             '• 堕落者队员 + 魔族队员 = 配合度+30%（天然同盟）');
         return html;
+    },
+
+    renderWorldMap(game) {
+        WorldMapUI.render(game);
     }
 };

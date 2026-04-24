@@ -169,6 +169,9 @@ class Game {
             case "MUSEUM":
                 UI.renderMuseum(this);
                 break;
+            case "MAP":
+                UI.renderWorldMap(this);
+                break;
         }
     }
 

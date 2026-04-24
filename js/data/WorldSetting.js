@@ -413,3 +413,128 @@ window.UR_HERO_DEFS = {
     backstory: "现任大酋长的独生女，身上流着古老的血誓之血，她不是为了讨伐魔王而来，而是为了投奔..."
   }
 };
+
+// ============================================
+// World Map Data
+// ============================================
+window.WORLD_MAP_DATA = {
+  // 势力区域：多边形坐标（基于1920x1080参考分辨率）
+  territories: [
+    {
+      id: "human", name: "圣光联邦", race: "人类", pop: "5,800万", ratio: "45%",
+      color: "rgba(220,50,50,0.35)", border: "rgba(220,50,50,0.8)",
+      desc: "贵族议会制，七层城墙，农耕文明，教会骑士团与联邦军对立",
+      path: [[720,80],[1050,60],[1250,150],[1400,280],[1350,420],[1100,480],[950,450],[800,380],[700,250],[680,150]]
+    },
+    {
+      id: "elf", name: "翡翠之冠", race: "精灵", pop: "1,300万", ratio: "10%",
+      color: "rgba(50,150,50,0.35)", border: "rgba(50,150,50,0.8)",
+      desc: "古老王族制，世界树伊格德拉希尔，500年寿命，回归派潜伏",
+      path: [[180,80],[450,60],[550,150],[520,280],[400,320],[250,280],[150,200],[120,120]]
+    },
+    {
+      id: "dwarf", name: "霜铁议会", race: "矮人", pop: "2,000万", ratio: "15%",
+      color: "rgba(180,120,50,0.35)", border: "rgba(180,120,50,0.8)",
+      desc: "锻造家族议会制，地下七层深炉城，矿脉即权力，记忆之锤秘密活动",
+      path: [[600,300],[750,280],[800,380],[750,480],[650,500],[550,450],[520,350]]
+    },
+    {
+      id: "orc", name: "赤潮联盟", race: "兽人", pop: "3,200万", ratio: "25%",
+      color: "rgba(200,100,30,0.35)", border: "rgba(200,100,30,0.8)",
+      desc: "部落联盟制，决斗产生大酋长，萨满传承，血誓兄弟会潜伏",
+      path: [[450,520],[650,500],[750,480],[850,550],[900,700],[800,850],[600,900],[400,850],[350,700],[400,600]]
+    },
+    {
+      id: "church", name: "教廷直属地", race: "教廷", pop: "200万", ratio: "1.5%",
+      color: "rgba(255,215,0,0.35)", border: "rgba(255,215,0,0.8)",
+      desc: "地面议会总部，神谕接收处，异端审判所",
+      path: [[1400,280],[1550,250],[1650,350],[1600,500],[1450,480],[1350,420]]
+    },
+    {
+      id: "frontier", name: "边缘地带", race: "混血/流放", pop: "650万", ratio: "5%",
+      color: "rgba(100,100,120,0.35)", border: "rgba(100,100,120,0.8)",
+      desc: "三不管地带，堕落者地下网络，走私者与古代魔族残部",
+      path: [[1550,250],[1750,200],[1850,350],[1800,600],[1600,650],[1600,500],[1650,350]]
+    },
+    {
+      id: "desert", name: "奥莱恩沙漠", race: "无人区", pop: "<10万", ratio: "0%",
+      color: "rgba(200,180,100,0.2)", border: "rgba(200,180,100,0.5)",
+      desc: "古代战场遗迹，探险者与盗墓贼",
+      path: [[800,380],[950,450],[1100,480],[1050,600],[900,700],[850,550],[750,480]]
+    }
+  ],
+
+  // 城市数据
+  cities: [
+    // 人类城市
+    { name: "圣光城", type: "capital", race: "human", x: 950, y: 220, pop: "120万", feature: "联邦大统领驻地·贵族议会·大圣堂·勇者总部" },
+    { name: "金穗城", type: "major", race: "human", x: 1150, y: 380, pop: "45万", feature: "联邦粮仓·南方贵族派大本营·粮食交易所" },
+    { name: "灰堡", type: "major", race: "human", x: 1250, y: 180, pop: "38万", feature: "北方要塞·教会骑士团总部·边境军事" },
+    { name: "麦香镇", type: "town", race: "human", x: 1050, y: 300, pop: "8万", feature: "小麦主产区" },
+    { name: "铁砧镇", type: "town", race: "human", x: 850, y: 320, pop: "6万", feature: "矮人贸易桥头堡（已萎缩）" },
+    { name: "渡口镇", type: "town", race: "human", x: 1200, y: 450, pop: "7万", feature: "河港·漕运枢纽" },
+    { name: "银滩镇", type: "town", race: "human", x: 1350, y: 350, pop: "5万", feature: "盐业·渔业·海军预备港" },
+    { name: "荆棘镇", type: "town", race: "human", x: 780, y: 200, pop: "4万", feature: "背教者地下网络据点·军费重地" },
+    { name: "琉璃镇", type: "town", race: "human", x: 750, y: 150, pop: "6万", feature: "平民富商崛起地·奢侈品工坊" },
+    { name: "高塔镇", type: "town", race: "human", x: 880, y: 120, pop: "5万", feature: "法师塔聚集地（教廷监视）·背教者隐藏点" },
+    { name: "凯旋镇", type: "town", race: "human", x: 1100, y: 420, pop: "6万", feature: "勇者训练营·新兵入伍处" },
+
+    // 矮人城市
+    { name: "深炉城", type: "capital", race: "dwarf", x: 650, y: 380, pop: "60万", feature: "议会长驻地·熔心锻造厂·记忆之锤据点（地下七层）" },
+    { name: "秘银厅", type: "major", race: "dwarf", x: 550, y: 320, pop: "22万", feature: "最大秘银矿脉·古代契约碎片发现地" },
+    { name: "龙息炉", type: "major", race: "dwarf", x: 720, y: 420, pop: "18万", feature: "巨型熔炉·武器出口·钢铁圣殿东侧3里" },
+    { name: "黑钻镇", type: "town", race: "dwarf", x: 600, y: 300, pop: "4万", feature: "钻石宝石开采" },
+    { name: "熔岩镇", type: "town", race: "dwarf", x: 680, y: 450, pop: "3万", feature: "温泉·锻造冷却池·矿工疗养" },
+    { name: "砧板镇", type: "town", race: "dwarf", x: 620, y: 420, pop: "5万", feature: "小家族作坊·革新派温床" },
+    { name: "竖井镇", type: "town", race: "dwarf", x: 660, y: 350, pop: "6万", feature: "升降机枢纽·人口流动中转" },
+    { name: "硫磺镇", type: "town", race: "dwarf", x: 580, y: 400, pop: "2万", feature: "火药炼金材料·教廷限制研发区" },
+    { name: "陨铁镇", type: "town", race: "dwarf", x: 500, y: 350, pop: "3万", feature: "古代金属研究·铁天王重点监视" },
+
+    // 精灵城市
+    { name: "世界树·伊格德拉希尔", type: "capital", race: "elf", x: 320, y: 180, pop: "35万", feature: "女王宫殿·世界树神殿·翡翠高塔外围5里" },
+    { name: "晨露城", type: "major", race: "elf", x: 420, y: 250, pop: "12万", feature: "与人类贸易关口（已萧条）·回归派秘密通道" },
+    { name: "织星塔", type: "major", race: "elf", x: 280, y: 100, pop: "8万", feature: "占星魔法学院·古代魔法禁书库" },
+    { name: "叶影村", type: "town", race: "elf", x: 350, y: 220, pop: "3万", feature: "普通精灵聚居·树冠中层" },
+    { name: "溪歌镇", type: "town", race: "elf", x: 380, y: 280, pop: "2万", feature: "吟游诗人·历史学家·口头史诗传承" },
+    { name: "根须营地", type: "town", race: "elf", x: 300, y: 250, pop: "4万", feature: "树根精灵圣地·回归派核心" },
+    { name: "苔藓居", type: "town", race: "elf", x: 250, y: 200, pop: "1.5万", feature: "草药师·德鲁伊聚集地" },
+    { name: "风语谷", type: "town", race: "elf", x: 200, y: 150, pop: "2万", feature: "风系魔法修炼·年轻精灵叛逆期聚集地" },
+    { name: "花绽镇", type: "town", race: "elf", x: 400, y: 150, pop: "2.5万", feature: "纺织染料·与矮人旧丝绸贸易点" },
+    { name: "银弦镇", type: "town", race: "elf", x: 360, y: 80, pop: "3万", feature: "精灵弓手训练场·森林守护者营地" },
+
+    // 兽人城市
+    { name: "赤潮要塞", type: "capital", race: "orc", x: 600, y: 700, pop: "50万", feature: "大酋长驻地·决斗广场·十二部落帐篷城·战争神殿西侧2里" },
+    { name: "裂颅大营", type: "major", race: "orc", x: 750, y: 650, pop: "28万", feature: "最大部落联盟营地·萨满祭坛·血誓兄弟会核心据点" },
+    { name: "霜狼原", type: "major", race: "orc", x: 500, y: 800, pop: "20万", feature: "冬季牧场·霜狼部落发源地·游牧文化中心" },
+    { name: "血蹄营地", type: "town", race: "orc", x: 650, y: 600, pop: "8万", feature: "血蹄部落驻地·主要骑兵产地" },
+    { name: "黑牙哨站", type: "town", race: "orc", x: 800, y: 580, pop: "3万", feature: "监视人类（灰堡）与精灵（晨露城）前哨" },
+    { name: "钢鬃牧场", type: "town", race: "orc", x: 550, y: 750, pop: "10万", feature: "主要粮食产地·教廷征收比例最高" },
+    { name: "毒矛集市", type: "town", race: "orc", x: 700, y: 780, pop: "4万", feature: "与矮人黑市旧交易点·主战派聚集地" },
+    { name: "雷图腾谷", type: "town", race: "orc", x: 850, y: 700, pop: "2万", feature: "萨满传承地·古老知识保存处" },
+    { name: "火颅营地", type: "town", race: "orc", x: 500, y: 650, pop: "5万", feature: "对抗教廷文明化镇压前哨·冲突最频繁" },
+
+    // 教廷圣地
+    { name: "圣座城", type: "church", race: "church", x: 1500, y: 350, pop: "15万", feature: "地面议会总部·神谕接收处·大主教驻地" },
+    { name: "裁决城", type: "church", race: "church", x: 1450, y: 450, pop: "8万", feature: "异端审判所总部·禁书焚毁中心" },
+
+    // 边缘地带
+    { name: "西尔索", type: "town", race: "frontier", x: 100, y: 300, pop: "30万", feature: "名义独立·教廷傀儡·各族混血聚集地" },
+    { name: "埃雷克西亚", type: "town", race: "frontier", x: 1700, y: 500, pop: "25万", feature: "争议地带·教廷控制力薄弱·流放者节点" }
+  ],
+
+  // 四天王要塞
+  forts: [
+    { name: "纯白要塞", king: "圣天王·拉斐尔", race: "angel", x: 950, y: 140, garrison: "3000天使骑士", target: "圣光城", direction: "北侧10里", desc: "监视人类贵族与背教者" },
+    { name: "钢铁圣殿", king: "铁天王·托尔", race: "angel", x: 780, y: 420, garrison: "2500天使工匠", target: "深炉城", direction: "东侧3里", desc: "监视矮人锻造家族与记忆之锤" },
+    { name: "翡翠高塔", king: "翠天王·奥莉薇亚", race: "angel", x: 420, y: 180, garrison: "2000天使法师", target: "世界树", direction: "外围5里", desc: "监视精灵王族与回归派" },
+    { name: "战争神殿", king: "赤天王·凯撒", race: "angel", x: 520, y: 700, garrison: "4000天使战士", target: "赤潮要塞", direction: "西侧2里", desc: "监视兽人大酋长与血誓兄弟会" }
+  ],
+
+  // 恩怨连接线（用于显示种族摩擦）
+  grudges: [
+    { from: "圣光城", to: "赤潮要塞", label: "净化战争", color: "#ff4444", desc: "人类发起净化战争，兽人铭记仇恨" },
+    { from: "深炉城", to: "世界树·伊格德拉希尔", label: "贸易断绝", color: "#ff8844", desc: "秘银价格操纵，矮人精灵互相鄙视" },
+    { from: "灰堡", to: "晨露城", label: "森林争端", color: "#44ff44", desc: "人类砍伐森林，精灵袭击村庄" },
+    { from: "裂颅大营", to: "秘银厅", label: "圣兽猎杀", color: "#ffaa44", desc: "伪造矮人偷猎兽人圣兽事件" }
+  ]
+};
