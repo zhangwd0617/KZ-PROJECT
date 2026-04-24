@@ -65,6 +65,17 @@ import './systems/EventSystem.js';
 
 // 9. Engine main
 import './engine/Game.js';
+import './systems/CombatEngine.js';
+import './systems/DungeonExplorer.js';
+import './systems/HeroGenerator.js';
+import './systems/SquadManager.js';
+import './systems/RelationSystem.js';
+import './systems/TaskSystem.js';
+import './systems/SpySystem.js';
+import './systems/MuseumSystem.js';
+import './systems/StatusAilmentSystem.js';
+import './systems/EconomySystem.js';
+import './systems/BodyModSystem.js';
 
 // 10. UI
 import './ui/WorldMapUI.js';
