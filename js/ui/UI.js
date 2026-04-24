@@ -150,6 +150,7 @@ const UI = {
         html += `<button class="game-btn" onclick="UI.renderPrison(G)">⛓️ 俘虏管理</button>`;
         html += `<button class="game-btn danger" onclick="G.shopAction('dispose')">⚔️ 奴隶处分</button>`;
         html += `<button class="game-btn" onclick="G.setState('MUSEUM')">🏛️ 收藏馆</button>`;
+        html += `<button class="game-btn" onclick="UI.renderWorldWiki()">📚 世界百科</button>`;
         if (game._dayPhase === 1) {
             html += `<button class="game-btn primary" onclick="G.eventPhase2()">👁️ 观察勇者行动</button>`;
         } else {
@@ -3694,7 +3695,7 @@ const UI = {
         html += `<button class="game-btn" onclick="G.flag[502] = 100; UI.renderConfig(G)">100% (必触发)</button>`;
         html += `<button class="game-btn" onclick="G.flag[502] = 10; UI.renderConfig(G)">恢复默认 (10%)</button>`;
         html += '</div>';
-        this.setButtons(`<button class="back-btn-top" onclick="G.setState('SHOP')">← 返回</button><button class="game-btn" style="margin-left:8px;" onclick="UI.renderTalentHelp()">📖 素质帮助</button>` + html);
+        this.setButtons(`<button class="back-btn-top" onclick="G.setState('SHOP')">← 返回</button><button class="game-btn" style="margin-left:8px;" onclick="UI.renderTalentHelp()">📖 素质帮助</button><button class="game-btn" style="margin-left:8px;" onclick="UI.renderWorldWiki()">🌍 世界百科</button>` + html);
     },
 
     // ========== 弹窗 ==========
@@ -4324,9 +4325,217 @@ const UI = {
             this._combatOnComplete = null;
             cb();
         }
-    }
-};
+    },
 
 // 训练状态栏已迁移到 #train-status-bar，底部覆盖代码已移除
 // UI._renderTrainStatus 现在直接在对象方法中操作 DOM
 
+
+    // ========== 世界百科（Wiki）==========
+    renderWorldWiki(tab) {
+        tab = tab || 'overview';
+        this.hideTrainStatus();
+        this.clearText();
+        if (this.textArea) this.textArea.style.display = 'block';
+        this.appendText('【世界百科】\n', 'accent');
+        this.appendText('ERA Maou EX 世界观与势力设定总览');
+        this.appendDivider();
+
+        const tabs = [
+            { key: 'overview', label: '🌍 世界观总览' },
+            { key: 'races', label: '👑 四大种族' },
+            { key: 'kings', label: '👼 四天王' },
+            { key: 'grudges', label: '⚔️ 种族恩怨' },
+            { key: 'heroes', label: '🛡️ 勇者制度' },
+            { key: 'fallen', label: '🌑 堕落种族' }
+        ];
+        let nav = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">';
+        for (const t of tabs) {
+            const active = t.key === tab ? 'background:var(--accent);color:#fff;' : '';
+            nav += '<button class="game-btn" style="font-size:0.82rem;padding:4px 8px;' + active + '" onclick="UI.renderWorldWiki(\'' + t.key + '\')">' + t.label + '</button>';
+        }
+        nav += '</div>';
+        this.textArea.innerHTML += nav;
+
+        let html = '<div style="line-height:normal;">';
+        if (tab === 'overview') html += this._renderWikiOverview();
+        else if (tab === 'races') html += this._renderWikiRaces();
+        else if (tab === 'kings') html += this._renderWikiKings();
+        else if (tab === 'grudges') html += this._renderWikiGrudges();
+        else if (tab === 'heroes') html += this._renderWikiHeroes();
+        else if (tab === 'fallen') html += this._renderWikiFallen();
+        html += '</div>';
+        this.textArea.innerHTML += html;
+        this.setButtons('<button class="back-btn-top" onclick="G.setState(\'SHOP\')">← 返回</button>');
+    },
+
+    _wikiCard(title, content, color) {
+        const c = color || 'var(--accent)';
+        return '<div style="margin:8px 0;padding:10px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;">' +
+            '<div style="font-weight:bold;color:' + c + ';margin-bottom:6px;font-size:0.95rem;">' + title + '</div>' +
+            '<div style="font-size:0.85rem;color:var(--text);">' + content + '</div></div>';
+    },
+
+    _renderWikiOverview() {
+        let html = '';
+        html += this._wikiCard('三层权力结构',
+            '<div style="font-family:monospace;font-size:0.8rem;line-height:1.6;">' +
+            '<strong style="color:var(--accent);">【天界】</strong><br/>' +
+            '&nbsp;&nbsp;神王（最高意志）<br/>' +
+            '&nbsp;&nbsp;└─ 神谕传达<br/><br/>' +
+            '<strong style="color:var(--accent);">【地面议会】</strong>（教廷中枢）<br/>' +
+            '&nbsp;&nbsp;├─ 四天王（天使总督，各管一域）<br/>' +
+            '&nbsp;&nbsp;├─ 教廷大主教（行政总管）<br/>' +
+            '&nbsp;&nbsp;└─ 议会决议 → 向神王汇报<br/><br/>' +
+            '<strong style="color:var(--accent);">【四大种族王国】</strong>（自治领地）<br/>' +
+            '&nbsp;&nbsp;├─ 人类：圣光联邦（贵族议会制）<br/>' +
+            '&nbsp;&nbsp;├─ 矮人：霜铁议会（锻造家族制）<br/>' +
+            '&nbsp;&nbsp;├─ 精灵：翡翠之冠（王族制）<br/>' +
+            '&nbsp;&nbsp;└─ 兽人：赤潮联盟（酋长制）<br/><br/>' +
+            '<strong style="color:var(--accent);">【天王自治领】</strong>（依附于主城旁）<br/>' +
+            '&nbsp;&nbsp;├─ 圣天王领：纯白要塞<br/>' +
+            '&nbsp;&nbsp;├─ 铁天王领：钢铁圣殿<br/>' +
+            '&nbsp;&nbsp;├─ 翠天王领：翡翠高塔<br/>' +
+            '&nbsp;&nbsp;└─ 赤天王领：战争神殿' +
+            '</div>');
+        html += this._wikiCard('关键规则',
+            '• 四天王<strong>不伪装身份</strong>，公开以天使身份存在<br/>' +
+            '• 四大种族保留自己的政治体系，四天王不直接干涉内政（除非涉及异端）<br/>' +
+            '• 教廷是<strong>独立于种族统治阶级</strong>的特殊存在，直接向神王负责<br/>' +
+            '• 四天王之间是<strong>平级关系</strong>，但互相竞争，都希望扩大自己的影响力');
+        return html;
+    },
+
+    _renderWikiRaces() {
+        let html = '';
+        const rp = window.RACE_POLITICS;
+        const raceOrder = [1, 4, 2, 3];
+        const raceColors = { 1: '#ffd700', 4: '#87ceeb', 2: '#90ee90', 3: '#ff6347' };
+        for (const raceId of raceOrder) {
+            const r = rp[raceId];
+            if (!r) continue;
+            let content = '<strong>政体：</strong>' + r.polity + ' | <strong>首都：</strong>' + r.capital + '<br/><br/>';
+            content += '<strong>权力结构：</strong><br/>';
+            for (const p of r.powerStructure) {
+                content += '• ' + p.title + ' — ' + p.desc + '<br/>';
+            }
+            content += '<br/><strong>与教廷关系：</strong><br/>';
+            for (const rel of r.churchRelation) {
+                content += '• ' + rel + '<br/>';
+            }
+            content += '<br/><strong>内部矛盾：</strong><br/>';
+            for (const c of r.internalConflicts) {
+                content += '• ' + c + '<br/>';
+            }
+            content += '<br/><strong>对魔王态度：</strong><br/>';
+            for (const k in r.attitudeToDevil) {
+                content += '• ' + r.attitudeToDevil[k] + '<br/>';
+            }
+            html += this._wikiCard(r.kingdom + '（' + r.raceName + '）', content, raceColors[raceId]);
+        }
+        return html;
+    },
+
+    _renderWikiKings() {
+        let html = '';
+        const hk = window.HEAVENLY_KINGS;
+        const kingOrder = ['raphael', 'thor', 'olivia', 'caesar'];
+        const kingColors = { raphael: '#fffacd', thor: '#c0c0c0', olivia: '#98fb98', caesar: '#ff7f50' };
+        for (const key of kingOrder) {
+            const k = hk[key];
+            if (!k) continue;
+            let content = '<strong>神名：</strong>' + k.divineName + ' | <strong>性别：</strong>' + k.gender + ' | <strong>位阶：</strong>' + k.rank + '<br/>';
+            content += '<strong>驻地：</strong>' + k.base + ' | <strong>军团规模：</strong>' + k.legionSize + ' ' + k.legionType + '<br/><br/>';
+            content += '<strong>心理状态：</strong>' + k.psyche + '<br/>';
+            content += '<strong>魔王苏醒后态度：</strong>' + k.attitudeToDevil + '<br/><br/>';
+            content += '<strong>暗中挑事：</strong>' + k.intrigue.method + '<br/>';
+            content += '• 效果：' + k.intrigue.effect;
+            html += this._wikiCard(k.title + '「' + k.divineName + '」', content, kingColors[key]);
+        }
+        return html;
+    },
+
+    _renderWikiGrudges() {
+        let html = '';
+        const rg = window.RACE_GRUDGES;
+        for (const key in rg) {
+            const g = rg[key];
+            let content = '<strong>恩怨根源：</strong>' + g.origin + '<br/><br/>';
+            content += '<strong>现状：</strong><br/>';
+            for (const c of g.current) {
+                content += '• ' + c + '<br/>';
+            }
+            content += '<br/><strong>游戏影响：</strong><br/>';
+            content += '• 小队配合度惩罚：' + g.partyPenalty + '%<br/>';
+            content += '• ' + g.combatEffect;
+            html += this._wikiCard(g.name, content, '#ff6b6b');
+        }
+        html += this._wikiCard('配合度速查表',
+            '<div style="font-size:0.8rem;">' +
+            '• 同种族正统 +20%<br/>' +
+            '• 人类↔兽人 -15%<br/>' +
+            '• 矮人↔精灵 -15%<br/>' +
+            '• 精灵↔人类 -10%<br/>' +
+            '• 兽人↔矮人 -10%<br/>' +
+            '• 堕落者+正统 -20%<br/>' +
+            '• 堕落者+堕落者 +10%<br/>' +
+            '• 堕落者+魔族 +30%' +
+            '</div>');
+        return html;
+    },
+
+    _renderWikiHeroes() {
+        let html = '';
+        html += this._wikiCard('勇者小队配置',
+            '<strong>标准配置：3人冒险小队</strong><br/><br/>' +
+            '• <strong>前排（坦克/战士）</strong>：人类骑士 / 矮人重装 / 兽人狂战士<br/>' +
+            '• <strong>中排（输出/控制）</strong>：人类法师 / 精灵弓手 / 矮人工程师<br/>' +
+            '• <strong>后排（辅助/治疗）</strong>：人类牧师 / 精灵德鲁伊 / 兽人萨满');
+
+        let rarityContent = '';
+        const hr = window.HERO_RARITY_DEFS;
+        for (const key in hr) {
+            const r = hr[key];
+            rarityContent += '• <strong>' + r.name + '</strong>（' + r.label + '）概率' + r.prob + '% — ' + r.desc + '<br/>';
+        }
+        html += this._wikiCard('勇者稀有度', rarityContent, '#ffd700');
+
+        let urContent = '';
+        const ur = window.UR_HERO_DEFS;
+        for (const key in ur) {
+            const u = ur[key];
+            urContent += '• <strong>「' + u.title + '」' + u.name + '</strong>（' + u.desc + '）<br/>';
+        }
+        html += this._wikiCard('UR勇者列表', urContent, '#ff44aa');
+        return html;
+    },
+
+    _renderWikiFallen() {
+        let html = '';
+        html += this._wikiCard('什么是堕落？',
+            '堕落不是生理变异，而是<strong>思想上的背离教廷</strong>。<br/>' +
+            '被教廷定义为堕落的个体，仍然属于原种族，但：<br/>' +
+            '• 被教廷通缉<br/>' +
+            '• 被同族排斥（除非同族也有堕落者）<br/>' +
+            '• 对魔王有天然好感<br/>' +
+            '• 知道部分或全部真相');
+
+        const fr = window.FALLEN_RACES;
+        for (const key in fr) {
+            const f = fr[key];
+            let content = '<strong>原种族：</strong>' + f.originRaceName + '<br/>';
+            content += '<strong>形成原因：</strong>' + f.formationCause + '<br/>';
+            content += '<strong>标记：</strong>' + f.marking + '<br/>';
+            content += '<strong>投靠方式：</strong>' + f.joinMethod + '<br/>';
+            content += '<strong>初始恭顺加成：</strong>+' + (f.traits.obedienceBonus || 0) + '%<br/>';
+            content += '<strong>真相碎片：</strong>' + f.truthFragment + '个';
+            html += this._wikiCard(f.prefix, content, '#8b4513');
+        }
+
+        html += this._wikiCard('队伍编成影响',
+            '• 正统种族队员 + 堕落者队员 = 配合度-20%（被队友敌视）<br/>' +
+            '• 堕落者队员 + 堕落者队员 = 配合度+10%（同病相怜）<br/>' +
+            '• 堕落者队员 + 魔族队员 = 配合度+30%（天然同盟）');
+        return html;
+    }
+};

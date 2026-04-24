@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Game Main Controller — Emuera core state machine
  * States: TITLE → FIRST → SHOP →(TRAIN → AFTERTRAIN → ABLUP → TURNEND → SHOP)
  */
@@ -4000,7 +4000,17 @@ class Game {
                     let threshold = 15;
                     if (rel.level >= 4) threshold = 30;      // 莫逆之交：范围更大
                     else if (rel.level >= 3) threshold = 25; // 好感：范围放宽
-                    else if (rel.level <= 1) continue;       // 敌视/不死不休：不组队
+                    else if (rel.level <= 1) continue;       // 敌视/不死不休：不组队\n                    // 种族配合度修正（V3.0 政治体系）
+                    if (typeof calculateRaceCompatibility === 'function') {
+                        const raceA = hero.talent ? (hero.talent[314] || 1) : 1;
+                        const raceB = other.talent ? (other.talent[314] || 1) : 1;
+                        const isFallenA = (hero.cflag[960] || 0) === 1;
+                        const isFallenB = (other.cflag[960] || 0) === 1;
+                        const compat = calculateRaceCompatibility(raceA, raceB, isFallenA, isFallenB);
+                        threshold = Math.floor(threshold * (1 + compat / 100));
+                        if (threshold < 5) threshold = 5;
+                    }
+
                     if (diff <= threshold) {
                         squad.push(other);
                         assigned.add(j);
@@ -4041,6 +4051,11 @@ class Game {
                         member.cflag[910] = 1;
                     }
                 }
+                // 计算小队士气（V3.0 种族配合度）
+                const morale = this._calculateSquadMorale(squad);
+                for (const member of squad) {
+                    member.cflag[903] = morale;
+                }
                 // 治疗职业小队恢复
                 this._applySquadHealing(squad);
                 squadId++;
@@ -4048,6 +4063,33 @@ class Game {
         }
     }
 
+    // 计算小队士气（0-100），受种族配合度、相性关系、职业搭配影响
+    _calculateSquadMorale(squad) {
+        if (!squad || squad.length < 2) return 100;
+        let morale = 100;
+        const healerClasses = [202, 205, 209];
+        let hasHealer = false;
+        for (let i = 0; i < squad.length; i++) {
+            const m = squad[i];
+            if (healerClasses.includes(m.cflag[950] || 0)) hasHealer = true;
+            for (let j = i + 1; j < squad.length; j++) {
+                const other = squad[j];
+                const rel = this._getHeroRelation(m, other);
+                if (rel.level <= 1) morale -= 15;
+                else if (rel.level >= 4) morale += 10;
+                if (typeof calculateRaceCompatibility === 'function') {
+                    const raceA = m.talent ? (m.talent[314] || 1) : 1;
+                    const raceB = other.talent ? (other.talent[314] || 1) : 1;
+                    const isFallenA = (m.cflag[960] || 0) === 1;
+                    const isFallenB = (other.cflag[960] || 0) === 1;
+                    const compat = calculateRaceCompatibility(raceA, raceB, isFallenA, isFallenB);
+                    morale += compat;
+                }
+            }
+        }
+        if (hasHealer) morale += 5;
+        return Math.max(0, Math.min(150, morale));
+    }
     // 小队治疗职业自动恢复
     _applySquadHealing(squad) {
         if (!squad || squad.length < 2) return;
@@ -4798,10 +4840,24 @@ class Game {
         const femaleRatio = this.flag[500] || 90;
         const isFemale = RAND(100) < femaleRatio;
         const template = isFemale ? cfg.heroTemplates.female : cfg.heroTemplates.male;
+        // V3.0 预生成种族（用于姓名和属性）
+        const raceRoll = RAND(100);
+        let preRace = 1;
+        if (raceRoll < 35) preRace = 1;      // 人类 35%
+        else if (raceRoll < 55) preRace = 2; // 精灵 20%
+        else if (raceRoll < 75) preRace = 3; // 兽人 20%
+        else if (raceRoll < 95) preRace = 4; // 矮人 20%
+        else if (raceRoll < 98) preRace = 6; // 天使 3%
+        else if (raceRoll < 99) preRace = 5; // 魔族 1%
+        else preRace = 7 + RAND(4);          // 其他 1%
+
+        // V3.0 基于种族的姓名生成
         const pools = template.namePools;
-        const cultures = Object.keys(pools);
-        const culture = cultures[RAND(cultures.length)];
-        const pool = pools[culture];
+        let raceKey = "human";
+        if (preRace === 2) raceKey = "elf";
+        else if (preRace === 3) raceKey = "orc";
+        else if (preRace === 4) raceKey = "dwarf";
+        const pool = pools[raceKey] || pools["human"];
         const family = pool.family[RAND(pool.family.length)];
         const given = pool.given[RAND(pool.given.length)];
         const name = template.namePrefix + family + given;
@@ -4812,6 +4868,7 @@ class Game {
         if (power < 5) power = 5;
         if (power > 200) power = 200; // 等级上限200
         const hero = new Character(-2);
+        hero.talent[314] = preRace; // 预设种族
         hero.name = name;
         hero.callname = name;
         hero.base[0] = 1000 + power * 200 + RAND(power * 100);
@@ -4907,6 +4964,39 @@ class Game {
         const goalIds = Object.keys(HERO_GOAL_DEFS);
         const goalId = goalIds[RAND(goalIds.length)];
         hero.cflag[951] = goalId; // 存储目标ID
+        // === 稀有度判定 (N/R/SR/SSR/UR) ===
+        const rarity = typeof rollHeroRarity === 'function' ? rollHeroRarity() : 'N';
+        hero.cflag[953] = rarity;
+        const rarityBonus = { N: 1.0, R: 1.1, SR: 1.2, SSR: 1.35, UR: 1.5 };
+        const rb = rarityBonus[rarity] || 1.0;
+        if (rb > 1.0) {
+            hero.base[0] = Math.floor(hero.base[0] * rb);
+            hero.maxbase[0] = hero.base[0];
+            hero.hp = hero.base[0];
+            hero.cflag[11] = Math.floor(hero.cflag[11] * rb);
+            hero.cflag[12] = Math.floor(hero.cflag[12] * rb);
+            hero.cflag[13] = Math.floor(hero.cflag[13] * rb);
+        }
+        if (rarity === 'UR') {
+            hero.cstr[354] = '【UR】传说中的勇者';
+            hero.gold = Math.floor(hero.gold * 3);
+        } else if (rarity === 'SSR') {
+            hero.cstr[354] = '【SSR】英雄级勇者';
+        } else if (rarity === 'SR') {
+            hero.cstr[354] = '【SR】精英勇者';
+        }
+
+        // === 角色定位（前排/中排/后排）===
+        const classId = hero.cflag[950] || 0;
+        const backClasses = [202, 209];
+        const frontClasses = [204, 211];
+        if (backClasses.includes(classId)) {
+            hero.cflag[952] = 3;
+        } else if (frontClasses.includes(classId)) {
+            hero.cflag[952] = 1;
+        } else {
+            hero.cflag[952] = 2;
+        }
         // === 勇者冒险口号 ===
         const mottoPool = HERO_MOTTO_POOLS[goalId] || HERO_MOTTO_POOLS.defeat_master;
         hero.cstr[0] = mottoPool[RAND(mottoPool.length)];
@@ -6160,3 +6250,4 @@ class Game {
 }
 
 window.Game = Game;
+
