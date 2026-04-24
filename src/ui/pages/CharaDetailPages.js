@@ -412,6 +412,12 @@ Object.assign(UI, {
                 <div class="chara-stat-grid">
                     <div class="chara-stat-item"><span class="chara-stat-name">性别</span><span class="chara-stat-val">${c.talent[122] ? '男' : '女'}</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">种族</span><span class="chara-stat-val">${(window.APPEARANCE_DESC_DEFS && window.APPEARANCE_DESC_DEFS.race && window.APPEARANCE_DESC_DEFS.race[c.talent[314]]) || '人类'}</span></div>
+                    <div class="chara-stat-item"><span class="chara-stat-name">势力</span><span class="chara-stat-val">${(() => {
+                        if (c.talent[200] || c.cflag[CFLAGS.CAPTURE_STATUS] === 1) return '魔王一方';
+                        const faction = c.cstr[CSTRS.FACTION];
+                        if (faction) return faction;
+                        return (window.APPEARANCE_DESC_DEFS && window.APPEARANCE_DESC_DEFS.raceFaction && window.APPEARANCE_DESC_DEFS.raceFaction[c.talent[314]]) || '未知势力';
+                    })()}</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">年龄</span><span class="chara-stat-val">${age}岁</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">身高</span><span class="chara-stat-val">${height}cm</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">体重</span><span class="chara-stat-val">${weight}kg</span></div>
