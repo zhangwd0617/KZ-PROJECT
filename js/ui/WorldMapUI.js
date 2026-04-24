@@ -1,8 +1,8 @@
 // ========== World Map UI Module ==========
 window.WorldMapUI = {
     render: function(game) {
-        try {
         const ui = window.UI;
+        try {
         ui.hideTrainStatus();
         ui.clearText();
         if (ui.textArea) ui.textArea.style.display = 'block';
