@@ -44,10 +44,10 @@ Game.prototype.generateHero = function() {
         hero.maxbase[1] = hero.base[1];
         hero.mp = hero.base[1];
         hero.level = power;
-        hero.cflag[9] = power;
-        hero.cflag[11] = 20 + power * 5;  // 攻击
-        hero.cflag[12] = 15 + power * 4;  // 防御
-        hero.cflag[13] = 10 + power * 3;  // 敏捷(速度)
+        hero.cflag[CFLAGS.BASE_HP] = power;
+        hero.cflag[CFLAGS.ATK] = 20 + power * 5;  // 攻击
+        hero.cflag[CFLAGS.DEF] = 15 + power * 4;  // 防御
+        hero.cflag[CFLAGS.SPD] = 10 + power * 3;  // 敏捷(速度)
         // 勇者初始金币（新平衡）
         hero.gold = Math.floor(power * power + RAND(power * 10));
 
@@ -56,7 +56,7 @@ Game.prototype.generateHero = function() {
             const classId = HERO_CLASS_POOL[RAND(HERO_CLASS_POOL.length)];
             const cls = HERO_CLASS_DEFS[classId];
             if (cls) {
-                hero.cflag[950] = classId; // 存储职业ID
+                hero.cflag[CFLAGS.HERO_CLASS] = classId; // 存储职业ID
                 hero.talent[cls.talentId] = 1;
                 // 应用职业属性修正
                 const s = cls.baseStats;
@@ -66,9 +66,9 @@ Game.prototype.generateHero = function() {
                 hero.base[1] = Math.floor(hero.base[1] * s.mp);
                 hero.maxbase[1] = hero.base[1];
                 hero.mp = hero.base[1];
-                hero.cflag[11] = Math.floor(hero.cflag[11] * s.atk);
-                hero.cflag[12] = Math.floor(hero.cflag[12] * s.def);
-                hero.cflag[13] = Math.floor(hero.cflag[13] * s.spd);
+                hero.cflag[CFLAGS.ATK] = Math.floor(hero.cflag[CFLAGS.ATK] * s.atk);
+                hero.cflag[CFLAGS.DEF] = Math.floor(hero.cflag[CFLAGS.DEF] * s.def);
+                hero.cflag[CFLAGS.SPD] = Math.floor(hero.cflag[CFLAGS.SPD] * s.spd);
             }
         }
         if (!isFemale) {
@@ -129,43 +129,43 @@ Game.prototype.generateHero = function() {
         // === 勇者攻略目标 ===
         const goalIds = Object.keys(HERO_GOAL_DEFS);
         const goalId = goalIds[RAND(goalIds.length)];
-        hero.cflag[951] = goalId; // 存储目标ID
+        hero.cflag[CFLAGS.HERO_LEVEL] = goalId; // 存储目标ID
         // === 稀有度判定 (N/R/SR/SSR/UR) ===
         const rarity = typeof rollHeroRarity === 'function' ? rollHeroRarity() : 'N';
-        hero.cflag[953] = rarity;
+        hero.cflag[CFLAGS.HERO_RARITY] = rarity;
         const rarityBonus = { N: 1.0, R: 1.1, SR: 1.2, SSR: 1.35, UR: 1.5 };
         const rb = rarityBonus[rarity] || 1.0;
         if (rb > 1.0) {
             hero.base[0] = Math.floor(hero.base[0] * rb);
             hero.maxbase[0] = hero.base[0];
             hero.hp = hero.base[0];
-            hero.cflag[11] = Math.floor(hero.cflag[11] * rb);
-            hero.cflag[12] = Math.floor(hero.cflag[12] * rb);
-            hero.cflag[13] = Math.floor(hero.cflag[13] * rb);
+            hero.cflag[CFLAGS.ATK] = Math.floor(hero.cflag[CFLAGS.ATK] * rb);
+            hero.cflag[CFLAGS.DEF] = Math.floor(hero.cflag[CFLAGS.DEF] * rb);
+            hero.cflag[CFLAGS.SPD] = Math.floor(hero.cflag[CFLAGS.SPD] * rb);
         }
         if (rarity === 'UR') {
-            hero.cstr[354] = '【UR】传说中的勇者';
+            hero.cstr[CSTRS.RELATION_LOG] = '【UR】传说中的勇者';
             hero.gold = Math.floor(hero.gold * 3);
         } else if (rarity === 'SSR') {
-            hero.cstr[354] = '【SSR】英雄级勇者';
+            hero.cstr[CSTRS.RELATION_LOG] = '【SSR】英雄级勇者';
         } else if (rarity === 'SR') {
-            hero.cstr[354] = '【SR】精英勇者';
+            hero.cstr[CSTRS.RELATION_LOG] = '【SR】精英勇者';
         }
 
         // === 角色定位（前排/中排/后排）===
-        const classId = hero.cflag[950] || 0;
+        const classId = hero.cflag[CFLAGS.HERO_CLASS] || 0;
         const backClasses = [202, 209];
         const frontClasses = [204, 211];
         if (backClasses.includes(classId)) {
-            hero.cflag[952] = 3;
+            hero.cflag[CFLAGS.HERO_PARTY_ROLE] = 3;
         } else if (frontClasses.includes(classId)) {
-            hero.cflag[952] = 1;
+            hero.cflag[CFLAGS.HERO_PARTY_ROLE] = 1;
         } else {
-            hero.cflag[952] = 2;
+            hero.cflag[CFLAGS.HERO_PARTY_ROLE] = 2;
         }
         // === 勇者冒险口号 ===
         const mottoPool = HERO_MOTTO_POOLS[goalId] || HERO_MOTTO_POOLS.defeat_master;
-        hero.cstr[0] = mottoPool[RAND(mottoPool.length)];
+        hero.cstr[CSTRS.NAME] = mottoPool[RAND(mottoPool.length)];
 
         // === 统一外观与背景生成 ===
         if (typeof CharaTemplates !== 'undefined') {
@@ -204,7 +204,7 @@ Game.prototype.generateHero = function() {
     // ========== 勋章系统 ==========
 
 Game.prototype.getMedalCount = function(character) {
-        return character ? (character.cflag[988] || 0) : 0;
+        return character ? (character.cflag[CFLAGS.MEDAL_COUNT] || 0) : 0;
     }
 
 Game.prototype.getMedalBonus = function(character) {
@@ -216,9 +216,9 @@ Game.prototype.addMedal = function(character, amount = 1) {
         if (!character || amount <= 0) return;
         const oldCount = this.getMedalCount(character);
         const newCount = oldCount + amount;
-        character.cflag[988] = newCount;
+        character.cflag[CFLAGS.MEDAL_COUNT] = newCount;
         // 勋章经验 = 数量 × 5
-        character.cflag[989] = newCount * 5;
+        character.cflag[CFLAGS.MEDAL_EXP] = newCount * 5;
     }
 
 Game.prototype.addBrainwashExp = function(character, amount = 1) {
@@ -230,7 +230,7 @@ Game.prototype.addBrainwashExp = function(character, amount = 1) {
 
 Game.prototype.generateAffinity = function(entity) {
         const race = entity.talent[314] || 1;
-        const jobClass = entity.cflag[950] || 200;
+        const jobClass = entity.cflag[CFLAGS.HERO_CLASS] || 200;
         const personality = entity.getPersonality() || 10;
 
         const raceVal = (typeof RACE_AFFINITY !== 'undefined' ? RACE_AFFINITY[race] : null) || 50;

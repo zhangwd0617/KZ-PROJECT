@@ -114,12 +114,12 @@ class Game {
     marrySlave(index) {
         // 清除所有角色的结婚标记（一夫一妻制）
         for (const ch of this.characters) {
-            if (ch) ch.cflag[600] = 0;
+            if (ch) ch.cflag[CFLAGS.LOVE_POINTS] = 0;
         }
         if (index < 0 || index === this.master) return true; // 仅解除婚约
         const c = this.getChara(index);
         if (!c) return false;
-        c.cflag[600] = 1;
+        c.cflag[CFLAGS.LOVE_POINTS] = 1;
         return true;
     }
 
@@ -187,10 +187,10 @@ class Game {
         master.talent[94] = 1; // 灭世魔王（主角专属：调教效果+50%）
         // 魔王初始10级，攻防默认100，其他属性按勇者power=10公式
         master.level = 10;
-        master.cflag[9] = 10;
-        master.cflag[11] = 100; // 攻击默认100
-        master.cflag[12] = 100; // 防御默认100
-        master.cflag[13] = 10 + 10 * 3; // 速度按勇者公式
+        master.cflag[CFLAGS.BASE_HP] = 10;
+        master.cflag[CFLAGS.ATK] = 100; // 攻击默认100
+        master.cflag[CFLAGS.DEF] = 100; // 防御默认100
+        master.cflag[CFLAGS.SPD] = 10 + 10 * 3; // 速度按勇者公式
         master.base[0] = 1000 + 10 * 200 + RAND(10 * 100);
         master.maxbase[0] = master.base[0];
         master.hp = master.base[0];
@@ -203,7 +203,7 @@ class Game {
         // Initial slave: fully random generated
         const slave = CharaTemplates.createRandomSlave(1, 5);
         if (slave) {
-            slave.cflag[1] = 1; // Captured status
+            slave.cflag[CFLAGS.CAPTURE_STATUS] = 1; // Captured status
             slave.affinity = this.generateAffinity(slave);
             this.addCharaFromTemplate(slave);
         }
@@ -1198,22 +1198,22 @@ class Game {
 
     // ========== 地下城层管理 ==========
     _hasTriggeredDailyEvent(hero) {
-        const squadId = hero.cflag[900];
+        const squadId = hero.cflag[CFLAGS.SQUAD_ID];
         if (squadId) {
-            return this.invaders.some(h => h.cflag[900] === squadId && h.cflag[910]);
+            return this.invaders.some(h => h.cflag[CFLAGS.SQUAD_ID] === squadId && h.cflag[CFLAGS.SPY_SENT]);
         }
-        return !!hero.cflag[910];
+        return !!hero.cflag[CFLAGS.SPY_SENT];
     }
 
     // 标记勇者或小队今天已触发事件
     _markDailyEventTriggered(hero) {
-        const squadId = hero.cflag[900];
+        const squadId = hero.cflag[CFLAGS.SQUAD_ID];
         if (squadId) {
             for (const h of this.invaders) {
-                if (h.cflag[900] === squadId) h.cflag[910] = 1;
+                if (h.cflag[CFLAGS.SQUAD_ID] === squadId) h.cflag[CFLAGS.SPY_SENT] = 1;
             }
         } else {
-            hero.cflag[910] = 1;
+            hero.cflag[CFLAGS.SPY_SENT] = 1;
         }
     }
 
@@ -1264,7 +1264,7 @@ class Game {
         }
         // 为所有无任务的现有勇者刷新任务
         for (const hero of this.invaders) {
-            if ((hero.cflag[980] || 0) === 0) {
+            if ((hero.cflag[CFLAGS.HERO_TASK_TYPE] || 0) === 0) {
                 this.generateHeroTask(hero);
             }
         }
@@ -1305,7 +1305,7 @@ class Game {
         }
         this.money -= cost;
         this._levelUpEntity(master, 1);
-        return { success: true, msg: `魔王等级提升至 Lv.${master.level}！\n攻击:${master.cflag[11]} 防御:${master.cflag[12]} 速度:${master.cflag[13]}` };
+        return { success: true, msg: `魔王等级提升至 Lv.${master.level}！\n攻击:${master.cflag[CFLAGS.ATK]} 防御:${master.cflag[CFLAGS.DEF]} 速度:${master.cflag[CFLAGS.SPD]}` };
     }
 
     // ========== 魔王等级 ==========

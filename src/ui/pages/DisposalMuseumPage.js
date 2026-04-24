@@ -32,7 +32,7 @@ Object.assign(UI, {
             hasAny = true;
             const c = game.getChara(i);
             const price = game.shopSystem._estimatePrice(c);
-            const isMarried = c.cflag[600] ? true : false;
+            const isMarried = c.cflag[CFLAGS.LOVE_POINTS] ? true : false;
             listHtml += `<button class="game-btn" style="margin-bottom:6px;width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;" onclick="UI.renderDisposeOptions(G,${i})">`;
             listHtml += `<span><strong>${c.name}</strong> <span style="color:var(--text-dim);font-size:0.75rem;">Lv.${c.level}</span></span>`;
             listHtml += `<span style="font-size:0.75rem;"><span style="color:var(--success);">💰 ${price}G</span> ${isMarried ? '<span style="color:var(--accent);">💍</span>' : ''}</span>`;
@@ -57,7 +57,7 @@ Object.assign(UI, {
         this.clearButtons();
 
         const price = game.shopSystem._estimatePrice(c);
-        const isMarried = c.cflag[600] ? true : false;
+        const isMarried = c.cflag[CFLAGS.LOVE_POINTS] ? true : false;
         let html = '<div class="btn-grid">';
 
         // 经济/婚姻操作
@@ -118,7 +118,7 @@ Object.assign(UI, {
     confirmMarry(game, index) {
         const c = game.getChara(index);
         if (!c) return;
-        const isMarried = c.cflag[600] ? true : false;
+        const isMarried = c.cflag[CFLAGS.LOVE_POINTS] ? true : false;
         if (isMarried) {
             this.showModal('解除婚约', `
                 <p>确定要与 <strong style="color:var(--accent);">${c.name}</strong> 解除婚约吗？</p>
@@ -262,8 +262,8 @@ Object.assign(UI, {
         if (type === 'memory_wipe') {
             // 特殊处理：记忆释放
             c.talent[202] = 1; // 记忆清除特质
-            c.cflag[600] = 0;
-            c.cflag[601] = 0;
+            c.cflag[CFLAGS.LOVE_POINTS] = 0;
+            c.cflag[CFLAGS.OBEDIENCE_POINTS] = 0;
             c.mark[0] = 0; // 清除服从度
             c.hp = c.maxHp;
             c.mp = c.maxMp;
@@ -276,10 +276,10 @@ Object.assign(UI, {
             newHero.hp = c.hp;
             newHero.mp = c.mp;
             newHero.level = c.level;
-            newHero.cflag[9] = c.level;
-            newHero.cflag[11] = c.cflag[11] || 20;
-            newHero.cflag[12] = c.cflag[12] || 15;
-            newHero.cflag[13] = c.cflag[13] || 10;
+            newHero.cflag[CFLAGS.BASE_HP] = c.level;
+            newHero.cflag[CFLAGS.ATK] = c.cflag[CFLAGS.ATK] || 20;
+            newHero.cflag[CFLAGS.DEF] = c.cflag[CFLAGS.DEF] || 15;
+            newHero.cflag[CFLAGS.SPD] = c.cflag[CFLAGS.SPD] || 10;
             newHero.talent = [...c.talent];
             newHero.talent[200] = 0;
             newHero.cflag[912] = 0;

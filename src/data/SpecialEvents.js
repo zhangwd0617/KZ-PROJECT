@@ -71,7 +71,7 @@ const ORGASM_LINES = {
 
 const SPECIAL_EVENTS = {
     deflowering: { name: "破处仪式", desc: "第一次被侵入时的特殊仪式", condition: (c) => c.talent[0], effect: (c) => `${c.name}的处女被夺走了...` },
-    first_preg: { name: "胎动", desc: "怀孕后的第一次胎动感受", condition: (c) => c.talent[153] && c.cflag[800] >= 30, effect: (c) => `${c.name}感受到了腹中生命的跳动...` },
+    first_preg: { name: "胎动", desc: "怀孕后的第一次胎动感受", condition: (c) => c.talent[153] && c.cflag[CFLAGS.PREGNANCY_DAYS] >= 30, effect: (c) => `${c.name}感受到了腹中生命的跳动...` },
     glasses: { name: "眼镜play", desc: "戴着眼镜被侵犯的特殊羞耻感", condition: (c) => c.tequip[10], effect: (c) => `${c.name}的眼镜被精液玷污了...` },
     incontinence: { name: "失禁", desc: "绝顶时失去控制的羞耻", condition: (c) => c.mark[0] >= 3, effect: (c) => `${c.name}在绝顶中失禁了...` },
     ultimate_awakening: { name: "极乐觉醒", desc: "五部位以上同时绝顶触发全觉之体", condition: (c) => false, effect: (c) => `${c.name}达到了极乐觉醒!获得了[全觉之体]!` }

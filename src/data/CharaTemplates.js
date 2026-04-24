@@ -367,7 +367,7 @@ CharaTemplates.create = function(templateId) {
     for (const [k,v] of Object.entries(t.mark||{})) c.mark[parseInt(k)]=v;
     c.maxHp = c.base[0]||800; c.hp=c.maxHp;
     c.maxMp = c.base[1]||500; c.mp=c.maxMp;
-    c.level = c.cflag[9]||1;
+    c.level = c.cflag[CFLAGS.BASE_HP]||1;
     // Default stamina/energy if template didn't specify
     if (!c.maxbase[2]) { c.maxbase[2] = 100; c.base[2] = 100; }
     if (!c._maxEnergy) { c._maxEnergy = 100; c._energy = 100; }
@@ -510,7 +510,7 @@ CharaTemplates.createRandomSlave = function(levelMin = 1, levelMax = 10) {
 
     // 4. 等级
     c.level = RAND_RANGE(levelMin, levelMax);
-    c.cflag[9] = c.level;
+    c.cflag[CFLAGS.BASE_HP] = c.level;
 
     // 5. 攻击/防御
     c.atk = 10 + c.level * 5 + RAND(20);
@@ -613,7 +613,7 @@ CharaTemplates.createRandomSlave = function(levelMin = 1, levelMax = 10) {
     // 15. 生成外观描述文本
     CharaTemplates.generateAppearanceDesc(c);
 
-    c.cflag[1] = 1; // 俘虏状态
+    c.cflag[CFLAGS.CAPTURE_STATUS] = 1; // 俘虏状态
     // P1+: init personality & genital config
     if (typeof generatePersonality === 'function') {
         c.personality = generatePersonality(c);
@@ -800,7 +800,7 @@ CharaTemplates.applyRandomBackstory = function(c) {
     // 配偶状态 (10%概率人妻)
     if (RAND(10) === 0) {
         c.talent[157] = 1;
-        c.cstr[320] = (c.cstr[320] || '') + "（已婚）";
+        c.cstr[CSTRS.FAMILY] = (c.cstr[CSTRS.FAMILY] || '') + "（已婚）";
     }
 };
 
@@ -862,7 +862,7 @@ CharaTemplates.generateAppearanceDesc = function(c) {
     if (c.talent[79]) parts.push('言行举止透着一股男孩子气。');
 
     const desc = parts.join('');
-    c.cstr[330] = desc;
+    c.cstr[CSTRS.APPEARANCE] = desc;
 
     // 生成并存储身体数据（固定值，不随页面切换变化）
     const bodyAge = age;
@@ -877,10 +877,10 @@ CharaTemplates.generateAppearanceDesc = function(c) {
     else bust = 80 + RAND(10);
     waist = Math.floor(bust * 0.65) + RAND(5);
     hip = Math.floor(bust * 0.85) + RAND(8);
-    c.cstr[331] = `${bodyAge}`;
-    c.cstr[332] = `${height}`;
-    c.cstr[333] = `${weight}`;
-    c.cstr[334] = `${bust}/${waist}/${hip}`;
+    c.cstr[CSTRS.AGE] = `${bodyAge}`;
+    c.cstr[CSTRS.HEIGHT] = `${height}`;
+    c.cstr[CSTRS.WEIGHT] = `${weight}`;
+    c.cstr[CSTRS.BODY_TYPE] = `${bust}/${waist}/${hip}`;
 
     // 生成身体特征中文描述
     let cup, waistDesc, hipDesc, faceDesc;
@@ -911,7 +911,7 @@ CharaTemplates.generateAppearanceDesc = function(c) {
         faceDesc = faces[faceRoll];
     }
 
-    c.cstr[335] = `${cup} · ${waistDesc} · ${hipDesc} · ${faceDesc}`;
+    c.cstr[CSTRS.BODY_FEATURES] = `${cup} · ${waistDesc} · ${hipDesc} · ${faceDesc}`;
 
     return desc;
 };

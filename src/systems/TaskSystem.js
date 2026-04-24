@@ -3,13 +3,13 @@
  */
 Game.prototype._clearSlaveTask = function(slave) {
         if (!slave) return;
-        slave.cflag[985] = 0;
-        slave.cflag[986] = 0;
-        slave.cflag[987] = 0;
-        slave.cflag[990] = 0;
-        slave.cflag[991] = 0;
+        slave.cflag[CFLAGS.SLAVE_TASK_TYPE] = 0;
+        slave.cflag[CFLAGS.SLAVE_TASK_FLOOR] = 0;
+        slave.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] = 0;
+        slave.cflag[CFLAGS.SLAVE_TASK_PROGRESS] = 0;
+        slave.cflag[CFLAGS.COMMAND_FILTER] = 0;
         slave.cflag[912] = 0; // 清除伪装标记
-        slave.cstr[341] = '';
+        slave.cstr[CSTRS.TASK_RESULT] = '';
     }
 
     // 公共接口：清除奴隶任务（供UI调用）
@@ -44,7 +44,7 @@ Game.prototype.assignSlaveTask = function(slave, taskType, floor) {
         if (isMaster && taskType !== 1) {
             return { success: false, msg: '魔王只能执行出击讨伐任务' };
         }
-        if ((slave.cflag[985] || 0) !== 0) {
+        if ((slave.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0) !== 0) {
             return { success: false, msg: '该角色已有任务进行中' };
         }
         const def = SLAVE_TASK_DEFS[taskType];
@@ -52,12 +52,12 @@ Game.prototype.assignSlaveTask = function(slave, taskType, floor) {
             return { success: false, msg: '无效的任务类型' };
         }
 
-        slave.cflag[985] = taskType;
-        slave.cflag[986] = taskType === 3 ? 0 : (floor || 10);
-        slave.cflag[987] = taskType === 3 ? 0 : (floor || 10);
-        slave.cflag[990] = 100;
-        slave.cflag[991] = -1;
-        slave.cstr[341] = `${def.icon} ${def.name}`;
+        slave.cflag[CFLAGS.SLAVE_TASK_TYPE] = taskType;
+        slave.cflag[CFLAGS.SLAVE_TASK_FLOOR] = taskType === 3 ? 0 : (floor || 10);
+        slave.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] = taskType === 3 ? 0 : (floor || 10);
+        slave.cflag[CFLAGS.SLAVE_TASK_PROGRESS] = 100;
+        slave.cflag[CFLAGS.COMMAND_FILTER] = -1;
+        slave.cstr[CSTRS.TASK_RESULT] = `${def.icon} ${def.name}`;
 
         if (taskType === 3) {
             return { success: true, msg: `${slave.name}开始执行"${def.icon} ${def.name}"` };
@@ -68,7 +68,7 @@ Game.prototype.assignSlaveTask = function(slave, taskType, floor) {
 
     // 处理奴隶每日任务（返回事件结果供UI显示）
 Game.prototype.processSlaveTaskDaily = function(slave) {
-        const taskType = slave.cflag[985] || 0;
+        const taskType = slave.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0;
         if (taskType === 0) return null;
         if (taskType === 1) return this._processSlaveHuntHero(slave);
         if (taskType === 2) return this._processSlaveLurk(slave);
@@ -78,9 +78,9 @@ Game.prototype.processSlaveTaskDaily = function(slave) {
 
     // 奴隶任务1：讨伐勇者（反向移动，途中俘虏勇者）
 Game.prototype._processSlaveHuntHero = function(slave) {
-        const startFloor = slave.cflag[986] || 10;
-        let currentFloor = slave.cflag[987] || startFloor;
-        let currentProgress = slave.cflag[990] || 100;
+        const startFloor = slave.cflag[CFLAGS.SLAVE_TASK_FLOOR] || 10;
+        let currentFloor = slave.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] || startFloor;
+        let currentProgress = slave.cflag[CFLAGS.SLAVE_TASK_PROGRESS] || 100;
         const oldProgress = currentProgress;
         const moveSpeed = 20; // 固定每天20%
         currentProgress -= moveSpeed;
@@ -167,13 +167,13 @@ Game.prototype._processSlaveHuntHero = function(slave) {
                     text: `${slave.name}成功从第${startFloor}层返回到第一层入口，完成讨伐任务！\n${logs.join('\n')}`
                 };
             } else {
-                slave.cflag[987] = currentFloor - 1;
-                slave.cflag[990] = 100;
+                slave.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] = currentFloor - 1;
+                slave.cflag[CFLAGS.SLAVE_TASK_PROGRESS] = 100;
                 logs.push(`📍 抵达第${currentFloor - 1}层入口`);
             }
         } else {
-            slave.cflag[987] = currentFloor;
-            slave.cflag[990] = currentProgress;
+            slave.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] = currentFloor;
+            slave.cflag[CFLAGS.SLAVE_TASK_PROGRESS] = currentProgress;
         }
 
         return {
@@ -187,9 +187,9 @@ Game.prototype._processSlaveHuntHero = function(slave) {
     // 奴隶任务2：潜伏（消耗勇者MP使其屈服）
 Game.prototype._processSlaveLurk = function(slave) {
         slave.cflag[912] = 1; // 潜伏任务中标记为伪装者
-        const startFloor = slave.cflag[986] || 10;
-        let currentFloor = slave.cflag[987] || startFloor;
-        let currentProgress = slave.cflag[990] || 100;
+        const startFloor = slave.cflag[CFLAGS.SLAVE_TASK_FLOOR] || 10;
+        let currentFloor = slave.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] || startFloor;
+        let currentProgress = slave.cflag[CFLAGS.SLAVE_TASK_PROGRESS] || 100;
         const oldProgress = currentProgress;
         const moveSpeed = 20; // 固定每天20%
         currentProgress -= moveSpeed;
@@ -209,13 +209,13 @@ Game.prototype._processSlaveLurk = function(slave) {
         }
 
         // 检查是否正在潜伏某个勇者
-        let lurkTargetIndex = slave.cflag[991] || -1;
+        let lurkTargetIndex = slave.cflag[CFLAGS.COMMAND_FILTER] || -1;
         let lurkTarget = null;
         if (lurkTargetIndex >= 0 && lurkTargetIndex < this.invaders.length) {
             lurkTarget = this.invaders[lurkTargetIndex];
             if (!lurkTarget || lurkTarget.hp <= 0 || this.getHeroFloor(lurkTarget) !== currentFloor) {
                 lurkTarget = null;
-                slave.cflag[991] = -1;
+                slave.cflag[CFLAGS.COMMAND_FILTER] = -1;
             }
         }
 
@@ -225,7 +225,7 @@ Game.prototype._processSlaveLurk = function(slave) {
             if (heroesOnFloor.length > 0 && RAND(100) < 50) {
                 lurkTarget = heroesOnFloor[RAND(heroesOnFloor.length)];
                 lurkTargetIndex = this.invaders.indexOf(lurkTarget);
-                slave.cflag[991] = lurkTargetIndex;
+                slave.cflag[CFLAGS.COMMAND_FILTER] = lurkTargetIndex;
                 logs.push(`🎭 ${slave.name}伪装成同伴接近了${lurkTarget.name}！`);
             }
         }
@@ -251,7 +251,7 @@ Game.prototype._processSlaveLurk = function(slave) {
             if (RAND(100) < exposeChance) {
                 // 伪装被识破！
                 logs.push(`⚠️ ${slave.name}的伪装被${lurkTarget.name}识破了！（识破率${exposeChance}%）`);
-                slave.cflag[991] = -1;
+                slave.cflag[CFLAGS.COMMAND_FILTER] = -1;
                 // 勇者会攻击暴露的奴隶，触发战斗
                 const combat = this._doTeamCombat([slave], [lurkTarget]);
                 const combatData = {
@@ -313,7 +313,7 @@ Game.prototype._processSlaveLurk = function(slave) {
                             slave.fame += 10; // 俘虏勇者 +10 声望
                             this.addBrainwashExp(slave, 1);
                         }
-                        slave.cflag[991] = -1;
+                        slave.cflag[CFLAGS.COMMAND_FILTER] = -1;
                         // 50%概率返回
                         if (RAND(100) < 50) {
                             this._clearSlaveTask(slave);
@@ -343,14 +343,14 @@ Game.prototype._processSlaveLurk = function(slave) {
                     text: `${slave.name}成功返回到第一层入口，完成潜伏任务！\n${logs.join('\n')}`
                 };
             } else {
-                slave.cflag[987] = currentFloor - 1;
-                slave.cflag[990] = 100;
+                slave.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] = currentFloor - 1;
+                slave.cflag[CFLAGS.SLAVE_TASK_PROGRESS] = 100;
                 if (lurkTarget) logs.push(`📍 ${slave.name}跟随${lurkTarget.name}来到了第${currentFloor - 1}层`);
                 else logs.push(`📍 抵达第${currentFloor - 1}层入口`);
             }
         } else {
-            slave.cflag[987] = currentFloor;
-            slave.cflag[990] = currentProgress;
+            slave.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] = currentFloor;
+            slave.cflag[CFLAGS.SLAVE_TASK_PROGRESS] = currentProgress;
         }
 
         return {
@@ -406,7 +406,7 @@ Game.prototype._processSlaveTownRaid = function(slave) {
             // 100%获得随机女性
             if (typeof CharaTemplates !== 'undefined') {
                 const newSlave = CharaTemplates.createRandomSlave(1, Math.max(5, slave.level));
-                newSlave.cflag[1] = 1;
+                newSlave.cflag[CFLAGS.CAPTURE_STATUS] = 1;
                 this.addCharaFromTemplate(newSlave);
                 logs.push(`👩 获得了新的奴隶：${newSlave.name} Lv.${newSlave.level}`);
             }
@@ -446,7 +446,7 @@ Game.prototype._processSlaveTownRaid = function(slave) {
 Game.prototype.generateHeroTask = function(hero) {
         if (!hero) return;
         // 如果已有未完成任务，不覆盖
-        if ((hero.cflag[980] || 0) !== 0 && (hero.cflag[984] || 0) === 0) return;
+        if ((hero.cflag[CFLAGS.HERO_TASK_TYPE] || 0) !== 0 && (hero.cflag[CFLAGS.HERO_TASK_STATUS] || 0) === 0) return;
 
         const maxReachableFloor = Math.min(Math.ceil(hero.level / 5), 10);
         const roll = RAND(100);
@@ -454,13 +454,13 @@ Game.prototype.generateHeroTask = function(hero) {
         if (roll < 60) {
             // 60% 讨伐地下城
             const targetFloor = Math.min(Math.ceil(hero.level / 10) + 1 + RAND(2), 10);
-            hero.cflag[980] = 1; // 讨伐地下城
-            hero.cflag[981] = targetFloor;
-            hero.cflag[982] = 0;
-            hero.cflag[983] = 0;
-            hero.cflag[984] = 0;
+            hero.cflag[CFLAGS.HERO_TASK_TYPE] = 1; // 讨伐地下城
+            hero.cflag[CFLAGS.HERO_REASON] = targetFloor;
+            hero.cflag[CFLAGS.HERO_ORIGIN] = 0;
+            hero.cflag[CFLAGS.HERO_FAMILY] = 0;
+            hero.cflag[CFLAGS.HERO_TASK_STATUS] = 0;
             const floorDef = DUNGEON_FLOOR_DEFS[targetFloor];
-            hero.cstr[340] = `前往第${targetFloor}层${floorDef ? '"' + floorDef.name + '"' : ''}，击败关底Boss`;
+            hero.cstr[CSTRS.TASK_DESC] = `前往第${targetFloor}层${floorDef ? '"' + floorDef.name + '"' : ''}，击败关底Boss`;
         } else {
             // 40% 完成委托
             const comIds = Object.keys(COMMISSION_DEFS);
@@ -484,42 +484,42 @@ Game.prototype.generateHeroTask = function(hero) {
                 const monsters = FLOOR_MONSTER_DEFS[comFloor];
                 targetName = monsters ? monsters[RAND(monsters.length)].name : "精英怪物";
             }
-            hero.cflag[980] = 2; // 完成委托
-            hero.cflag[981] = comFloor;
-            hero.cflag[982] = comId;
-            hero.cflag[983] = 0;
-            hero.cflag[984] = 0;
+            hero.cflag[CFLAGS.HERO_TASK_TYPE] = 2; // 完成委托
+            hero.cflag[CFLAGS.HERO_REASON] = comFloor;
+            hero.cflag[CFLAGS.HERO_ORIGIN] = comId;
+            hero.cflag[CFLAGS.HERO_FAMILY] = 0;
+            hero.cflag[CFLAGS.HERO_TASK_STATUS] = 0;
             let desc = comDef.description
                 .replace('{floor}', `${comFloor}层`)
                 .replace('{target}', targetName)
                 .replace('{heroName}', targetName)
                 .replace('{itemName}', targetName)
                 .replace('{monsterName}', targetName);
-            hero.cstr[340] = `${comDef.icon || '📜'} ${comDef.name}：${desc}（报酬：${comDef.rewardGold}G + 声望+${comDef.rewardFame}）`;
+            hero.cstr[CSTRS.TASK_DESC] = `${comDef.icon || '📜'} ${comDef.name}：${desc}（报酬：${comDef.rewardGold}G + 声望+${comDef.rewardFame}）`;
         }
     }
 
     // 清除勇者任务
 Game.prototype.clearHeroTask = function(hero) {
         if (!hero) return;
-        hero.cflag[980] = 0;
-        hero.cflag[981] = 0;
-        hero.cflag[982] = 0;
-        hero.cflag[983] = 0;
-        hero.cflag[984] = 0;
-        hero.cstr[340] = '';
+        hero.cflag[CFLAGS.HERO_TASK_TYPE] = 0;
+        hero.cflag[CFLAGS.HERO_REASON] = 0;
+        hero.cflag[CFLAGS.HERO_ORIGIN] = 0;
+        hero.cflag[CFLAGS.HERO_FAMILY] = 0;
+        hero.cflag[CFLAGS.HERO_TASK_STATUS] = 0;
+        hero.cstr[CSTRS.TASK_DESC] = '';
     }
 
 
     // ========== 异常状态系统 ==========
 
 Game.prototype._checkCommissionComplete = function(hero, triggerType, data = {}) {
-        if (!hero || (hero.cflag[980] || 0) !== 2) return; // 不是委托任务
-        if ((hero.cflag[984] || 0) !== 0) return; // 已完成或已结算
-        const comId = hero.cflag[982] || 0;
+        if (!hero || (hero.cflag[CFLAGS.HERO_TASK_TYPE] || 0) !== 2) return; // 不是委托任务
+        if ((hero.cflag[CFLAGS.HERO_TASK_STATUS] || 0) !== 0) return; // 已完成或已结算
+        const comId = hero.cflag[CFLAGS.HERO_ORIGIN] || 0;
         const comDef = COMMISSION_DEFS[comId];
         if (!comDef) return;
-        const targetFloor = hero.cflag[981] || 0;
+        const targetFloor = hero.cflag[CFLAGS.HERO_REASON] || 0;
 
         let completed = false;
         if (comDef.type === 'find_hero' && triggerType === 'meet_hero') {
@@ -540,8 +540,8 @@ Game.prototype._checkCommissionComplete = function(hero, triggerType, data = {})
         }
 
         if (completed) {
-            hero.cflag[984] = 1; // 标记已完成待汇报
-            hero.cstr[340] += ' 【委托完成，返回城镇领取报酬】';
+            hero.cflag[CFLAGS.HERO_TASK_STATUS] = 1; // 标记已完成待汇报
+            hero.cstr[CSTRS.TASK_DESC] += ' 【委托完成，返回城镇领取报酬】';
         }
     }
 

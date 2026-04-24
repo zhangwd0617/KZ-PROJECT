@@ -144,22 +144,22 @@ window.generateFallenCharacter = function(typeKey, options) {
 
   // 堕落标记（使用 cflag 范围 960-969）
   c.cflag[960] = 1; // 是堕落者
-  c.cflag[961] = def.originRace; // 原种族
-  c.cstr[350] = def.prefix; // 堕落前缀名
-  c.cstr[351] = def.marking; // 身体标记
-  c.cstr[352] = def.formationCause; // 形成原因
-  c.cstr[353] = def.desc; // 描述
+  c.cflag[CFLAGS.HERO_MOTTO] = def.originRace; // 原种族
+  c.cstr[CSTRS.EVENT_LOG] = def.prefix; // 堕落前缀名
+  c.cstr[CSTRS.DUNGEON_LOG] = def.marking; // 身体标记
+  c.cstr[CSTRS.COMBAT_LOG] = def.formationCause; // 形成原因
+  c.cstr[CSTRS.TRAIN_LOG] = def.desc; // 描述
 
   // 真相碎片
-  c.cflag[962] = def.truthFragment || 0;
+  c.cflag[CFLAGS.HERO_PERSONALITY] = def.truthFragment || 0;
 
-  // 初始恭顺加成（影响 cflag[970] 恭顺度基准）
+  // 初始恭顺加成（影响 cflag[CFLAGS.HERO_BACKSTORY] 恭顺度基准）
   if (def.traits.obedienceBonus) {
-    c.cflag[970] = (c.cflag[970] || 0) + def.traits.obedienceBonus;
+    c.cflag[CFLAGS.HERO_BACKSTORY] = (c.cflag[CFLAGS.HERO_BACKSTORY] || 0) + def.traits.obedienceBonus;
   }
 
   // 堕落者不需要捕获，直接成为眷属
-  c.cflag[1] = 0; // 非俘虏
+  c.cflag[CFLAGS.CAPTURE_STATUS] = 0; // 非俘虏
   c.cflag[2] = 1; // 已归属
 
   // 应用种族外观

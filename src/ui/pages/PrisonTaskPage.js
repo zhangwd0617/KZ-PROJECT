@@ -148,7 +148,7 @@ Object.assign(UI, {
             this.appendText(`  暂无俘虏勇者`, "dim");
         } else {
             for (const p of game.prisoners) {
-                const days = game.day - (p.cflag[601] || game.day);
+                const days = game.day - (p.cflag[CFLAGS.OBEDIENCE_POINTS] || game.day);
                 const gender = p.talent[122] ? '♂' : '♀';
                 this.appendText(`  🗡️ ${gender}${p.name} Lv.${p.level} | 被俘${days}天 | HP:${p.hp}/${p.maxHp}`, "warning");
             }
@@ -246,17 +246,17 @@ Object.assign(UI, {
             }
         }
 
-        const onTask = taskers.filter(t => (t.chara.cflag[985] || 0) !== 0);
-        const idle = taskers.filter(t => (t.chara.cflag[985] || 0) === 0);
+        const onTask = taskers.filter(t => (t.chara.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0) !== 0);
+        const idle = taskers.filter(t => (t.chara.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0) === 0);
 
         if (onTask.length > 0) {
             this.appendText(`📋 正在执行任务：`, "success");
             for (const t of onTask) {
                 const c = t.chara;
-                const taskType = c.cflag[985];
+                const taskType = c.cflag[CFLAGS.SLAVE_TASK_TYPE];
                 const taskDef = SLAVE_TASK_DEFS[taskType];
-                const currentFloor = c.cflag[987] || c.cflag[986] || '?';
-                const progress = c.cflag[990] || 0;
+                const currentFloor = c.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] || c.cflag[CFLAGS.SLAVE_TASK_FLOOR] || '?';
+                const progress = c.cflag[CFLAGS.SLAVE_TASK_PROGRESS] || 0;
                 this.appendText(`  ${t.typeIcon} ${c.name} Lv.${c.level} | ${taskDef ? taskDef.icon : ''} ${taskDef ? taskDef.name : ''} | 第${currentFloor}层 ${progress}%`, "success");
             }
             this.appendDivider();
@@ -279,10 +279,10 @@ Object.assign(UI, {
         // 正在执行任务的：显示取消按钮
         for (const t of onTask) {
             const c = t.chara;
-            const taskType = c.cflag[985];
+            const taskType = c.cflag[CFLAGS.SLAVE_TASK_TYPE];
             const taskDef = SLAVE_TASK_DEFS[taskType];
-            const currentFloor = c.cflag[987] || c.cflag[986] || '?';
-            const progress = c.cflag[990] || 0;
+            const currentFloor = c.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] || c.cflag[CFLAGS.SLAVE_TASK_FLOOR] || '?';
+            const progress = c.cflag[CFLAGS.SLAVE_TASK_PROGRESS] || 0;
             listHtml += `<div style="display:flex;gap:6px;align-items:stretch;margin-bottom:8px;">`;
             listHtml += `<div style="flex:1;padding:8px 10px;background:var(--bg-card);border:1px solid var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:space-between;min-height:40px;">`;
             listHtml += `<span><span style="font-size:0.9rem;">${t.typeIcon}</span> <strong>${c.name}</strong> <span style="color:var(--text-dim);font-size:0.75rem;">Lv.${c.level}</span></span>`;
@@ -340,7 +340,7 @@ Object.assign(UI, {
         const def = SLAVE_TASK_DEFS[taskType];
         if (!def) return;
 
-        if ((c.cflag[985] || 0) !== 0) {
+        if ((c.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0) !== 0) {
             UI.showToast('该角色已有任务进行中', 'warning');
             return;
         }
@@ -363,7 +363,7 @@ Object.assign(UI, {
             html += '<div style="margin: 4px 0; border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; background: rgba(0,0,0,0.12); line-height: 1.5;">';
             html += '<div style="font-weight:bold; font-size:0.82rem; margin-bottom:4px; color:var(--warning);">⛓️ 监狱俘虏</div>';
             for (const p of game.prisoners) {
-                const days = game.day - (p.cflag[601] || game.day);
+                const days = game.day - (p.cflag[CFLAGS.OBEDIENCE_POINTS] || game.day);
                 html += `<div style="font-size:0.75rem; margin:2px 0; padding:2px 4px; border-left:2px solid var(--warning);">`;
                 html += `<span style="color:var(--warning);">⛓️ ${p.name} Lv.${p.level}</span><br/>`;
                 html += `<span style="color:var(--text-dim);">被俘${days}天 | HP:${p.hp}/${p.maxHp}</span>`;
@@ -419,12 +419,12 @@ Object.assign(UI, {
             const taskers = [];
             for (let ci = 0; ci < game.characters.length; ci++) {
                 const c = game.characters[ci];
-                if ((c.cflag[985] || 0) === 0) continue;
-                const taskFloor = c.cflag[987] || c.cflag[986] || 10;
+                if ((c.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0) === 0) continue;
+                const taskFloor = c.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] || c.cflag[CFLAGS.SLAVE_TASK_FLOOR] || 10;
                 if (taskFloor === fid) {
-                    const progress = c.cflag[990] || 0;
+                    const progress = c.cflag[CFLAGS.SLAVE_TASK_PROGRESS] || 0;
                     const isMaster = game.getMaster() === c;
-                    const taskType = c.cflag[985] || 0;
+                    const taskType = c.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0;
                     let icon = '⚔️';
                     let color = '#4488ff';
                     let label = '讨伐';

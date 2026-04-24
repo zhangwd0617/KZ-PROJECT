@@ -1396,7 +1396,7 @@ window.HERO_SKILL_DEFS = {
 };
 
 // ========== 异常状态定义 ==========
-// 使用 cflag[920] 作为位掩码存储异常状态
+// 使用 cflag[CFLAGS.HERO_PREVIOUS] 作为位掩码存储异常状态
 // 使用 cflag[921-930] 存储各状态的持续回合
 window.STATUS_AILMENT_DEFS = {
     curse: {
@@ -1814,7 +1814,7 @@ window.RACE_AFFINITY = {
     10: 25  // 恶魔混血 — 混沌/冲突
 };
 
-// 职业相性基础值 (0-100) — 使用 cflag[950] 的英雄职业ID
+// 职业相性基础值 (0-100) — 使用 cflag[CFLAGS.HERO_CLASS] 的英雄职业ID
 window.JOB_AFFINITY = {
     211: 60, // 吟游诗人
     212: 45, // 暗杀者

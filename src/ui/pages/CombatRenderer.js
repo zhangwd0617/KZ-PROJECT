@@ -115,13 +115,13 @@ Object.assign(UI, {
         const leftTeam = battle.leftTeam || (battle.isSquad && battle.squad ? battle.squad.map((e,i)=>({name:e.name,hp:e.hp,maxHp:e.maxHp,level:e.level,mp:e.mp,maxMp:e.maxMp,isSpy:!!e.cflag[912],entity:e})) : (battle.hero ? [{name:battle.hero.name,hp:battle.hero.hp,maxHp:battle.hero.maxHp,level:battle.hero.level,mp:battle.hero.mp,maxMp:battle.hero.maxMp,isSpy:false,entity:battle.hero}] : []));
 
         if (leftTeam.length > 1) {
-            const squadName = leftTeam[0].entity && leftTeam[0].entity.cstr && leftTeam[0].entity.cstr[1] ? leftTeam[0].entity.cstr[1] : (battle.heroName || '勇者') + '小队';
+            const squadName = leftTeam[0].entity && leftTeam[0].entity.cstr && leftTeam[0].entity.cstr[CSTRS.NAME_ALT] ? leftTeam[0].entity.cstr[CSTRS.NAME_ALT] : (battle.heroName || '勇者') + '小队';
             leftHtml += `<div style="font-weight:bold;margin-bottom:6px;">👥 ${squadName}</div>`;
         }
         for (let i = 0; i < leftTeam.length; i++) {
             const u = leftTeam[i];
             const isSpy = u.isSpy || (u.entity && u.entity.talent && u.entity.cflag[912]);
-            const isLeader = u.entity && u.entity.cflag && u.entity.cflag[901] === 1;
+            const isLeader = u.entity && u.entity.cflag && u.entity.cflag[CFLAGS.SQUAD_LEADER] === 1;
             const leaderLabel = isLeader ? '★' : '';
             const spyLabel = isSpy ? ' <span style="color:var(--danger);font-size:0.65rem;">(伪装)</span>' : '';
             const initHp = u.initialHp !== undefined ? u.initialHp : (parsed.initialHeroHp !== null && i === 0 ? parsed.initialHeroHp : u.hp);
@@ -142,7 +142,7 @@ Object.assign(UI, {
             const first = rightTeam[0];
             const isExHero = first.isExHero || (first.entity && first.entity.talent && first.entity.talent[200]);
             const isHero = first.isHero || (first.entity && first.entity.talent && !first.entity.talent[200]);
-            const squadName = first.entity && first.entity.cstr && first.entity.cstr[1] ? first.entity.cstr[1] : null;
+            const squadName = first.entity && first.entity.cstr && first.entity.cstr[CSTRS.NAME_ALT] ? first.entity.cstr[CSTRS.NAME_ALT] : null;
             let squadLabel = squadName || '👹 怪物小队';
             if (!squadName) {
                 if (isHero) squadLabel = '🗡️ 勇者小队';
@@ -154,7 +154,7 @@ Object.assign(UI, {
             const u = rightTeam[i];
             const isExHero = u.isExHero || (u.entity && u.entity.talent && u.entity.talent[200]);
             const isHero = u.isHero || (u.entity && u.entity.talent && !u.entity.talent[200]);
-            const isLeader = u.entity && u.entity.cflag && u.entity.cflag[901] === 1;
+            const isLeader = u.entity && u.entity.cflag && u.entity.cflag[CFLAGS.SQUAD_LEADER] === 1;
             const leaderLabel = isLeader ? '★' : '';
             let icon = '👹';
             if (isExHero) icon = '🛡️';
@@ -171,7 +171,7 @@ Object.assign(UI, {
     },
 
     _getHeroClassName(hero) {
-        const clsId = hero.cflag ? hero.cflag[950] : 0;
+        const clsId = hero.cflag ? hero.cflag[CFLAGS.HERO_CLASS] : 0;
         if (!clsId || !HERO_CLASS_DEFS || !HERO_CLASS_DEFS[clsId]) return '';
         return HERO_CLASS_DEFS[clsId].name;
     },

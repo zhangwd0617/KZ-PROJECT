@@ -7,11 +7,11 @@ Game.prototype.sendSpy = function(index) {
             UI.showToast('该角色不是前勇者，无法派遣伪装', 'danger');
             return false;
         }
-        if (slave.cflag[700]) {
+        if (slave.cflag[CFLAGS.FALLEN_DEPTH]) {
             UI.showToast(`${slave.name} 正在探索中，无法派遣`, 'warning');
             return false;
         }
-        if (slave.cflag[705]) {
+        if (slave.cflag[CFLAGS.PLEASURE]) {
             UI.showToast(`${slave.name} 已经派出了伪装者`, 'warning');
             return false;
         }
@@ -25,21 +25,21 @@ Game.prototype.sendSpy = function(index) {
         spy.hp = Math.floor(slave.maxHp * 0.6);
         spy.mp = Math.floor(slave.maxMp * 0.5);
         spy.level = slave.level;
-        spy.cflag[9] = slave.level;
-        spy.cflag[11] = slave.cflag[11] || 20 + slave.level * 5;
-        spy.cflag[12] = slave.cflag[12] || 15 + slave.level * 4;
-        spy.cflag[13] = slave.cflag[13] || 10 + slave.level * 3;
+        spy.cflag[CFLAGS.BASE_HP] = slave.level;
+        spy.cflag[CFLAGS.ATK] = slave.cflag[CFLAGS.ATK] || 20 + slave.level * 5;
+        spy.cflag[CFLAGS.DEF] = slave.cflag[CFLAGS.DEF] || 15 + slave.level * 4;
+        spy.cflag[CFLAGS.SPD] = slave.cflag[CFLAGS.SPD] || 10 + slave.level * 3;
         spy.talent = [...slave.talent];
         spy.talent[200] = 1; // 前勇者标记
         spy.cflag[912] = 1; // 伪装者标记
         spy.mark = [...slave.mark];
         spy.abl = [...slave.abl];
 
-        // 初始化勇者入侵标【        spy.cflag[501] = 1;
-        spy.cflag[502] = 0;
+        // 初始化勇者入侵标【        spy.cflag[CFLAGS.HERO_FLOOR] = 1;
+        spy.cflag[CFLAGS.HERO_PROGRESS] = 0;
 
         // 标记原奴隶已派出伪装
-        slave.cflag[705] = 1;
+        slave.cflag[CFLAGS.PLEASURE] = 1;
 
         this.invaders.push(spy);
         UI.showToast(`${slave.name} 伪装成勇者混入了入侵者队伍！`, 'warning');
@@ -55,11 +55,11 @@ Game.prototype.sendSlaveExplore = function(index) {
             UI.showToast('该角色不是前勇者，无法派出探索', 'danger');
             return false;
         }
-        if (slave.cflag[700]) {
+        if (slave.cflag[CFLAGS.FALLEN_DEPTH]) {
             UI.showToast(`${slave.name} 已经在探索中了`, 'warning');
             return false;
         }
-        slave.cflag[700] = 1; // 标记探索【        slave.cflag[701] = 10; // 从第10层开【        slave.cflag[702] = 0; // 进度0
+        slave.cflag[CFLAGS.FALLEN_DEPTH] = 1; // 标记探索【        slave.cflag[CFLAGS.FALLEN_STAGE] = 10; // 从第10层开【        slave.cflag[CFLAGS.CORRUPTION] = 0; // 进度0
         UI.showToast(`派出【${slave.name} 前往地下城第10层探索！`, 'success');
         return true;
     }
@@ -67,11 +67,11 @@ Game.prototype.sendSlaveExplore = function(index) {
     // 召回探索中的奴隶
 Game.prototype.recallSlaveExplore = function(index) {
         const slave = this.getChara(index);
-        if (!slave || !slave.cflag[700]) {
+        if (!slave || !slave.cflag[CFLAGS.FALLEN_DEPTH]) {
             UI.showToast('该角色没有在探索', 'warning');
             return false;
         }
-        slave.cflag[700] = 0;
+        slave.cflag[CFLAGS.FALLEN_DEPTH] = 0;
         UI.showToast(`召回【${slave.name} (累计获得${slave.cflag[703] || 0}EXP)`, 'info');
         return true;
     }
@@ -82,20 +82,20 @@ Game.prototype.processSlaveExploreDaily = function() {
         const processed = new Set();
 
         for (const slave of this.characters) {
-            if (!slave.talent[200] || !slave.cflag[700]) continue;
+            if (!slave.talent[200] || !slave.cflag[CFLAGS.FALLEN_DEPTH]) continue;
             if (processed.has(slave)) continue;
 
             // 处理返回魔王宫的奴隶
-            if (slave.cflag[706]) {
-                const squadId = slave.cflag[900];
+            if (slave.cflag[CFLAGS.DEPRAVITY]) {
+                const squadId = slave.cflag[CFLAGS.SQUAD_ID];
                 // 如果属于小队但不是队长，跳过（由队长统一处理）
-                if (squadId && slave.cflag[901] !== 1) {
+                if (squadId && slave.cflag[CFLAGS.SQUAD_LEADER] !== 1) {
                     processed.add(slave);
                     continue;
                 }
                 let squad = [];
-                if (squadId && slave.cflag[901] === 1) {
-                    squad = this.characters.filter(c => c !== slave && c.talent[200] && c.cflag[900] === squadId);
+                if (squadId && slave.cflag[CFLAGS.SQUAD_LEADER] === 1) {
+                    squad = this.characters.filter(c => c !== slave && c.talent[200] && c.cflag[CFLAGS.SQUAD_ID] === squadId);
                     for (const member of squad) processed.add(member);
                 }
                 // 触发复命事件
@@ -105,20 +105,20 @@ Game.prototype.processSlaveExploreDaily = function() {
                 continue;
             }
 
-            const floorId = slave.cflag[701] || 10;
-            let progress = slave.cflag[702] || 0;
+            const floorId = slave.cflag[CFLAGS.FALLEN_STAGE] || 10;
+            let progress = slave.cflag[CFLAGS.CORRUPTION] || 0;
 
             // 反向探索：每天基础+5%进度
             let moveSpeed = 5 + Math.floor((slave.level - 1) * 10 / 49);
             if (moveSpeed > 15) moveSpeed = 15;
 
             // 检查是否属于小队
-            const squadId = slave.cflag[900];
+            const squadId = slave.cflag[CFLAGS.SQUAD_ID];
             let squad = [];
-            if (squadId && slave.cflag[901] === 1) {
-                // 队长：收集所有小队成【                squad = this.characters.filter(c => c !== slave && c.talent[200] && c.cflag[900] === squadId);
+            if (squadId && slave.cflag[CFLAGS.SQUAD_LEADER] === 1) {
+                // 队长：收集所有小队成【                squad = this.characters.filter(c => c !== slave && c.talent[200] && c.cflag[CFLAGS.SQUAD_ID] === squadId);
                 for (const member of squad) processed.add(member);
-            } else if (squadId && slave.cflag[901] !== 1) {
+            } else if (squadId && slave.cflag[CFLAGS.SQUAD_LEADER] !== 1) {
                 // 非队长：跳过（由队长处理【                continue;
             }
 
@@ -192,7 +192,7 @@ Game.prototype.processSlaveExploreDaily = function() {
             }
 
             // 检查进度宝箱（奴隶探索也触发）
-            const oldProgress = slave.cflag[702] || 0;
+            const oldProgress = slave.cflag[CFLAGS.CORRUPTION] || 0;
             const slaveChests = this._checkProgressChests(slave, oldProgress, oldProgress + moveSpeed, floorId);
             if (slaveChests.length > 0) {
                 for (const chest of slaveChests) {
@@ -208,31 +208,31 @@ Game.prototype.processSlaveExploreDaily = function() {
             progress += moveSpeed;
             if (progress >= 100) {
                 if (floorId > 1) {
-                    slave.cflag[701] = floorId - 1;
-                    slave.cflag[702] = 0;
-                    slave.cflag[704] = 0; // 重置宝箱标记
+                    slave.cflag[CFLAGS.FALLEN_STAGE] = floorId - 1;
+                    slave.cflag[CFLAGS.CORRUPTION] = 0;
+                    slave.cflag[CFLAGS.DESIRE] = 0; // 重置宝箱标记
                     for (const member of squad) {
-                        member.cflag[701] = floorId - 1;
-                        member.cflag[702] = 0;
-                        member.cflag[704] = 0;
+                        member.cflag[CFLAGS.FALLEN_STAGE] = floorId - 1;
+                        member.cflag[CFLAGS.CORRUPTION] = 0;
+                        member.cflag[CFLAGS.DESIRE] = 0;
                     }
                     results.push({ name: slave.name, type: 'floor', text: `小队到达第${floorId - 1}层！` });
                 } else {
                     // 到达【层出口，开始返回魔王宫
-                    slave.cflag[706] = 1; // 标记为返回中
-                    slave.cflag[702] = 0;
-                    slave.cflag[704] = 0;
+                    slave.cflag[CFLAGS.DEPRAVITY] = 1; // 标记为返回中
+                    slave.cflag[CFLAGS.CORRUPTION] = 0;
+                    slave.cflag[CFLAGS.DESIRE] = 0;
                     for (const member of squad) {
-                        member.cflag[706] = 1;
-                        member.cflag[702] = 0;
-                        member.cflag[704] = 0;
+                        member.cflag[CFLAGS.DEPRAVITY] = 1;
+                        member.cflag[CFLAGS.CORRUPTION] = 0;
+                        member.cflag[CFLAGS.DESIRE] = 0;
                     }
                     results.push({ name: slave.name, type: 'floor', text: `小队到达【层出口，开始返回魔王宫…` });
                 }
             } else {
-                slave.cflag[702] = progress;
+                slave.cflag[CFLAGS.CORRUPTION] = progress;
                 for (const member of squad) {
-                    member.cflag[702] = progress;
+                    member.cflag[CFLAGS.CORRUPTION] = progress;
                 }
             }
 
@@ -316,14 +316,14 @@ Game.prototype._processSlaveReport = function(slave, squad) {
 
         // 重置所有成员探索状】
         for (const member of allMembers) {
-            member.cflag[700] = 0;
-            member.cflag[701] = 10;
-            member.cflag[702] = 0;
+            member.cflag[CFLAGS.FALLEN_DEPTH] = 0;
+            member.cflag[CFLAGS.FALLEN_STAGE] = 10;
+            member.cflag[CFLAGS.CORRUPTION] = 0;
             member.cflag[703] = 0;
-            member.cflag[704] = 0;
-            member.cflag[706] = 0;
-            member.cflag[900] = 0;
-            member.cflag[901] = 0;
+            member.cflag[CFLAGS.DESIRE] = 0;
+            member.cflag[CFLAGS.DEPRAVITY] = 0;
+            member.cflag[CFLAGS.SQUAD_ID] = 0;
+            member.cflag[CFLAGS.SQUAD_LEADER] = 0;
             // 恢复状【            member.hp = Math.min(member.maxHp, member.hp + Math.floor(member.maxHp * 0.5));
             member.mp = Math.min(member.maxMp, member.mp + Math.floor(member.maxMp * 0.5));
         }

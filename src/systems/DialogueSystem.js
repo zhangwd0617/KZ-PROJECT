@@ -1018,7 +1018,7 @@ class DialogueSystem {
 
         // 处女丧失 (阴道指令)
         if ([20,21,22,23,24,34,64,120,121,128,129,130,131,132,133,134].includes(comIdInt)) {
-            if (!target.hasTalent(0) && target.cstr[3]) {
+            if (!target.hasTalent(0) && target.cstr[CSTRS.TITLE]) {
                 texts.push(`${tName}的结合处还残留着破瓜之血...`);
             }
         }

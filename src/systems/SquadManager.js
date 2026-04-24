@@ -3,14 +3,14 @@
  */
 Game.prototype._clearSquadFlags = function() {
         for (const hero of this.invaders) {
-            hero.cflag[900] = 0; // 小队ID
-            hero.cflag[901] = 0; // 队长标记
+            hero.cflag[CFLAGS.SQUAD_ID] = 0; // 小队ID
+            hero.cflag[CFLAGS.SQUAD_LEADER] = 0; // 队长标记
             hero.cflag[902] = 0; // 今日已战【
 }
         for (const c of this.characters) {
             if (c.talent[200]) {
-                c.cflag[900] = 0;
-                c.cflag[901] = 0;
+                c.cflag[CFLAGS.SQUAD_ID] = 0;
+                c.cflag[CFLAGS.SQUAD_LEADER] = 0;
                 c.cflag[902] = 0;
             }
         }
@@ -61,8 +61,8 @@ Game.prototype._formHeroSquads = function() {
                             if (!this._hasTriggeredDailyEvent(hero) && !this._hasTriggeredDailyEvent(other)) {
                                 if (rel.level >= 3 && RAND(100) < 30) {
                                     this._setHeroRelation(hero, other, 1, 'complete_quest');
-                                    hero.cflag[910] = 1;
-                                    other.cflag[910] = 1;
+                                    hero.cflag[CFLAGS.SPY_SENT] = 1;
+                                    other.cflag[CFLAGS.SPY_SENT] = 1;
                                 }
                             }
                         }
@@ -73,30 +73,30 @@ Game.prototype._formHeroSquads = function() {
             if (squad.length >= 2) {
                 // 设置小队标记，速度最高的为队长
                 const leader = squad.reduce((best, h) => {
-                    const spd = h.cflag[13] || 10 + h.level * 2;
-                    const bestSpd = best.cflag[13] || 10 + best.level * 2;
+                    const spd = h.cflag[CFLAGS.SPD] || 10 + h.level * 2;
+                    const bestSpd = best.cflag[CFLAGS.SPD] || 10 + best.level * 2;
                     return spd > bestSpd ? h : best;
                 }, squad[0]);
 
                 const squadName = this._generateSquadName(leader);
                 for (const member of squad) {
-                    member.cflag[900] = squadId;
-                    member.cflag[901] = member === leader ? 1 : 0;
-                    member.cstr[1] = squadName;
+                    member.cflag[CFLAGS.SQUAD_ID] = squadId;
+                    member.cflag[CFLAGS.SQUAD_LEADER] = member === leader ? 1 : 0;
+                    member.cstr[CSTRS.NAME_ALT] = squadName;
                     // 被组队的撤退勇者重新振作
                     if (member.cflag[503]) member.cflag[503] = 0;
                 }
                 // 每日事件标记同步：如果小队中任何成员已触发事件，整队同步
-                const anyTriggered = squad.some(m => m.cflag[910]);
+                const anyTriggered = squad.some(m => m.cflag[CFLAGS.SPY_SENT]);
                 if (anyTriggered) {
                     for (const member of squad) {
-                        member.cflag[910] = 1;
+                        member.cflag[CFLAGS.SPY_SENT] = 1;
                     }
                 }
                 // 计算小队士气（V3.0 种族配合度）
                 const morale = this._calculateSquadMorale(squad);
                 for (const member of squad) {
-                    member.cflag[903] = morale;
+                    member.cflag[CFLAGS.SQUAD_MORALE] = morale;
                 }
                 // 治疗职业小队恢复
                 this._applySquadHealing(squad);
@@ -113,7 +113,7 @@ Game.prototype._calculateSquadMorale = function(squad) {
         let hasHealer = false;
         for (let i = 0; i < squad.length; i++) {
             const m = squad[i];
-            if (healerClasses.includes(m.cflag[950] || 0)) hasHealer = true;
+            if (healerClasses.includes(m.cflag[CFLAGS.HERO_CLASS] || 0)) hasHealer = true;
             for (let j = i + 1; j < squad.length; j++) {
                 const other = squad[j];
                 const rel = this._getHeroRelation(m, other);
@@ -136,7 +136,7 @@ Game.prototype._calculateSquadMorale = function(squad) {
 Game.prototype._applySquadHealing = function(squad) {
         if (!squad || squad.length < 2) return;
         const healerClasses = [202, 205, 209]; // 神官,炼金术士,巫女
-        const healers = squad.filter(m => healerClasses.includes(m.cflag[950] || 0));
+        const healers = squad.filter(m => healerClasses.includes(m.cflag[CFLAGS.HERO_CLASS] || 0));
         if (healers.length === 0) return;
         for (const member of squad) {
             if (member.hp <= 0) continue;
@@ -147,7 +147,7 @@ Game.prototype._applySquadHealing = function(squad) {
             member.hp = Math.min(maxHp, member.hp + healAmount);
             const actualHeal = member.hp - oldHp;
             // 清除1个非诅咒异常状态（50%概率每个治疗者）
-            const ailmentMask = member.cflag[920] || 0;
+            const ailmentMask = member.cflag[CFLAGS.HERO_PREVIOUS] || 0;
             if (ailmentMask > 0) {
                 for (const h of healers) {
                     if (RAND(100) < 50) {
@@ -172,13 +172,13 @@ Game.prototype._formSlaveSquads = function() {
         let squadId = 100; // 前勇者小队ID【00开始，避免冲突
         const assigned = new Set();
 
-        const explorers = this.characters.filter(c => c.talent[200] && c.cflag[700]);
+        const explorers = this.characters.filter(c => c.talent[200] && c.cflag[CFLAGS.FALLEN_DEPTH]);
 
         for (let i = 0; i < explorers.length; i++) {
             if (assigned.has(i)) continue;
             const slave = explorers[i];
-            const floorId = slave.cflag[701] || 10;
-            const progress = slave.cflag[702] || 0;
+            const floorId = slave.cflag[CFLAGS.FALLEN_STAGE] || 10;
+            const progress = slave.cflag[CFLAGS.CORRUPTION] || 0;
 
             const squad = [slave];
             assigned.add(i);
@@ -187,8 +187,8 @@ Game.prototype._formSlaveSquads = function() {
                 if (assigned.has(j)) continue;
                 if (squad.length >= 3) break;
                 const other = explorers[j];
-                if ((other.cflag[701] || 10) === floorId) {
-                    const diff = Math.abs((other.cflag[702] || 0) - progress);
+                if ((other.cflag[CFLAGS.FALLEN_STAGE] || 10) === floorId) {
+                    const diff = Math.abs((other.cflag[CFLAGS.CORRUPTION] || 0) - progress);
                     if (diff <= 15) {
                         squad.push(other);
                         assigned.add(j);
@@ -198,16 +198,16 @@ Game.prototype._formSlaveSquads = function() {
 
             if (squad.length > 1) {
                 const leader = squad.reduce((best, s) => {
-                    const spd = s.cflag[13] || 10 + s.level * 2;
-                    const bestSpd = best.cflag[13] || 10 + best.level * 2;
+                    const spd = s.cflag[CFLAGS.SPD] || 10 + s.level * 2;
+                    const bestSpd = best.cflag[CFLAGS.SPD] || 10 + best.level * 2;
                     return spd > bestSpd ? s : best;
                 }, squad[0]);
 
                 const squadName = this._generateSquadName(leader);
                 for (const member of squad) {
-                    member.cflag[900] = squadId;
-                    member.cflag[901] = member === leader ? 1 : 0;
-                    member.cstr[1] = squadName;
+                    member.cflag[CFLAGS.SQUAD_ID] = squadId;
+                    member.cflag[CFLAGS.SQUAD_LEADER] = member === leader ? 1 : 0;
+                    member.cstr[CSTRS.NAME_ALT] = squadName;
                 }
                 squadId++;
             }
@@ -216,36 +216,36 @@ Game.prototype._formSlaveSquads = function() {
 
     // 获取勇者的小队成员（不包括自己】
 Game.prototype._getHeroSquad = function(hero) {
-        const squadId = hero.cflag[900];
+        const squadId = hero.cflag[CFLAGS.SQUAD_ID];
         if (!squadId) return [];
-        return this.invaders.filter(h => h !== hero && h.cflag[900] === squadId);
+        return this.invaders.filter(h => h !== hero && h.cflag[CFLAGS.SQUAD_ID] === squadId);
     }
 
     // 尝试将两个勇者加入同一小队，最多3人
 Game.prototype._getSlaveSquad = function(slave) {
-        const squadId = slave.cflag[900];
+        const squadId = slave.cflag[CFLAGS.SQUAD_ID];
         if (!squadId) return [];
-        return this.characters.filter(c => c !== slave && c.talent[200] && c.cflag[900] === squadId);
+        return this.characters.filter(c => c !== slave && c.talent[200] && c.cflag[CFLAGS.SQUAD_ID] === squadId);
     }
 
     // 寻找战斗增援：同一层20%进度范围内的勇者/前勇者可能加入战斗
 Game.prototype._tryMergeSquad = function(a, b) {
-        const aId = a.cflag[900];
-        const bId = b.cflag[900];
+        const aId = a.cflag[CFLAGS.SQUAD_ID];
+        const bId = b.cflag[CFLAGS.SQUAD_ID];
         if (aId && bId && aId === bId) return true; // 已经在同一小队
-        const aSquad = aId ? this.invaders.filter(h => h.cflag[900] === aId) : [a];
-        const bSquad = bId ? this.invaders.filter(h => h.cflag[900] === bId) : [b];
+        const aSquad = aId ? this.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === aId) : [a];
+        const bSquad = bId ? this.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === bId) : [b];
         if (aSquad.length + bSquad.length > 3) return false; // 超过3人上限
         const newId = aId || bId || (100 + a.id + b.id);
         const allMembers = [...new Set([...aSquad, ...bSquad])];
         const leader = allMembers.reduce((best, h) => {
-            const spd = h.cflag[13] || 10 + h.level * 2;
-            const bestSpd = best.cflag[13] || 10 + best.level * 2;
+            const spd = h.cflag[CFLAGS.SPD] || 10 + h.level * 2;
+            const bestSpd = best.cflag[CFLAGS.SPD] || 10 + best.level * 2;
             return spd > bestSpd ? h : best;
         }, allMembers[0]);
         for (const m of allMembers) {
-            m.cflag[900] = newId;
-            m.cflag[901] = m === leader ? 1 : 0;
+            m.cflag[CFLAGS.SQUAD_ID] = newId;
+            m.cflag[CFLAGS.SQUAD_LEADER] = m === leader ? 1 : 0;
         }
         return true;
     }

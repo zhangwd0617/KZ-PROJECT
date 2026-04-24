@@ -9,7 +9,7 @@ class EventSystem {
     processDayEnd() {
         // 每日开始时清零事件标记
         for (const hero of this.game.invaders) {
-            hero.cflag[910] = 0;
+            hero.cflag[CFLAGS.SPY_SENT] = 0;
         }
         const results = [];
         const dailyCount = this.game.flag[501] || 2;
@@ -113,7 +113,7 @@ class EventSystem {
     }
 
     _getMarriedSlave(g) {
-        return g.characters.find((c, i) => i !== g.master && c.cflag[600]) || null;
+        return g.characters.find((c, i) => i !== g.master && c.cflag[CFLAGS.LOVE_POINTS]) || null;
     }
 
     _isFallen(c) {
@@ -371,18 +371,18 @@ class EventSystem {
             hero.hp = Math.floor(c.maxHp * 0.5);
             hero.mp = Math.floor(c.maxMp * 0.4);
             hero.level = c.level;
-            hero.cflag[9] = c.level;
-            hero.cflag[11] = c.cflag[11] || 20 + c.level * 5;
-            hero.cflag[12] = c.cflag[12] || 15 + c.level * 4;
-            hero.cflag[13] = c.cflag[13] || 10 + c.level * 3;
+            hero.cflag[CFLAGS.BASE_HP] = c.level;
+            hero.cflag[CFLAGS.ATK] = c.cflag[CFLAGS.ATK] || 20 + c.level * 5;
+            hero.cflag[CFLAGS.DEF] = c.cflag[CFLAGS.DEF] || 15 + c.level * 4;
+            hero.cflag[CFLAGS.SPD] = c.cflag[CFLAGS.SPD] || 10 + c.level * 3;
             hero.talent = [...c.talent];
             hero.talent[200] = 0; // 不再是前勇者
             hero.cflag[912] = 0; // 不是伪装者
             hero.talent[203] = 1; // 逃跑者特质
             hero.abl = [...c.abl];
             hero.mark = new Array(20).fill(0);
-            hero.cflag[501] = 1;
-            hero.cflag[502] = 0;
+            hero.cflag[CFLAGS.HERO_FLOOR] = 1;
+            hero.cflag[CFLAGS.HERO_PROGRESS] = 0;
             g.invaders.push(hero);
             return {
                 title: `【日常】${c.name}逃跑了！`,
@@ -1039,9 +1039,9 @@ class EventSystem {
         progress += 15;
         if (progress >= 100) {
             progress = 0;
-            hero.cflag[501] = floorId + 1;
+            hero.cflag[CFLAGS.HERO_FLOOR] = floorId + 1;
         }
-        hero.cflag[502] = progress;
+        hero.cflag[CFLAGS.HERO_PROGRESS] = progress;
         return {
             title: `【地下城】${hero.name}发现了隐藏通道`,
             text: `${hero.name}注意到了墙壁上不起眼的裂缝，推开后果然是一条捷径！侵略进度大幅推进。`,
@@ -1137,7 +1137,7 @@ class EventSystem {
         const slot = slotTypes[RAND(slotTypes.length)];
         const gear = GearSystem.generateGear(slot, hero.level);
         const r = GearSystem.equipItem(hero, gear);
-        const curseWarn = (r.curseTriggered && !hero.cflag[900]) ? ' 但这股力量似乎不太对劲...' : '';
+        const curseWarn = (r.curseTriggered && !hero.cflag[CFLAGS.SQUAD_ID]) ? ' 但这股力量似乎不太对劲...' : '';
         return {
             title: `【地下城】${hero.name}发现了装备宝箱`,
             text: `${hero.name}在一具古老骑士的遗骸旁发现了一个锈迹斑斑的铁箱。箱内闪烁着微弱的光芒——是一件${GearSystem.SLOT_NAMES[slot]}！${r.msg}${curseWarn}`,
@@ -1148,7 +1148,7 @@ class EventSystem {
     _evtHeroChestWeapon(g, hero) {
         const weapon = GearSystem.generateWeapon(hero.level);
         const r = GearSystem.equipItem(hero, weapon);
-        const curseWarn = (r.curseTriggered && !hero.cflag[900]) ? ' 但这把武器散发着不祥的气息...' : '';
+        const curseWarn = (r.curseTriggered && !hero.cflag[CFLAGS.SQUAD_ID]) ? ' 但这把武器散发着不祥的气息...' : '';
         return {
             title: `【地下城】${hero.name}发现了武器宝箱`,
             text: `${hero.name}推开一面活动的石墙，露出了一个隐秘的武库。架子上陈列着各种武器，其中一把引起了${hero.name}的注意。${r.msg}${curseWarn}`,
@@ -1161,7 +1161,7 @@ class EventSystem {
         const itype = itemTypes[RAND(itemTypes.length)];
         const item = GearSystem.generateItem(itype, hero.level);
         const r = GearSystem.equipItem(hero, item);
-        const curseWarn = (r.curseTriggered && !hero.cflag[900]) ? ' 但这东西看起来有些诡异...' : '';
+        const curseWarn = (r.curseTriggered && !hero.cflag[CFLAGS.SQUAD_ID]) ? ' 但这东西看起来有些诡异...' : '';
         return {
             title: `【地下城】${hero.name}发现了道具宝箱`,
             text: `${hero.name}在拐角处发现了一个被藤蔓覆盖的小木箱。打开后，里面放着一些冒险者留下的物资。${r.msg}${curseWarn}`,

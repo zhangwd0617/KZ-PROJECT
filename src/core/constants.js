@@ -7,31 +7,68 @@
 export const CFLAGS = {
     // 基础状态
     CAPTURE_STATUS: 1,        // 俘虏状态
+    MAX_STAMINA: 2,           // 最大体力
     SQUAD_ID: 900,            // 所属小队ID
     SQUAD_LEADER: 901,        // 是否队长
     SQUAD_MORALE: 903,        // 小队士气
 
-    // 身份与隐藏
-    SPY_DISGUISE: 912,        // 间谍伪装
-    HERO_PREVIOUS: 920,       // 前勇者标记
+    // 基础属性 (英雄生成时设置)
+    BASE_HP: 9,               // 对应 base[0] 的等级系数
+    BASE_MP: 10,              // 对应 base[1]
+    ATK: 11,                  // 攻击
+    DEF: 12,                  // 防御
+    SPD: 13,                  // 敏捷/速度
+    STAMINA: 16,              // 体力
 
-    // 英雄属性
-    HERO_CLASS: 950,          // 职业ID
-    HERO_PARTY_ROLE: 952,     // 队伍角色（前/中/后）
-    HERO_RARITY: 953,         // 稀有度 N/R/SR/SSR/UR
-    SEXUAL_WEAKNESS: 954,     // 性弱点类型
+    // 情感点数
+    LOVE_POINTS: 600,         // 爱情点数
+    OBEDIENCE_POINTS: 601,    // 服从点数
 
-    // 地牢进度
+    // 堕落度
+    FALLEN_DEPTH: 700,        // 堕落深度
+    FALLEN_STAGE: 701,        // 堕落阶段
+    CORRUPTION: 702,          // 腐蚀度
+    SUBMISSION: 703,          // 屈服度
+    DESIRE: 704,              // 欲望
+    PLEASURE: 705,            // 快感
+    DEPRAVITY: 706,           // 淫乱度
+
+    // 妊娠
+    PREGNANCY_DAYS: 800,      // 妊娠天数
+
+    // 英雄地牢
     HERO_FLOOR: 501,          // 当前层
     HERO_PROGRESS: 502,       // 层进度%
 
+    // 间谍/探索
+    SPY_SENT: 910,            // 间谍已派遣
+    SPY_TARGET: 911,          // 间谍目标
+    SPY_DISGUISE: 912,        // 间谍伪装
+
+    // 英雄属性扩展
+    HERO_PREVIOUS: 920,       // 前勇者标记
+    HERO_CLASS: 950,          // 职业ID
+    HERO_LEVEL: 951,          // 英雄等级
+    HERO_PARTY_ROLE: 952,     // 队伍角色（前/中/后）
+    HERO_RARITY: 953,         // 稀有度 N/R/SR/SSR/UR
+    SEXUAL_WEAKNESS: 954,     // 性弱点类型
+    HERO_GOAL: 960,           // 英雄目标
+    HERO_MOTTO: 961,          // 英雄座右铭
+    HERO_PERSONALITY: 962,    // 英雄个性
+    HERO_BACKSTORY: 970,      // 英雄背景故事
+    HERO_APPEARANCE: 971,     // 英雄外观
+    HERO_REASON: 981,         // 成为勇者理由
+    HERO_ORIGIN: 982,         // 英雄出身
+    HERO_FAMILY: 983,         // 英雄家族
+
     // 任务系统
     HERO_TASK_TYPE: 980,      // 英雄任务类型
-    HERO_TASK_DESC: 340,      // 英雄任务描述（cstr）
     HERO_TASK_STATUS: 984,    // 任务完成标记
+    SLAVE_TASK_STATUS: 984,   // 奴隶任务状态
     SLAVE_TASK_TYPE: 985,     // 奴隶任务类型
     SLAVE_TASK_FLOOR: 986,    // 奴隶任务出发层
     SLAVE_TASK_CURRENT_FLOOR: 987, // 奴隶任务当前层
+    SLAVE_TASK_RESULT: 988,   // 奴隶任务结果
     SLAVE_TASK_PROGRESS: 990, // 奴隶任务移动进度
 
     // 魔王勋章
@@ -44,7 +81,9 @@ export const CFLAGS = {
 
 // ---------- CSTR 索引 ----------
 export const CSTRS = {
+    NAME: 0,                  // 名字
     NAME_ALT: 1,              // 别名/小队名
+    TITLE: 3,                 // 称号
     PREVIOUS_LIFE: 315,       // 勇者前生活
     REASON: 316,              // 成为勇者理由
     SEXUAL_WEAKNESS_DESC: 317,// 性弱点描述
@@ -56,8 +95,15 @@ export const CSTRS = {
     AGE: 331,                 // 年龄
     HEIGHT: 332,              // 身高
     WEIGHT: 333,              // 体重
+    BODY_TYPE: 334,           // 体型
     BODY_FEATURES: 335,       // 身体特征
     TASK_DESC: 340,           // 任务描述
+    TASK_RESULT: 341,         // 任务结果
+    EVENT_LOG: 350,           // 事件日志
+    DUNGEON_LOG: 351,         // 地牢日志
+    COMBAT_LOG: 352,          // 战斗日志
+    TRAIN_LOG: 353,           // 调教日志
+    RELATION_LOG: 354,        // 关系日志
 };
 
 // ---------- 性弱点类型 ----------

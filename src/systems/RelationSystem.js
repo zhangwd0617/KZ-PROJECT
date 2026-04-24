@@ -191,18 +191,18 @@ Game.prototype._doDisguiseEvent = function(actor, target) {
                 name: '带错路',
                 text: `${actor.name}故意带错了路，${target.name}的侵略度大幅降低！`,
                 effect: (a, t) => {
-                    let progress = t.cflag[502] || 0;
+                    let progress = t.cflag[CFLAGS.HERO_PROGRESS] || 0;
                     progress -= 30;
                     if (progress < 0) {
                         const floorId = this.getHeroFloor(t);
                         if (floorId > 1) {
-                            t.cflag[501] = floorId - 1;
-                            t.cflag[502] = 80 + progress;
+                            t.cflag[CFLAGS.HERO_FLOOR] = floorId - 1;
+                            t.cflag[CFLAGS.HERO_PROGRESS] = 80 + progress;
                         } else {
-                            t.cflag[502] = 0;
+                            t.cflag[CFLAGS.HERO_PROGRESS] = 0;
                         }
                     } else {
-                        t.cflag[502] = progress;
+                        t.cflag[CFLAGS.HERO_PROGRESS] = progress;
                     }
                     return `侵略【30%`;
                 }
@@ -221,8 +221,8 @@ Game.prototype._doDisguiseEvent = function(actor, target) {
                 name: '破坏装备',
                 text: `${actor.name}趁夜破坏${target.name}的装备，攻击力下降！`,
                 effect: (a, t) => {
-                    const debuff = Math.max(5, Math.floor((t.cflag[11] || 20) * 0.15));
-                    t.cflag[11] = Math.max(1, (t.cflag[11] || 20) - debuff);
+                    const debuff = Math.max(5, Math.floor((t.cflag[CFLAGS.ATK] || 20) * 0.15));
+                    t.cflag[CFLAGS.ATK] = Math.max(1, (t.cflag[CFLAGS.ATK] || 20) - debuff);
                     return `攻击【${debuff}`;
                 }
             },
@@ -232,8 +232,8 @@ Game.prototype._doDisguiseEvent = function(actor, target) {
                 text: `${actor.name}挑拨${target.name}与其他勇者的关系！`,
                 effect: (a, t) => {
                     // 降低目标速度（行动力下降】
-                    const debuff = Math.max(3, Math.floor((t.cflag[13] || 10) * 0.2));
-                    t.cflag[13] = Math.max(1, (t.cflag[13] || 10) - debuff);
+                    const debuff = Math.max(3, Math.floor((t.cflag[CFLAGS.SPD] || 10) * 0.2));
+                    t.cflag[CFLAGS.SPD] = Math.max(1, (t.cflag[CFLAGS.SPD] || 10) - debuff);
                     return `敏捷-${debuff}`;
                 }
             },
@@ -244,9 +244,9 @@ Game.prototype._doDisguiseEvent = function(actor, target) {
                 effect: (a, t) => {
                     const dmg = Math.floor(t.maxHp * 0.15);
                     t.hp = Math.max(1, t.hp - dmg);
-                    let progress = t.cflag[502] || 0;
+                    let progress = t.cflag[CFLAGS.HERO_PROGRESS] || 0;
                     progress -= 15;
-                    t.cflag[502] = Math.max(0, progress);
+                    t.cflag[CFLAGS.HERO_PROGRESS] = Math.max(0, progress);
                     return `HP-${dmg}, 侵略【15%`;
                 }
             }
@@ -310,18 +310,18 @@ Game.prototype._doHeroVsHeroCombat = function(a, b) {
             resultText = `双方势均力敌，各自负伤后撤退`;
         } else if (aWin) {
             resultText = `${a.name}获胜，${b.name}受到重创(HP:${b.hp}/${b.maxHp})`;
-            let progress = b.cflag[502] || 0;
+            let progress = b.cflag[CFLAGS.HERO_PROGRESS] || 0;
             progress -= 20;
             if (progress < 0) {
                 const floorId = this.getHeroFloor(b);
                 if (floorId > 1) {
-                    b.cflag[501] = floorId - 1;
-                    b.cflag[502] = 80 + progress;
+                    b.cflag[CFLAGS.HERO_FLOOR] = floorId - 1;
+                    b.cflag[CFLAGS.HERO_PROGRESS] = 80 + progress;
                 } else {
-                    b.cflag[502] = 0;
+                    b.cflag[CFLAGS.HERO_PROGRESS] = 0;
                 }
             } else {
-                b.cflag[502] = progress;
+                b.cflag[CFLAGS.HERO_PROGRESS] = progress;
             }
             if (RAND(100) < 20) {
                 const ailKeys = Object.keys(STATUS_AILMENT_DEFS);
@@ -332,18 +332,18 @@ Game.prototype._doHeroVsHeroCombat = function(a, b) {
             lootText = this._confiscateFromLoser(a, b);
         } else if (bWin) {
             resultText = `${b.name}获胜，${a.name}受到重创(HP:${a.hp}/${a.maxHp})`;
-            let progress = a.cflag[502] || 0;
+            let progress = a.cflag[CFLAGS.HERO_PROGRESS] || 0;
             progress -= 20;
             if (progress < 0) {
                 const floorId = this.getHeroFloor(a);
                 if (floorId > 1) {
-                    a.cflag[501] = floorId - 1;
-                    a.cflag[502] = 80 + progress;
+                    a.cflag[CFLAGS.HERO_FLOOR] = floorId - 1;
+                    a.cflag[CFLAGS.HERO_PROGRESS] = 80 + progress;
                 } else {
-                    a.cflag[502] = 0;
+                    a.cflag[CFLAGS.HERO_PROGRESS] = 0;
                 }
             } else {
-                a.cflag[502] = progress;
+                a.cflag[CFLAGS.HERO_PROGRESS] = progress;
             }
             if (RAND(100) < 20) {
                 const ailKeys = Object.keys(STATUS_AILMENT_DEFS);

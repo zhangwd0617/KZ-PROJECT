@@ -7,7 +7,7 @@ Game.prototype.bodyModifyLevelUp = function(index) {
         if (this.money < 10000) return { success: false, msg: '金钱不足！需要10000G' };
         this.money -= 10000;
         c.level += 1;
-        c.cflag[9] = c.level;
+        c.cflag[CFLAGS.BASE_HP] = c.level;
         // 提升基础属性        c.maxHp = Math.floor(c.maxHp * 1.1);
         c.hp = c.maxHp;
         c.maxMp = Math.floor(c.maxMp * 1.05);

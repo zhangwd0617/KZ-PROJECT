@@ -3,14 +3,14 @@
  */
 Game.prototype._hasStatusAilment = function(hero, type) {
         if (!hero || !STATUS_AILMENT_DEFS[type]) return false;
-        const mask = hero.cflag[920] || 0;
+        const mask = hero.cflag[CFLAGS.HERO_PREVIOUS] || 0;
         return (mask & STATUS_AILMENT_DEFS[type].bit) !== 0;
     }
 
 Game.prototype._addStatusAilment = function(hero, type, turns) {
         if (!hero || !STATUS_AILMENT_DEFS[type]) return;
         const def = STATUS_AILMENT_DEFS[type];
-        hero.cflag[920] = (hero.cflag[920] || 0) | def.bit;
+        hero.cflag[CFLAGS.HERO_PREVIOUS] = (hero.cflag[CFLAGS.HERO_PREVIOUS] || 0) | def.bit;
         const turnKey = STATUS_AILMENT_TURN_CFIDS[type];
         hero.cflag[turnKey] = Math.max(hero.cflag[turnKey] || 0, turns);
     }
@@ -18,20 +18,20 @@ Game.prototype._addStatusAilment = function(hero, type, turns) {
 Game.prototype._removeStatusAilment = function(hero, type) {
         if (!hero || !STATUS_AILMENT_DEFS[type]) return;
         const def = STATUS_AILMENT_DEFS[type];
-        hero.cflag[920] = (hero.cflag[920] || 0) & ~def.bit;
+        hero.cflag[CFLAGS.HERO_PREVIOUS] = (hero.cflag[CFLAGS.HERO_PREVIOUS] || 0) & ~def.bit;
         const turnKey = STATUS_AILMENT_TURN_CFIDS[type];
         hero.cflag[turnKey] = 0;
     }
 
 Game.prototype._clearAllStatusAilments = function(hero) {
         if (!hero) return;
-        hero.cflag[920] = 0;
+        hero.cflag[CFLAGS.HERO_PREVIOUS] = 0;
         for (let i = 921; i <= 930; i++) hero.cflag[i] = 0;
     }
 
 Game.prototype._getStatusAilmentText = function(hero) {
         if (!hero) return "";
-        const mask = hero.cflag[920] || 0;
+        const mask = hero.cflag[CFLAGS.HERO_PREVIOUS] || 0;
         if (mask === 0) return "";
         const names = [];
         for (const key in STATUS_AILMENT_DEFS) {
@@ -45,7 +45,7 @@ Game.prototype._getStatusAilmentText = function(hero) {
 
 Game.prototype._applyStatusAilmentEffects = function(hero) {
         if (!hero) return { atkMod: 0, defMod: 0, spdMod: 0, dotHp: 0, dotMp: 0, actionBlock: 0, friendlyFire: 0 };
-        const mask = hero.cflag[920] || 0;
+        const mask = hero.cflag[CFLAGS.HERO_PREVIOUS] || 0;
         let atkMod = 0, defMod = 0, spdMod = 0, dotHp = 0, dotMp = 0, actionBlock = 0, friendlyFire = 0;
         for (const key in STATUS_AILMENT_DEFS) {
             const def = STATUS_AILMENT_DEFS[key];
@@ -64,7 +64,7 @@ Game.prototype._applyStatusAilmentEffects = function(hero) {
 
 Game.prototype._processStatusAilmentTurn = function(hero) {
         if (!hero) return [];
-        const mask = hero.cflag[920] || 0;
+        const mask = hero.cflag[CFLAGS.HERO_PREVIOUS] || 0;
         if (mask === 0) return [];
         const logs = [];
         for (const key in STATUS_AILMENT_DEFS) {
@@ -83,7 +83,7 @@ Game.prototype._processStatusAilmentTurn = function(hero) {
                     logs.push(`${hero.name}因【${def.name}】损失${dmg}MP`);
                 }
                 if (hero.cflag[turnKey] <= 0) {
-                    hero.cflag[920] = (hero.cflag[920] || 0) & ~def.bit;
+                    hero.cflag[CFLAGS.HERO_PREVIOUS] = (hero.cflag[CFLAGS.HERO_PREVIOUS] || 0) & ~def.bit;
                     hero.cflag[turnKey] = 0;
                     logs.push(`${hero.name}的【${def.name}】解除了`);
                 }
@@ -94,7 +94,7 @@ Game.prototype._processStatusAilmentTurn = function(hero) {
 
 Game.prototype._tryCureStatusAilment = function(hero, method) {
         if (!hero) return [];
-        const mask = hero.cflag[920] || 0;
+        const mask = hero.cflag[CFLAGS.HERO_PREVIOUS] || 0;
         if (mask === 0) return [];
         const logs = [];
         for (const key in STATUS_AILMENT_DEFS) {

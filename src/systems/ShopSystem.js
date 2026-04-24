@@ -69,12 +69,12 @@ class DayEndSystem {
         // === 怀孕推进与分娩 ===
         for (const c of g.characters) {
             if (c.talent[153]) {
-                c.cflag[800] = (c.cflag[800] || 0) + 1;
-                const days = c.cflag[800];
+                c.cflag[CFLAGS.PREGNANCY_DAYS] = (c.cflag[CFLAGS.PREGNANCY_DAYS] || 0) + 1;
+                const days = c.cflag[CFLAGS.PREGNANCY_DAYS];
                 if (days >= 30) {
                     // 分娩
                     c.talent[153] = 0;
-                    c.cflag[800] = 0;
+                    c.cflag[CFLAGS.PREGNANCY_DAYS] = 0;
                     c.addExp(60, 1); // 生产经验
                     if (!c.talent[188]) c.talent[188] = 1; // 获得母性
                     const child = this._createChild(c);
@@ -115,10 +115,10 @@ class DayEndSystem {
                     }
                     // 重置该层奴隶的宝箱掩码
                     for (const slave of g.characters) {
-                        if (slave.talent[200] && slave.cflag[700]) {
-                            const slaveFloor = slave.cflag[701] || 10;
+                        if (slave.talent[200] && slave.cflag[CFLAGS.FALLEN_DEPTH]) {
+                            const slaveFloor = slave.cflag[CFLAGS.FALLEN_STAGE] || 10;
                             if (slaveFloor === fid) {
-                                slave.cflag[704] = (slave.cflag[704] || 0) & ~7;
+                                slave.cflag[CFLAGS.DESIRE] = (slave.cflag[CFLAGS.DESIRE] || 0) & ~7;
                             }
                         }
                     }
@@ -142,7 +142,7 @@ class DayEndSystem {
             // 批量入侵事件加入日常事件队列
             let invaderNames = newcomers.map(h => `${h.name} Lv.${h.level}`).join(',');
             const goalInfo = newcomers.length === 1 ? `
-攻略目标：${HERO_GOAL_DEFS[newcomers[0].cflag[951]]?.name || '讨伐魔王'}` : '';
+攻略目标：${HERO_GOAL_DEFS[newcomers[0].cflag[CFLAGS.HERO_LEVEL]]?.name || '讨伐魔王'}` : '';
             dailyEvents.push({
                 type: 'daily',
                 title: `⚔️ ${newcomers.length}名勇者入侵！`,
@@ -207,7 +207,7 @@ ${invaderNames}${goalInfo}
         try {
             // 清零每日事件标记（每个勇者/小队每天只能触发一个事件）
             for (const hero of g.invaders) {
-                hero.cflag[910] = 0;
+                hero.cflag[CFLAGS.SPY_SENT] = 0;
             }
 
             // 勇者之间相遇事件（伪装/破坏/内战）
@@ -249,7 +249,7 @@ ${invaderNames}${goalInfo}
                     if (g.getHeroFloor(other) !== weakFloor) continue;
                     const rel = g._getHeroRelation(weakHero, other);
                     // 关系>=点头之交，但没有组队（没有帮助）
-                    if (rel.level >= 2 && (other.cflag[900] || 0) !== (weakHero.cflag[900] || 0)) {
+                    if (rel.level >= 2 && (other.cflag[CFLAGS.SQUAD_ID] || 0) !== (weakHero.cflag[CFLAGS.SQUAD_ID] || 0)) {
                         if (RAND(100) < 25) {
                             g._setHeroRelation(weakHero, other, -1, 'ignore_help');
                             g._markDailyEventTriggered(weakHero);
@@ -289,7 +289,7 @@ ${invaderNames}${goalInfo}
                     if (result.floor) {
                         moveOverview = `📍 ${hero.name} 战败逃跑 → 退回第${result.floor}层 50%`;
                     } else {
-                        moveOverview = `📍 ${hero.name} 战败逃跑 → 后退50% → 第${floorId}层 ${hero.cflag[502]}%`;
+                        moveOverview = `📍 ${hero.name} 战败逃跑 → 后退50% → 第${floorId}层 ${hero.cflag[CFLAGS.HERO_PROGRESS]}%`;
                     }
                 } else if (result.action === 'captured') {
                     moveOverview = `📍 ${hero.name} 战败 → 被怪物俘虏`;
@@ -310,7 +310,7 @@ ${invaderNames}${goalInfo}
                                     type: 'team',
                                     hero: hero,
                                     heroName: r.type === 'scombat' ? hero.name : undefined,
-                                    squad: r.type === 'scombat' ? g.invaders.filter(h => h.cflag[900] === hero.cflag[900]) : undefined,
+                                    squad: r.type === 'scombat' ? g.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === hero.cflag[CFLAGS.SQUAD_ID]) : undefined,
                                     monster: r.monster,
                                     leftTeam: r.leftTeam,
                                     rightTeam: r.rightTeam,
@@ -366,8 +366,8 @@ ${invaderNames}${goalInfo}
                 }
 
                 // 勇者冒险口号与目标（固定显示）
-                const motto = hero.cstr[0] || '';
-                const goalId = hero.cflag[951];
+                const motto = hero.cstr[CSTRS.NAME] || '';
+                const goalId = hero.cflag[CFLAGS.HERO_LEVEL];
                 const goalDef = goalId && HERO_GOAL_DEFS[goalId] ? HERO_GOAL_DEFS[goalId] : null;
                 const goalText = goalDef ? `【${goalDef.icon} ${goalDef.name}】` : '';
                 const mottoHtml = motto ? `<div style="margin:8px 0;padding:8px 12px;background:var(--bg-card);border-left:3px solid var(--accent);border-radius:0 4px 4px 0;font-style:italic;color:var(--accent);font-size:0.85rem;">"${motto}"</div>` : '';
@@ -389,7 +389,7 @@ ${invaderNames}${goalInfo}
                 if (result.action === 'retreat_to_town') {
                     retreatHeroes.push(hero.name);
                     hero.cflag[503] = 1;
-                    hero.cflag[911] = 0; // 回城恢复后解除低调状态
+                    hero.cflag[CFLAGS.SPY_TARGET] = 0; // 回城恢复后解除低调状态
                     hero.hp = Math.min(hero.maxHp, hero.hp + Math.floor(hero.maxHp * 0.3));
                     hero.mp = Math.min(hero.maxMp, hero.mp + Math.floor(hero.maxMp * 0.3));
                     let retreatText = `${hero.name}撤退回城镇恢复。`;
@@ -398,7 +398,7 @@ ${invaderNames}${goalInfo}
                         if (cured && cured.length > 0) retreatText += `
 解除状态：${cured.join(',')}`;
                     }
-                    const mask = hero.cflag[920] || 0;
+                    const mask = hero.cflag[CFLAGS.HERO_PREVIOUS] || 0;
                     if ((mask & 1) !== 0) retreatText += `
 🌑 诅咒无法通过普通休息解除...`;
                     phase2Queue.push({
@@ -439,8 +439,8 @@ ${invaderNames}${goalInfo}
                 }
 
                 // === 勇者任务完成结算 ===
-                if ((hero.cflag[980] || 0) !== 0 && (hero.cflag[984] || 0) === 1) {
-                    const taskType = hero.cflag[980];
+                if ((hero.cflag[CFLAGS.HERO_TASK_TYPE] || 0) !== 0 && (hero.cflag[CFLAGS.HERO_TASK_STATUS] || 0) === 1) {
+                    const taskType = hero.cflag[CFLAGS.HERO_TASK_TYPE];
                     let taskRewardText = '';
                     if (taskType === 1) {
                         // 讨伐地下城奖励
@@ -451,7 +451,7 @@ ${invaderNames}${goalInfo}
                         taskRewardText = `讨伐完成！获得${rewardGold}G，个人声望+5，魔王声望+3`;
                     } else if (taskType === 2) {
                         // 委托奖励
-                        const comId = hero.cflag[982] || 0;
+                        const comId = hero.cflag[CFLAGS.HERO_ORIGIN] || 0;
                         const comDef = COMMISSION_DEFS[comId];
                         if (comDef) {
                             hero.gold += comDef.rewardGold;
@@ -484,7 +484,7 @@ ${invaderNames}${goalInfo}
                 const slave = g.characters[i];
                 const isMaster = g.getMaster() === slave;
                 if (!slave.talent[200] && !isMaster) continue; // 不是前勇者奴隶也不是魔王
-                if ((slave.cflag[985] || 0) === 0) continue; // 无任务
+                if ((slave.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0) === 0) continue; // 无任务
                 const result = g.processSlaveTaskDaily(slave);
                 if (result) {
                     stats.slave++;
@@ -610,7 +610,7 @@ ${invaderNames}${goalInfo}
         child.base[0] = 400; child.maxbase[0] = 400; child.hp = 400;
         child.base[1] = 300; child.maxbase[1] = 300; child.mp = 300;
         child.level = 1;
-        child.cflag[9] = 1; // 奴隶标记
+        child.cflag[CFLAGS.BASE_HP] = 1; // 奴隶标记
 
         // 继承母亲的体型特征
         if (mother.talent[99]) child.talent[99] = 1; // 魁梧
@@ -641,9 +641,9 @@ ${invaderNames}${goalInfo}
         if (mother.talent[25]) child.talent[25] = 1; // 乐观
 
         // 继承肤色/发色（使用cflag外观编码）
-        child.cflag[11] = mother.cflag[11] || 8; // 肤色
-        child.cflag[12] = mother.cflag[12] || 6; // 发色
-        child.cflag[13] = mother.cflag[13] || 5; // 瞳色
+        child.cflag[CFLAGS.ATK] = mother.cflag[CFLAGS.ATK] || 8; // 肤色
+        child.cflag[CFLAGS.DEF] = mother.cflag[CFLAGS.DEF] || 6; // 发色
+        child.cflag[CFLAGS.SPD] = mother.cflag[CFLAGS.SPD] || 5; // 瞳色
 
         // 继承少量能力
         for (let i = 0; i < child.abl.length; i++) {
@@ -659,7 +659,7 @@ ${invaderNames}${goalInfo}
         // 外观：如果母亲是未成熟/萝莉体型，孩子也为未成熟
         if (mother.talent[113]) {
             child.talent[113] = 1;
-            child.cflag[11] = 7; // 较浅肤色
+            child.cflag[CFLAGS.ATK] = 7; // 较浅肤色
         }
 
         return child;

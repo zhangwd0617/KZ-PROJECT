@@ -123,17 +123,17 @@ class Character {
     get stamina() { return this.base[2]; }
     set stamina(v) { this.base[2] = v; }
 
-    get level() { return this.cflag[9]; }
-    set level(v) { this.cflag[9] = v; }
+    get level() { return this.cflag[CFLAGS.BASE_HP]; }
+    set level(v) { this.cflag[CFLAGS.BASE_HP] = v; }
 
-    get atk() { return this.cflag[11]; }
-    set atk(v) { this.cflag[11] = v; }
-    get def() { return this.cflag[12]; }
-    set def(v) { this.cflag[12] = v; }
+    get atk() { return this.cflag[CFLAGS.ATK]; }
+    set atk(v) { this.cflag[CFLAGS.ATK] = v; }
+    get def() { return this.cflag[CFLAGS.DEF]; }
+    set def(v) { this.cflag[CFLAGS.DEF] = v; }
 
     // 角色持有金币（勇者/前勇者用）
-    get gold() { return this.cflag[800] || 0; }
-    set gold(v) { this.cflag[800] = Math.max(0, v); }
+    get gold() { return this.cflag[CFLAGS.PREGNANCY_DAYS] || 0; }
+    set gold(v) { this.cflag[CFLAGS.PREGNANCY_DAYS] = Math.max(0, v); }
     addGold(v) { this.gold += v; }
 
     // ========== Energy (气力) ==========

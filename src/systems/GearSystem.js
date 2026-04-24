@@ -408,8 +408,8 @@ class GearSystem {
         } else if (item.itemType === "buff") {
             const atkVal = (item.stats.atk || 0) * mult;
             const defVal = (item.stats.def || 0) * mult;
-            c.cflag[910] = (c.cflag[910] || 0) + atkVal;
-            c.cflag[911] = (c.cflag[911] || 0) + defVal;
+            c.cflag[CFLAGS.SPY_SENT] = (c.cflag[CFLAGS.SPY_SENT] || 0) + atkVal;
+            c.cflag[CFLAGS.SPY_TARGET] = (c.cflag[CFLAGS.SPY_TARGET] || 0) + defVal;
             msg = "攻击+" + atkVal + " 防御+" + defVal + " (持续" + item.stats.duration + "回合)";
         } else if (item.itemType === "cleanse") {
             let count = 0;
@@ -424,7 +424,7 @@ class GearSystem {
                 if (c.talent[200]) {
                     // 前勇者：等级+10
                     c.level = Math.min(200, c.level + 10);
-                    c.cflag[9] = c.level;
+                    c.cflag[CFLAGS.BASE_HP] = c.level;
                     msg = "等级提升了10级！但身体感到异常...";
                 } else {
                     // 普通勇者：服从度+1
@@ -434,8 +434,8 @@ class GearSystem {
                 }
             } else {
                 // 正常净化药水：清除所有负面效果
-                c.cflag[910] = 0;
-                c.cflag[911] = 0;
+                c.cflag[CFLAGS.SPY_SENT] = 0;
+                c.cflag[CFLAGS.SPY_TARGET] = 0;
                 c.hp = Math.min(c.maxHp, c.hp + Math.floor(c.maxHp * 0.3));
                 c.mp = Math.min(c.maxMp, c.mp + Math.floor(c.maxMp * 0.3));
                 msg = "所有负面效果被清除，HP/MP大幅恢复";

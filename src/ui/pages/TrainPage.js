@@ -55,7 +55,7 @@ Object.assign(UI, {
 
         // === Left: Main slave panel ===
         let leftHtml = '';
-        const pregTag = target.talent[153] ? ` <span style="color:var(--accent);">🤰${target.cflag[800] || 0}d</span>` : '';
+        const pregTag = target.talent[153] ? ` <span style="color:var(--accent);">🤰${target.cflag[CFLAGS.PREGNANCY_DAYS] || 0}d</span>` : '';
         const persName = target.getPersonalityName ? target.getPersonalityName() : '普通';
         // === NEW (P5): Compound label & route synergy ===
         const compoundLabel = (typeof generateCompoundLabel === 'function') ? generateCompoundLabel(target) : '';

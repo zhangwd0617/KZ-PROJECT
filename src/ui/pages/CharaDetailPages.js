@@ -24,13 +24,13 @@ Object.assign(UI, {
             const c = item.chara;
             const isMaster = item.index === game.master;
             const isExHero = c.talent[200];
-            const exploring = isExHero && c.cflag[700];
+            const exploring = isExHero && c.cflag[CFLAGS.FALLEN_DEPTH];
             const name = isMaster ? `👑${c.name}` : (isExHero ? `🛡️${c.name}` : c.name);
             const borderColor = isMaster ? '#d4af37' : (isExHero ? '#8b5cf6' : 'var(--accent)');
             let extra = `<span style="color:var(--text-dim);font-size:0.75rem;">Lv.${c.level}</span>`;
             if (exploring) {
-                const floor = c.cflag[701] || 10;
-                const progress = c.cflag[702] || 0;
+                const floor = c.cflag[CFLAGS.FALLEN_STAGE] || 10;
+                const progress = c.cflag[CFLAGS.CORRUPTION] || 0;
                 extra += ` <span style="color:var(--success);font-size:0.7rem;">探索第${floor}层 ${progress}%</span>`;
             } else if (isExHero) {
                 extra += ` <span style="color:var(--info);font-size:0.7rem;">前勇者</span>`;
@@ -134,7 +134,7 @@ Object.assign(UI, {
         btnHtml += '<div class="btn-grid">';
         // 求婚按钮（仅奴隶）
         if (type === 'chara') {
-            const isMarried = c.cflag[600] ? true : false;
+            const isMarried = c.cflag[CFLAGS.LOVE_POINTS] ? true : false;
             const isFallen = (c.mark[0] || 0) >= 3;
             const hasRing = (game.item[70] || 0) > 0;
             if (isMarried) {
@@ -156,7 +156,7 @@ Object.assign(UI, {
             }
             // 任务分配按钮（魔王或已陷落角色）
             if (G.canAssignTask(c)) {
-                const hasTask = (c.cflag[985] || 0) !== 0;
+                const hasTask = (c.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0) !== 0;
                 btnHtml += `<button class="game-btn ${hasTask ? 'accent' : ''}" onclick="UI.renderTaskAssignment(G,${index})">📋 ${hasTask ? '任务进行中' : '任务分配'}</button>`;
             }
             // 物品操作按钮（奴隶和俘虏勇者）
@@ -244,7 +244,7 @@ Object.assign(UI, {
         this.appendDivider();
         this.clearButtons();
 
-        const currentTask = c.cflag[985] || 0;
+        const currentTask = c.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0;
         const isMaster = G.getMaster() === c;
 
         let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
@@ -335,13 +335,13 @@ Object.assign(UI, {
         // 勇者额外信息
         let heroInfoHtml = '';
         if (isHero) {
-            const floor = c.cflag[501] || 1;
-            const progress = c.cflag[502] || 0;
+            const floor = c.cflag[CFLAGS.HERO_FLOOR] || 1;
+            const progress = c.cflag[CFLAGS.HERO_PROGRESS] || 0;
             const floorDef = DUNGEON_FLOOR_DEFS[floor];
-            const taskType = c.cflag[980] || 0;
+            const taskType = c.cflag[CFLAGS.HERO_TASK_TYPE] || 0;
             const taskDef = HERO_TASK_TYPE_DEFS[taskType] || HERO_TASK_TYPE_DEFS[0];
-            const taskDesc = c.cstr[340] || '暂无任务';
-            const taskStatus = (c.cflag[984] || 0) === 1 ? '<span style="color:var(--success);">[已完成]</span>' : '';
+            const taskDesc = c.cstr[CSTRS.TASK_DESC] || '暂无任务';
+            const taskStatus = (c.cflag[CFLAGS.HERO_TASK_STATUS] || 0) === 1 ? '<span style="color:var(--success);">[已完成]</span>' : '';
             heroInfoHtml = `
             <div class="chara-section" style="border-color:var(--danger);">
                 <div class="chara-section-title" style="color:var(--danger);">🗡️ 勇者情报</div>
@@ -350,7 +350,7 @@ Object.assign(UI, {
                     <div class="chara-stat-item"><span class="chara-stat-name">侵略进度</span><span class="chara-stat-val">${progress}%</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">持有金币</span><span class="chara-stat-val">💰 ${c.gold}G</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">个人声望</span><span class="chara-stat-val">🏆 ${c.fame || 0}</span></div>
-                    ${c.cstr[1] ? `<div class="chara-stat-item"><span class="chara-stat-name">所属小队</span><span class="chara-stat-val">${c.cflag[901] === 1 ? '★' : ''}${c.cstr[1]}</span></div>` : ''}
+                    ${c.cstr[CSTRS.NAME_ALT] ? `<div class="chara-stat-item"><span class="chara-stat-name">所属小队</span><span class="chara-stat-val">${c.cflag[CFLAGS.SQUAD_LEADER] === 1 ? '★' : ''}${c.cstr[CSTRS.NAME_ALT]}</span></div>` : ''}
                 </div>
                 <div style="margin-top:8px;padding:6px 10px;background:var(--bg);border-radius:4px;border-left:3px solid var(--accent);">
                     <div style="font-size:0.8rem;color:var(--text-dim);">${taskDef.icon || ''} 当前任务 ${taskStatus}</div>
@@ -398,12 +398,12 @@ Object.assign(UI, {
 
         return `
         ${(() => {
-            const appDesc = c.cstr[330];
+            const appDesc = c.cstr[CSTRS.APPEARANCE];
             if (!appDesc) return '';
-            const age = c.cstr[331] || '?';
-            const height = c.cstr[332] || '?';
-            const weight = c.cstr[333] || '?';
-            const bodyFeat = c.cstr[335] || '';
+            const age = c.cstr[CSTRS.AGE] || '?';
+            const height = c.cstr[CSTRS.HEIGHT] || '?';
+            const weight = c.cstr[CSTRS.WEIGHT] || '?';
+            const bodyFeat = c.cstr[CSTRS.BODY_FEATURES] || '';
             return `
             <div class="chara-section" style="border-color:var(--accent);">
                 <div class="chara-section-title" style="color:var(--accent);">✨ 外貌描述</div>
@@ -428,9 +428,9 @@ Object.assign(UI, {
         <div class="chara-section" style="border-color:#d4af37;">
             <div class="chara-section-title" style="color:#d4af37;">🏅 魔王勋章</div>
             <div class="chara-stat-grid">
-                <div class="chara-stat-item"><span class="chara-stat-name">勋章数</span><span class="chara-stat-val" style="color:#d4af37;">${c.cflag[988] || 0} 枚</span></div>
-                <div class="chara-stat-item"><span class="chara-stat-name">全属性加成</span><span class="chara-stat-val" style="color:var(--success);">+${c.cflag[988] || 0}%</span></div>
-                <div class="chara-stat-item"><span class="chara-stat-name">勋章经验</span><span class="chara-stat-val">${c.cflag[989] || 0}</span></div>
+                <div class="chara-stat-item"><span class="chara-stat-name">勋章数</span><span class="chara-stat-val" style="color:#d4af37;">${c.cflag[CFLAGS.MEDAL_COUNT] || 0} 枚</span></div>
+                <div class="chara-stat-item"><span class="chara-stat-name">全属性加成</span><span class="chara-stat-val" style="color:var(--success);">+${c.cflag[CFLAGS.MEDAL_COUNT] || 0}%</span></div>
+                <div class="chara-stat-item"><span class="chara-stat-name">勋章经验</span><span class="chara-stat-val">${c.cflag[CFLAGS.MEDAL_EXP] || 0}</span></div>
             </div>
         </div>
         ` : ''}
@@ -439,16 +439,16 @@ Object.assign(UI, {
         <div class="chara-section" style="border-color:var(--accent);">
             <div class="chara-section-title" style="color:var(--accent);">📋 当前任务</div>
             ${(() => {
-                const taskType = c.cflag[985] || 0;
+                const taskType = c.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0;
                 if (taskType === 0) return '<div style="font-size:0.85rem;color:var(--text-dim);">暂无任务</div>';
                 const taskDef = SLAVE_TASK_DEFS[taskType];
-                const currentFloor = c.cflag[987] || c.cflag[986] || '?';
-                const progress = c.cflag[990] || 0;
+                const currentFloor = c.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] || c.cflag[CFLAGS.SLAVE_TASK_FLOOR] || '?';
+                const progress = c.cflag[CFLAGS.SLAVE_TASK_PROGRESS] || 0;
                 return `
                 <div style="font-size:0.9rem;font-weight:bold;margin-bottom:4px;">${taskDef ? taskDef.icon : ''} ${taskDef ? taskDef.name : '未知任务'}</div>
                 <div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:6px;">${taskDef ? taskDef.desc : ''}</div>
                 <div class="chara-stat-grid">
-                    <div class="chara-stat-item"><span class="chara-stat-name">出发楼层</span><span class="chara-stat-val">第${c.cflag[986] || '?'}层</span></div>
+                    <div class="chara-stat-item"><span class="chara-stat-name">出发楼层</span><span class="chara-stat-val">第${c.cflag[CFLAGS.SLAVE_TASK_FLOOR] || '?'}层</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">当前楼层</span><span class="chara-stat-val">第${currentFloor}层</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">移动进度</span><span class="chara-stat-val">${progress}%</span></div>
                 </div>`;
@@ -488,8 +488,8 @@ Object.assign(UI, {
         ${(!isHero && c.talent[153]) ? `<div class="chara-section" style="border-color:var(--accent);">
             <div class="chara-section-title" style="color:var(--accent);">🤰 妊娠状态</div>
             <div class="chara-stat-grid">
-                <div class="chara-stat-item"><span class="chara-stat-name">妊娠天数</span><span class="chara-stat-val" style="color:var(--accent);">${c.cflag[800] || 0} / 30 天</span></div>
-                <div class="chara-stat-item"><span class="chara-stat-name">预计分娩</span><span class="chara-stat-val" style="color:var(--accent);">${30 - (c.cflag[800] || 0)} 天后</span></div>
+                <div class="chara-stat-item"><span class="chara-stat-name">妊娠天数</span><span class="chara-stat-val" style="color:var(--accent);">${c.cflag[CFLAGS.PREGNANCY_DAYS] || 0} / 30 天</span></div>
+                <div class="chara-stat-item"><span class="chara-stat-name">预计分娩</span><span class="chara-stat-val" style="color:var(--accent);">${30 - (c.cflag[CFLAGS.PREGNANCY_DAYS] || 0)} 天后</span></div>
             </div>
         </div>` : ''}
         `;

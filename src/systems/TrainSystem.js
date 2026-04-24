@@ -461,7 +461,7 @@ class TrainSystem {
         if (target.hasTalent(0)) {
             UI.appendText(`【${target.name}失去了处女！】\n`);
             target.removeTalent(0);
-            target.cstr[3] = master.name; // First experience partner
+            target.cstr[CSTRS.TITLE] = master.name; // First experience partner
         }
 
         const reactions = {
@@ -1022,7 +1022,7 @@ class TrainSystem {
         if (target.talent[153]) return; // 已怀孕
         if (RAND(100) < rate) {
             target.talent[153] = 1;
-            target.cflag[800] = 0; // 怀孕天数
+            target.cflag[CFLAGS.PREGNANCY_DAYS] = 0; // 怀孕天数
             UI.appendText(`【${target.name}的体内被注入了精液...似乎怀孕了。】\n`);
         }
     }

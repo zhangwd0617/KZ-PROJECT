@@ -98,12 +98,12 @@ class Game {
     marrySlave(index) {
         // 清除所有角色的结婚标记（一夫一妻制）
         for (const ch of this.characters) {
-            if (ch) ch.cflag[600] = 0;
+            if (ch) ch.cflag[CFLAGS.LOVE_POINTS] = 0;
         }
         if (index < 0 || index === this.master) return true; // 仅解除婚约
         const c = this.getChara(index);
         if (!c) return false;
-        c.cflag[600] = 1;
+        c.cflag[CFLAGS.LOVE_POINTS] = 1;
         return true;
     }
 
@@ -163,7 +163,7 @@ class Game {
         // Initial slave: 莉莉 (template 24) - 固定开局
         const slave = CharaTemplates.create(24);
         if (slave) {
-            slave.cflag[1] = 1; // Captured status
+            slave.cflag[CFLAGS.CAPTURE_STATUS] = 1; // Captured status
             this.addCharaFromTemplate(slave);
         }
 
@@ -419,7 +419,7 @@ class Game {
             return;
         }
         this.money -= price;
-        slave.cflag[1] = 1;
+        slave.cflag[CFLAGS.CAPTURE_STATUS] = 1;
         this.addCharaFromTemplate(slave);
         UI.showToast(`购买了【{slave.name}】！`);
         // 从候选列表移除
@@ -445,7 +445,7 @@ class Game {
         if (this.money < 10000) return { success: false, msg: '金钱不足！需要10000G' };
         this.money -= 10000;
         c.level += 1;
-        c.cflag[9] = c.level;
+        c.cflag[CFLAGS.BASE_HP] = c.level;
         // 提升基础属性        c.maxHp = Math.floor(c.maxHp * 1.1);
         c.hp = c.maxHp;
         c.maxMp = Math.floor(c.maxMp * 1.05);
@@ -724,12 +724,12 @@ class Game {
 
     // 获取勇者当前所在层（入侵时从第1层开始）
     getHeroFloor(hero) {
-        return hero.cflag[501] || 1;
+        return hero.cflag[CFLAGS.HERO_FLOOR] || 1;
     }
 
     // 获取勇者当前层内进度(0-100)
     getHeroProgress(hero) {
-        return hero.cflag[502] || 0;
+        return hero.cflag[CFLAGS.HERO_PROGRESS] || 0;
     }
 
     // 计算策略对勇者速度的影响
@@ -832,13 +832,13 @@ class Game {
             if (captureResult.type === 'escape') {
                 // 逃跑成功：侵略度-50%，不足则回上一层0%
                 if (progress >= 50) {
-                    hero.cflag[502] = progress - 50;
+                    hero.cflag[CFLAGS.HERO_PROGRESS] = progress - 50;
                     // 恢复少量状态以便继续入侵                    hero.hp = Math.max(1, Math.floor(hero.maxHp * 0.15));
                     hero.mp = Math.max(1, Math.floor(hero.maxMp * 0.1));
                     return { action: 'defeat_escape', hero, results: explore.results, captureResult, moveSpeed: -50 };
                 } else if (floorId > 1) {
-                    hero.cflag[501] = floorId - 1;
-                    hero.cflag[502] = 50;
+                    hero.cflag[CFLAGS.HERO_FLOOR] = floorId - 1;
+                    hero.cflag[CFLAGS.HERO_PROGRESS] = 50;
                     hero.hp = Math.max(1, Math.floor(hero.maxHp * 0.15));
                     hero.mp = Math.max(1, Math.floor(hero.maxMp * 0.1));
                     return { action: 'defeat_escape', hero, floor: floorId - 1, results: explore.results, captureResult, moveSpeed: -100 };
@@ -869,20 +869,20 @@ class Game {
 
         // 处理边界情况
         if (progress >= 100) {
-            hero.cflag[501] = floorId + 1;
-            hero.cflag[502] = 0;
+            hero.cflag[CFLAGS.HERO_FLOOR] = floorId + 1;
+            hero.cflag[CFLAGS.HERO_PROGRESS] = 0;
             hero.cflag[503] = 0; // 重置新楼层宝箱标记
             return { action: 'next_floor', hero, floor: floorId + 1, results: explore.results, moveSpeed };
         } else if (progress <= 0) {
             if (floorId <= 1) {
                 return { action: 'retreat_to_town', hero, results: explore.results, moveSpeed };
             } else {
-                hero.cflag[501] = floorId - 1;
-                hero.cflag[502] = 80;
+                hero.cflag[CFLAGS.HERO_FLOOR] = floorId - 1;
+                hero.cflag[CFLAGS.HERO_PROGRESS] = 80;
                 return { action: 'prev_floor', hero, floor: floorId - 1, results: explore.results, moveSpeed };
             }
         } else {
-            hero.cflag[502] = progress;
+            hero.cflag[CFLAGS.HERO_PROGRESS] = progress;
             return { action: 'move', hero, progress, results: explore.results, moveSpeed };
         }
     }
@@ -890,7 +890,7 @@ class Game {
     // 检查进度宝箱：25%/50%/75%高级宝箱，100%传说宝箱
     _checkProgressChests(hero, oldProgress, newProgress, floorId) {
         const events = [];
-        // 勇者用 cflag[503]，奴隶/前勇者用 cflag[704]
+        // 勇者用 cflag[503]，奴隶/前勇者用 cflag[CFLAGS.DESIRE]
         const flagSlot = hero.talent[200] ? 704 : 503;
         const mask = hero.cflag[flagSlot] || 0;
         const thresholds = [
@@ -1029,12 +1029,12 @@ class Game {
                 const monster = monsters[RAND(monsters.length)];
 
                 // 检查是否属于小队
-                const squadId = hero.cflag[900];
-                if (squadId && hero.cflag[901] !== 1) {
+                const squadId = hero.cflag[CFLAGS.SQUAD_ID];
+                if (squadId && hero.cflag[CFLAGS.SQUAD_LEADER] !== 1) {
                     // 小队成员但不是队长，跳过战斗（由队长统一处理）                    // 什么都不做，队长的结果会统一记录
-                } else if (squadId && hero.cflag[901] === 1) {
+                } else if (squadId && hero.cflag[CFLAGS.SQUAD_LEADER] === 1) {
                     // 队长：触发小队战斗
-                    const squad = this.invaders.filter(h => h.cflag[900] === squadId);
+                    const squad = this.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === squadId);
                     const combat = this._doSquadCombat(squad, monster);
                     results.push({
                         type: "scombat",
@@ -1314,9 +1314,9 @@ class Game {
         // 勇者装备加】
         const gBonus = GearSystem.applyGearBonus(hero, false);
         // 勇者基础属】
-        const heroBaseAtk = (hero.cflag[11] || 20) + (gBonus.atk || 0);
-        const heroBaseDef = (hero.cflag[12] || 15) + (gBonus.def || 0);
-        const heroSpd = hero.cflag[13] || 10 + hero.level * 2;
+        const heroBaseAtk = (hero.cflag[CFLAGS.ATK] || 20) + (gBonus.atk || 0);
+        const heroBaseDef = (hero.cflag[CFLAGS.DEF] || 15) + (gBonus.def || 0);
+        const heroSpd = hero.cflag[CFLAGS.SPD] || 10 + hero.level * 2;
 
         // 战斗中的增益/减益状】
         let heroAtkMod = 0;
@@ -1625,9 +1625,9 @@ class Game {
 }
 
         // 伪装者惩罚：如果小队中有伪装者，逃跑【30%
-        const squadId = hero.cflag[900];
+        const squadId = hero.cflag[CFLAGS.SQUAD_ID];
         if (squadId) {
-            const squadMembers = this.invaders.filter(h => h.cflag[900] === squadId);
+            const squadMembers = this.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === squadId);
             const hasSpy = squadMembers.some(h => h.talent[201]);
             if (hasSpy) chance -= 30;
         }
@@ -1681,12 +1681,12 @@ class Game {
         // 赋予"前勇【特质
         hero.talent[200] = 1;
 
-        // 清除勇者专属标【        hero.cflag[501] = 0;
-        hero.cflag[502] = 0;
-        hero.cflag[600] = 0;
+        // 清除勇者专属标【        hero.cflag[CFLAGS.HERO_FLOOR] = 0;
+        hero.cflag[CFLAGS.HERO_PROGRESS] = 0;
+        hero.cflag[CFLAGS.LOVE_POINTS] = 0;
 
-        // 初始化探索标【        hero.cflag[700] = 0; // 0=未探【 1=探索【        hero.cflag[701] = 10; // 当前楼层(反向从第10层开【
-        hero.cflag[702] = 0; // 当前进度
+        // 初始化探索标【        hero.cflag[CFLAGS.FALLEN_DEPTH] = 0; // 0=未探【 1=探索【        hero.cflag[CFLAGS.FALLEN_STAGE] = 10; // 当前楼层(反向从第10层开【
+        hero.cflag[CFLAGS.CORRUPTION] = 0; // 当前进度
         hero.cflag[703] = 0; // 累计获得EXP
 
         // 恢复部分状【        hero.hp = Math.floor(hero.maxHp * 0.3);
@@ -1715,8 +1715,8 @@ class Game {
             UI.showToast(`从勇【${hero.name} 身上没收【${confiscatedGold}G！`, 'success');
         }
 
-        // 标记俘虏状【        hero.cflag[600] = 1; // 俘虏标记
-        hero.cflag[601] = this.day; // 被俘天数
+        // 标记俘虏状【        hero.cflag[CFLAGS.LOVE_POINTS] = 1; // 俘虏标记
+        hero.cflag[CFLAGS.OBEDIENCE_POINTS] = this.day; // 被俘天数
 
         // 恢复少量状态（保证存活【        hero.hp = Math.max(1, Math.floor(hero.maxHp * 0.1));
         hero.mp = Math.max(1, Math.floor(hero.maxMp * 0.1));
@@ -1734,11 +1734,11 @@ class Game {
             UI.showToast('该角色不是前勇者，无法派遣伪装', 'danger');
             return false;
         }
-        if (slave.cflag[700]) {
+        if (slave.cflag[CFLAGS.FALLEN_DEPTH]) {
             UI.showToast(`${slave.name} 正在探索中，无法派遣`, 'warning');
             return false;
         }
-        if (slave.cflag[705]) {
+        if (slave.cflag[CFLAGS.PLEASURE]) {
             UI.showToast(`${slave.name} 已经派出了伪装者`, 'warning');
             return false;
         }
@@ -1752,19 +1752,19 @@ class Game {
         spy.hp = Math.floor(slave.maxHp * 0.6);
         spy.mp = Math.floor(slave.maxMp * 0.5);
         spy.level = slave.level;
-        spy.cflag[9] = slave.level;
-        spy.cflag[11] = slave.cflag[11] || 20 + slave.level * 5;
-        spy.cflag[12] = slave.cflag[12] || 15 + slave.level * 4;
-        spy.cflag[13] = slave.cflag[13] || 10 + slave.level * 3;
+        spy.cflag[CFLAGS.BASE_HP] = slave.level;
+        spy.cflag[CFLAGS.ATK] = slave.cflag[CFLAGS.ATK] || 20 + slave.level * 5;
+        spy.cflag[CFLAGS.DEF] = slave.cflag[CFLAGS.DEF] || 15 + slave.level * 4;
+        spy.cflag[CFLAGS.SPD] = slave.cflag[CFLAGS.SPD] || 10 + slave.level * 3;
         spy.talent = [...slave.talent];
         spy.talent[200] = 1; // 前勇【        spy.talent[201] = 1; // 伪装者标【        spy.mark = [...slave.mark];
         spy.abl = [...slave.abl];
 
-        // 初始化勇者入侵标【        spy.cflag[501] = 1;
-        spy.cflag[502] = 0;
+        // 初始化勇者入侵标【        spy.cflag[CFLAGS.HERO_FLOOR] = 1;
+        spy.cflag[CFLAGS.HERO_PROGRESS] = 0;
 
         // 标记原奴隶已派出伪装
-        slave.cflag[705] = 1;
+        slave.cflag[CFLAGS.PLEASURE] = 1;
 
         this.invaders.push(spy);
         UI.showToast(`${slave.name} 伪装成勇者混入了入侵者队伍！`, 'warning');
@@ -1780,11 +1780,11 @@ class Game {
             UI.showToast('该角色不是前勇者，无法派出探索', 'danger');
             return false;
         }
-        if (slave.cflag[700]) {
+        if (slave.cflag[CFLAGS.FALLEN_DEPTH]) {
             UI.showToast(`${slave.name} 已经在探索中了`, 'warning');
             return false;
         }
-        slave.cflag[700] = 1; // 标记探索【        slave.cflag[701] = 10; // 从第10层开【        slave.cflag[702] = 0; // 进度0
+        slave.cflag[CFLAGS.FALLEN_DEPTH] = 1; // 标记探索【        slave.cflag[CFLAGS.FALLEN_STAGE] = 10; // 从第10层开【        slave.cflag[CFLAGS.CORRUPTION] = 0; // 进度0
         UI.showToast(`派出【${slave.name} 前往地下城第10层探索！`, 'success');
         return true;
     }
@@ -1792,11 +1792,11 @@ class Game {
     // 召回探索中的奴隶
     recallSlaveExplore(index) {
         const slave = this.getChara(index);
-        if (!slave || !slave.cflag[700]) {
+        if (!slave || !slave.cflag[CFLAGS.FALLEN_DEPTH]) {
             UI.showToast('该角色没有在探索', 'warning');
             return false;
         }
-        slave.cflag[700] = 0;
+        slave.cflag[CFLAGS.FALLEN_DEPTH] = 0;
         UI.showToast(`召回【${slave.name} (累计获得${slave.cflag[703] || 0}EXP)`, 'info');
         return true;
     }
@@ -1807,20 +1807,20 @@ class Game {
         const processed = new Set();
 
         for (const slave of this.characters) {
-            if (!slave.talent[200] || !slave.cflag[700]) continue;
+            if (!slave.talent[200] || !slave.cflag[CFLAGS.FALLEN_DEPTH]) continue;
             if (processed.has(slave)) continue;
 
             // 处理返回魔王宫的奴隶
-            if (slave.cflag[706]) {
-                const squadId = slave.cflag[900];
+            if (slave.cflag[CFLAGS.DEPRAVITY]) {
+                const squadId = slave.cflag[CFLAGS.SQUAD_ID];
                 // 如果属于小队但不是队长，跳过（由队长统一处理）
-                if (squadId && slave.cflag[901] !== 1) {
+                if (squadId && slave.cflag[CFLAGS.SQUAD_LEADER] !== 1) {
                     processed.add(slave);
                     continue;
                 }
                 let squad = [];
-                if (squadId && slave.cflag[901] === 1) {
-                    squad = this.characters.filter(c => c !== slave && c.talent[200] && c.cflag[900] === squadId);
+                if (squadId && slave.cflag[CFLAGS.SQUAD_LEADER] === 1) {
+                    squad = this.characters.filter(c => c !== slave && c.talent[200] && c.cflag[CFLAGS.SQUAD_ID] === squadId);
                     for (const member of squad) processed.add(member);
                 }
                 // 触发复命事件
@@ -1830,20 +1830,20 @@ class Game {
                 continue;
             }
 
-            const floorId = slave.cflag[701] || 10;
-            let progress = slave.cflag[702] || 0;
+            const floorId = slave.cflag[CFLAGS.FALLEN_STAGE] || 10;
+            let progress = slave.cflag[CFLAGS.CORRUPTION] || 0;
 
             // 反向探索：每天基础+5%进度
             let moveSpeed = 5 + Math.floor((slave.level - 1) * 10 / 49);
             if (moveSpeed > 15) moveSpeed = 15;
 
             // 检查是否属于小队
-            const squadId = slave.cflag[900];
+            const squadId = slave.cflag[CFLAGS.SQUAD_ID];
             let squad = [];
-            if (squadId && slave.cflag[901] === 1) {
-                // 队长：收集所有小队成【                squad = this.characters.filter(c => c !== slave && c.talent[200] && c.cflag[900] === squadId);
+            if (squadId && slave.cflag[CFLAGS.SQUAD_LEADER] === 1) {
+                // 队长：收集所有小队成【                squad = this.characters.filter(c => c !== slave && c.talent[200] && c.cflag[CFLAGS.SQUAD_ID] === squadId);
                 for (const member of squad) processed.add(member);
-            } else if (squadId && slave.cflag[901] !== 1) {
+            } else if (squadId && slave.cflag[CFLAGS.SQUAD_LEADER] !== 1) {
                 // 非队长：跳过（由队长处理【                continue;
             }
 
@@ -1917,7 +1917,7 @@ class Game {
             }
 
             // 检查进度宝箱（奴隶探索也触发）
-            const oldProgress = slave.cflag[702] || 0;
+            const oldProgress = slave.cflag[CFLAGS.CORRUPTION] || 0;
             const slaveChests = this._checkProgressChests(slave, oldProgress, oldProgress + moveSpeed, floorId);
             if (slaveChests.length > 0) {
                 for (const chest of slaveChests) {
@@ -1933,31 +1933,31 @@ class Game {
             progress += moveSpeed;
             if (progress >= 100) {
                 if (floorId > 1) {
-                    slave.cflag[701] = floorId - 1;
-                    slave.cflag[702] = 0;
-                    slave.cflag[704] = 0; // 重置宝箱标记
+                    slave.cflag[CFLAGS.FALLEN_STAGE] = floorId - 1;
+                    slave.cflag[CFLAGS.CORRUPTION] = 0;
+                    slave.cflag[CFLAGS.DESIRE] = 0; // 重置宝箱标记
                     for (const member of squad) {
-                        member.cflag[701] = floorId - 1;
-                        member.cflag[702] = 0;
-                        member.cflag[704] = 0;
+                        member.cflag[CFLAGS.FALLEN_STAGE] = floorId - 1;
+                        member.cflag[CFLAGS.CORRUPTION] = 0;
+                        member.cflag[CFLAGS.DESIRE] = 0;
                     }
                     results.push({ name: slave.name, type: 'floor', text: `小队到达【{floorId - 1}层！` });
                 } else {
                     // 到达【层出口，开始返回魔王宫
-                    slave.cflag[706] = 1; // 标记为返回中
-                    slave.cflag[702] = 0;
-                    slave.cflag[704] = 0;
+                    slave.cflag[CFLAGS.DEPRAVITY] = 1; // 标记为返回中
+                    slave.cflag[CFLAGS.CORRUPTION] = 0;
+                    slave.cflag[CFLAGS.DESIRE] = 0;
                     for (const member of squad) {
-                        member.cflag[706] = 1;
-                        member.cflag[702] = 0;
-                        member.cflag[704] = 0;
+                        member.cflag[CFLAGS.DEPRAVITY] = 1;
+                        member.cflag[CFLAGS.CORRUPTION] = 0;
+                        member.cflag[CFLAGS.DESIRE] = 0;
                     }
                     results.push({ name: slave.name, type: 'floor', text: `小队到达【层出口，开始返回魔王宫…` });
                 }
             } else {
-                slave.cflag[702] = progress;
+                slave.cflag[CFLAGS.CORRUPTION] = progress;
                 for (const member of squad) {
-                    member.cflag[702] = progress;
+                    member.cflag[CFLAGS.CORRUPTION] = progress;
                 }
             }
 
@@ -2041,14 +2041,14 @@ class Game {
 
         // 重置所有成员探索状】
         for (const member of allMembers) {
-            member.cflag[700] = 0;
-            member.cflag[701] = 10;
-            member.cflag[702] = 0;
+            member.cflag[CFLAGS.FALLEN_DEPTH] = 0;
+            member.cflag[CFLAGS.FALLEN_STAGE] = 10;
+            member.cflag[CFLAGS.CORRUPTION] = 0;
             member.cflag[703] = 0;
-            member.cflag[704] = 0;
-            member.cflag[706] = 0;
-            member.cflag[900] = 0;
-            member.cflag[901] = 0;
+            member.cflag[CFLAGS.DESIRE] = 0;
+            member.cflag[CFLAGS.DEPRAVITY] = 0;
+            member.cflag[CFLAGS.SQUAD_ID] = 0;
+            member.cflag[CFLAGS.SQUAD_LEADER] = 0;
             // 恢复状【            member.hp = Math.min(member.maxHp, member.hp + Math.floor(member.maxHp * 0.5));
             member.mp = Math.min(member.maxMp, member.mp + Math.floor(member.maxMp * 0.5));
         }
@@ -2197,18 +2197,18 @@ class Game {
                 name: '带错路',
                 text: `${actor.name}故意带错了路，${target.name}的侵略度大幅降低！`,
                 effect: (a, t) => {
-                    let progress = t.cflag[502] || 0;
+                    let progress = t.cflag[CFLAGS.HERO_PROGRESS] || 0;
                     progress -= 30;
                     if (progress < 0) {
                         const floorId = this.getHeroFloor(t);
                         if (floorId > 1) {
-                            t.cflag[501] = floorId - 1;
-                            t.cflag[502] = 80 + progress;
+                            t.cflag[CFLAGS.HERO_FLOOR] = floorId - 1;
+                            t.cflag[CFLAGS.HERO_PROGRESS] = 80 + progress;
                         } else {
-                            t.cflag[502] = 0;
+                            t.cflag[CFLAGS.HERO_PROGRESS] = 0;
                         }
                     } else {
-                        t.cflag[502] = progress;
+                        t.cflag[CFLAGS.HERO_PROGRESS] = progress;
                     }
                     return `侵略【30%`;
                 }
@@ -2227,8 +2227,8 @@ class Game {
                 name: '破坏装备',
                 text: `${actor.name}趁夜破坏【{target.name}的装备，攻击力下降！`,
                 effect: (a, t) => {
-                    const debuff = Math.max(5, Math.floor((t.cflag[11] || 20) * 0.15));
-                    t.cflag[11] = Math.max(1, (t.cflag[11] || 20) - debuff);
+                    const debuff = Math.max(5, Math.floor((t.cflag[CFLAGS.ATK] || 20) * 0.15));
+                    t.cflag[CFLAGS.ATK] = Math.max(1, (t.cflag[CFLAGS.ATK] || 20) - debuff);
                     return `攻击【${debuff}`;
                 }
             },
@@ -2238,8 +2238,8 @@ class Game {
                 text: `${actor.name}挑拨【{target.name}与其他勇者的关系！`,
                 effect: (a, t) => {
                     // 降低目标速度（行动力下降】
-                    const debuff = Math.max(3, Math.floor((t.cflag[13] || 10) * 0.2));
-                    t.cflag[13] = Math.max(1, (t.cflag[13] || 10) - debuff);
+                    const debuff = Math.max(3, Math.floor((t.cflag[CFLAGS.SPD] || 10) * 0.2));
+                    t.cflag[CFLAGS.SPD] = Math.max(1, (t.cflag[CFLAGS.SPD] || 10) - debuff);
                     return `敏捷-${debuff}`;
                 }
             },
@@ -2250,9 +2250,9 @@ class Game {
                 effect: (a, t) => {
                     const dmg = Math.floor(t.maxHp * 0.15);
                     t.hp = Math.max(1, t.hp - dmg);
-                    let progress = t.cflag[502] || 0;
+                    let progress = t.cflag[CFLAGS.HERO_PROGRESS] || 0;
                     progress -= 15;
-                    t.cflag[502] = Math.max(0, progress);
+                    t.cflag[CFLAGS.HERO_PROGRESS] = Math.max(0, progress);
                     return `HP-${dmg}, 侵略【15%`;
                 }
             }
@@ -2292,12 +2292,12 @@ class Game {
 
     // 勇【vs 勇者战】
     _doHeroVsHeroCombat(a, b) {
-        const aAtk = a.cflag[11] || 20;
-        const aDef = a.cflag[12] || 15;
-        const aSpd = a.cflag[13] || 10 + a.level * 2;
-        const bAtk = b.cflag[11] || 20;
-        const bDef = b.cflag[12] || 15;
-        const bSpd = b.cflag[13] || 10 + b.level * 2;
+        const aAtk = a.cflag[CFLAGS.ATK] || 20;
+        const aDef = a.cflag[CFLAGS.DEF] || 15;
+        const aSpd = a.cflag[CFLAGS.SPD] || 10 + a.level * 2;
+        const bAtk = b.cflag[CFLAGS.ATK] || 20;
+        const bDef = b.cflag[CFLAGS.DEF] || 15;
+        const bSpd = b.cflag[CFLAGS.SPD] || 10 + b.level * 2;
 
         let aHp = a.hp;
         let bHp = b.hp;
@@ -2344,33 +2344,33 @@ class Game {
         if (aWin) {
             resultText = `${a.name}获胜【{b.name}受到重创(HP:${b.hp}/${b.maxHp})`;
             // 败者侵略度大减
-            let progress = b.cflag[502] || 0;
+            let progress = b.cflag[CFLAGS.HERO_PROGRESS] || 0;
             progress -= 20;
             if (progress < 0) {
                 const floorId = this.getHeroFloor(b);
                 if (floorId > 1) {
-                    b.cflag[501] = floorId - 1;
-                    b.cflag[502] = 80 + progress;
+                    b.cflag[CFLAGS.HERO_FLOOR] = floorId - 1;
+                    b.cflag[CFLAGS.HERO_PROGRESS] = 80 + progress;
                 } else {
-                    b.cflag[502] = 0;
+                    b.cflag[CFLAGS.HERO_PROGRESS] = 0;
                 }
             } else {
-                b.cflag[502] = progress;
+                b.cflag[CFLAGS.HERO_PROGRESS] = progress;
             }
         } else if (bWin) {
             resultText = `${b.name}获胜【{a.name}受到重创(HP:${a.hp}/${a.maxHp})`;
-            let progress = a.cflag[502] || 0;
+            let progress = a.cflag[CFLAGS.HERO_PROGRESS] || 0;
             progress -= 20;
             if (progress < 0) {
                 const floorId = this.getHeroFloor(a);
                 if (floorId > 1) {
-                    a.cflag[501] = floorId - 1;
-                    a.cflag[502] = 80 + progress;
+                    a.cflag[CFLAGS.HERO_FLOOR] = floorId - 1;
+                    a.cflag[CFLAGS.HERO_PROGRESS] = 80 + progress;
                 } else {
-                    a.cflag[502] = 0;
+                    a.cflag[CFLAGS.HERO_PROGRESS] = 0;
                 }
             } else {
-                a.cflag[502] = progress;
+                a.cflag[CFLAGS.HERO_PROGRESS] = progress;
             }
         } else {
             resultText = `双方势均力敌，各自负伤后撤退`;
@@ -2386,14 +2386,14 @@ class Game {
     // 清除所有小队标】
     _clearSquadFlags() {
         for (const hero of this.invaders) {
-            hero.cflag[900] = 0; // 小队ID
-            hero.cflag[901] = 0; // 队长标记
+            hero.cflag[CFLAGS.SQUAD_ID] = 0; // 小队ID
+            hero.cflag[CFLAGS.SQUAD_LEADER] = 0; // 队长标记
             hero.cflag[902] = 0; // 今日已战【
 }
         for (const c of this.characters) {
             if (c.talent[200]) {
-                c.cflag[900] = 0;
-                c.cflag[901] = 0;
+                c.cflag[CFLAGS.SQUAD_ID] = 0;
+                c.cflag[CFLAGS.SQUAD_LEADER] = 0;
                 c.cflag[902] = 0;
             }
         }
@@ -2430,14 +2430,14 @@ class Game {
             if (squad.length >= 2) {
                 // 设置小队标记，速度最高的为队】
                 const leader = squad.reduce((best, h) => {
-                    const spd = h.cflag[13] || 10 + h.level * 2;
-                    const bestSpd = best.cflag[13] || 10 + best.level * 2;
+                    const spd = h.cflag[CFLAGS.SPD] || 10 + h.level * 2;
+                    const bestSpd = best.cflag[CFLAGS.SPD] || 10 + best.level * 2;
                     return spd > bestSpd ? h : best;
                 }, squad[0]);
 
                 for (const member of squad) {
-                    member.cflag[900] = squadId;
-                    member.cflag[901] = member === leader ? 1 : 0;
+                    member.cflag[CFLAGS.SQUAD_ID] = squadId;
+                    member.cflag[CFLAGS.SQUAD_LEADER] = member === leader ? 1 : 0;
                     // 被组队的撤退勇者重新振】
                     if (member.cflag[503]) member.cflag[503] = 0;
                 }
@@ -2451,13 +2451,13 @@ class Game {
         let squadId = 100; // 前勇者小队ID【00开始，避免冲突
         const assigned = new Set();
 
-        const explorers = this.characters.filter(c => c.talent[200] && c.cflag[700]);
+        const explorers = this.characters.filter(c => c.talent[200] && c.cflag[CFLAGS.FALLEN_DEPTH]);
 
         for (let i = 0; i < explorers.length; i++) {
             if (assigned.has(i)) continue;
             const slave = explorers[i];
-            const floorId = slave.cflag[701] || 10;
-            const progress = slave.cflag[702] || 0;
+            const floorId = slave.cflag[CFLAGS.FALLEN_STAGE] || 10;
+            const progress = slave.cflag[CFLAGS.CORRUPTION] || 0;
 
             const squad = [slave];
             assigned.add(i);
@@ -2465,8 +2465,8 @@ class Game {
             for (let j = i + 1; j < explorers.length; j++) {
                 if (assigned.has(j)) continue;
                 const other = explorers[j];
-                if ((other.cflag[701] || 10) === floorId) {
-                    const diff = Math.abs((other.cflag[702] || 0) - progress);
+                if ((other.cflag[CFLAGS.FALLEN_STAGE] || 10) === floorId) {
+                    const diff = Math.abs((other.cflag[CFLAGS.CORRUPTION] || 0) - progress);
                     if (diff <= 15) {
                         squad.push(other);
                         assigned.add(j);
@@ -2476,14 +2476,14 @@ class Game {
 
             if (squad.length > 1) {
                 const leader = squad.reduce((best, s) => {
-                    const spd = s.cflag[13] || 10 + s.level * 2;
-                    const bestSpd = best.cflag[13] || 10 + best.level * 2;
+                    const spd = s.cflag[CFLAGS.SPD] || 10 + s.level * 2;
+                    const bestSpd = best.cflag[CFLAGS.SPD] || 10 + best.level * 2;
                     return spd > bestSpd ? s : best;
                 }, squad[0]);
 
                 for (const member of squad) {
-                    member.cflag[900] = squadId;
-                    member.cflag[901] = member === leader ? 1 : 0;
+                    member.cflag[CFLAGS.SQUAD_ID] = squadId;
+                    member.cflag[CFLAGS.SQUAD_LEADER] = member === leader ? 1 : 0;
                 }
                 squadId++;
             }
@@ -2492,16 +2492,16 @@ class Game {
 
     // 获取勇者的小队成员（不包括自己】
     _getHeroSquad(hero) {
-        const squadId = hero.cflag[900];
+        const squadId = hero.cflag[CFLAGS.SQUAD_ID];
         if (!squadId) return [];
-        return this.invaders.filter(h => h !== hero && h.cflag[900] === squadId);
+        return this.invaders.filter(h => h !== hero && h.cflag[CFLAGS.SQUAD_ID] === squadId);
     }
 
     // 获取前勇者奴隶的小队成员
     _getSlaveSquad(slave) {
-        const squadId = slave.cflag[900];
+        const squadId = slave.cflag[CFLAGS.SQUAD_ID];
         if (!squadId) return [];
-        return this.characters.filter(c => c !== slave && c.talent[200] && c.cflag[900] === squadId);
+        return this.characters.filter(c => c !== slave && c.talent[200] && c.cflag[CFLAGS.SQUAD_ID] === squadId);
     }
 
     // 小队战斗：多对一回合制，速度高的先手
@@ -2536,7 +2536,7 @@ class Game {
             actors.push({
                 type: 'hero',
                 entity: member,
-                spd: member.cflag[13] || 10 + member.level * 2,
+                spd: member.cflag[CFLAGS.SPD] || 10 + member.level * 2,
                 name: member.name,
                 isSpy: !!member.talent[201]
             });
@@ -2569,8 +2569,8 @@ class Game {
                             const aliveTargets = realHeroes.filter(h => h.hp > 0);
                             if (aliveTargets.length > 0) {
                                 const target = aliveTargets.reduce((min, h) => h.hp < min.hp ? h : min, aliveTargets[0]);
-                                const spyAtk = Math.floor((hero.cflag[11] || 20) * 0.5); // 叛变后只【0%攻击】
-                                const dmg = Math.max(1, spyAtk - (target.cflag[12] || 15));
+                                const spyAtk = Math.floor((hero.cflag[CFLAGS.ATK] || 20) * 0.5); // 叛变后只【0%攻击】
+                                const dmg = Math.max(1, spyAtk - (target.cflag[CFLAGS.DEF] || 15));
                                 target.hp = Math.max(0, target.hp - dmg);
                                 combatLog.push(`💀 ${hero.name}(叛变)攻击${target.name}，造成${dmg}伤害`);
                             }
@@ -2580,7 +2580,7 @@ class Game {
                         continue;
                     }
                     const gBonus = GearSystem.applyGearBonus(hero, !!hero.talent[200]); // 奴隶(talent[200])免疫诅咒
-                    const heroAtk = Math.floor(((hero.cflag[11] || 20) + (gBonus.atk || 0)) * attrMod);
+                    const heroAtk = Math.floor(((hero.cflag[CFLAGS.ATK] || 20) + (gBonus.atk || 0)) * attrMod);
                     const dmg = Math.max(1, heroAtk - monster.def);
                     monHp -= dmg;
                     combatLog.push(`${hero.name}攻击${monster.name}，造成${dmg}伤害`);
@@ -2595,7 +2595,7 @@ class Game {
                         : aliveTargets.reduce((min, h) => h.hp < min.hp ? h : min, aliveTargets[0]);
                     const monAtk = Math.floor(monster.atk * (hasSpy && !betrayed ? 1.25 : 1)); // 有伪装者时怪物更强
                     const tBonus = GearSystem.applyGearBonus(target, !!target.talent[200]);
-                    const targetDef = (target.cflag[12] || 15) + (tBonus.def || 0);
+                    const targetDef = (target.cflag[CFLAGS.DEF] || 15) + (tBonus.def || 0);
                     const monDmg = Math.max(1, monAtk - targetDef);
                     target.hp = Math.max(0, target.hp - monDmg);
                     combatLog.push(`${monster.name}攻击${target.name}，造成${monDmg}伤害`);
@@ -2657,8 +2657,8 @@ class Game {
         hero.maxbase[1] = hero.base[1];
         hero.mp = hero.base[1];
         hero.level = power;
-        hero.cflag[9] = power;
-        hero.cflag[11] = 20 + power * 5;  // 攻击【        hero.cflag[12] = 15 + power * 4;  // 防御【        hero.cflag[13] = 10 + power * 3;  // 敏捷(速度)
+        hero.cflag[CFLAGS.BASE_HP] = power;
+        hero.cflag[CFLAGS.ATK] = 20 + power * 5;  // 攻击【        hero.cflag[CFLAGS.DEF] = 15 + power * 4;  // 防御【        hero.cflag[CFLAGS.SPD] = 10 + power * 3;  // 敏捷(速度)
         // 勇者初始金币（新平衡）
         hero.gold = Math.floor(power * power + RAND(power * 10));
         if (!isFemale) hero.talent[122] = 1; // 男性（女性不设置talent[122]【        // 随机勇者性格

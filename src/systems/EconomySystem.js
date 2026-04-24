@@ -9,7 +9,7 @@ Game.prototype.buyRandomSlave = function(index) {
             return;
         }
         this.money -= price;
-        slave.cflag[1] = 1;
+        slave.cflag[CFLAGS.CAPTURE_STATUS] = 1;
         this.addCharaFromTemplate(slave);
         UI.showToast(`购买了【${slave.name}】！`);
         // 从候选列表移除

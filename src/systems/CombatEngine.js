@@ -10,9 +10,9 @@ Game.prototype._doCombat = function(hero, monster) {
         // 勇者装备加成
         const gBonus = GearSystem.applyGearBonus(hero, false);
         // 勇者基础属性
-        let heroBaseAtk = (hero.cflag[11] || 20) + (gBonus.atk || 0);
-        let heroBaseDef = (hero.cflag[12] || 15) + (gBonus.def || 0);
-        let heroSpd = hero.cflag[13] || 10 + hero.level * 2;
+        let heroBaseAtk = (hero.cflag[CFLAGS.ATK] || 20) + (gBonus.atk || 0);
+        let heroBaseDef = (hero.cflag[CFLAGS.DEF] || 15) + (gBonus.def || 0);
+        let heroSpd = hero.cflag[CFLAGS.SPD] || 10 + hero.level * 2;
 
         // === 异常状态效果 ===
         const statusFx = this._applyStatusAilmentEffects(hero);
@@ -424,13 +424,13 @@ Game.prototype._doSquadCombat = function(squad, monster) {
         const actors = [];
         for (const member of squad) {
             const statusFx = this._applyStatusAilmentEffects(member);
-            let spd = member.cflag[13] || 10 + member.level * 2;
+            let spd = member.cflag[CFLAGS.SPD] || 10 + member.level * 2;
             spd = Math.max(1, Math.floor(spd * (1 + statusFx.spdMod)));
             actors.push({
                 type: 'hero',
                 entity: member,
                 spd: spd,
-                baseSpd: member.cflag[13] || 10 + member.level * 2,
+                baseSpd: member.cflag[CFLAGS.SPD] || 10 + member.level * 2,
                 name: member.name,
                 isSpy: !!member.cflag[912]
             });
@@ -480,8 +480,8 @@ Game.prototype._doSquadCombat = function(squad, monster) {
                             const aliveTargets = realHeroes.filter(h => h.hp > 0);
                             if (aliveTargets.length > 0) {
                                 const target = aliveTargets.reduce((min, h) => h.hp < min.hp ? h : min, aliveTargets[0]);
-                                const spyAtk = Math.floor((hero.cflag[11] || 20) * 0.5);
-                                const dmg = Math.max(1, spyAtk - (target.cflag[12] || 15));
+                                const spyAtk = Math.floor((hero.cflag[CFLAGS.ATK] || 20) * 0.5);
+                                const dmg = Math.max(1, spyAtk - (target.cflag[CFLAGS.DEF] || 15));
                                 target.hp = Math.max(0, target.hp - dmg);
                                 combatLog.push(`💀 ${hero.name}(叛变)攻击${target.name}，造成${dmg}伤害`);
                             }
@@ -493,8 +493,8 @@ Game.prototype._doSquadCombat = function(squad, monster) {
 
                     // 应用异常状态效果
                     const statusFx = this._applyStatusAilmentEffects(hero);
-                    let heroBaseAtk = (hero.cflag[11] || 20);
-                    let heroBaseDef = (hero.cflag[12] || 15);
+                    let heroBaseAtk = (hero.cflag[CFLAGS.ATK] || 20);
+                    let heroBaseDef = (hero.cflag[CFLAGS.DEF] || 15);
                     heroBaseAtk = Math.max(1, Math.floor(heroBaseAtk * (1 + statusFx.atkMod)));
                     heroBaseDef = Math.max(0, Math.floor(heroBaseDef * (1 + statusFx.defMod)));
 
@@ -512,7 +512,7 @@ Game.prototype._doSquadCombat = function(squad, monster) {
 
                     // 治疗职业回合开始时治疗最低HP队友
                     const cls = this._getHeroClass(hero);
-                    if (cls && HEALER_CLASS_IDS.includes(hero.cflag[950])) {
+                    if (cls && HEALER_CLASS_IDS.includes(hero.cflag[CFLAGS.HERO_CLASS])) {
                         const allies = realHeroes.filter(h => h.hp > 0 && h.hp < h.maxHp * 0.6);
                         if (allies.length > 0 && RAND(100) < 30) {
                             const target = allies.reduce((min, h) => h.hp / h.maxHp < min.hp / min.maxHp ? h : min, allies[0]);
@@ -562,7 +562,7 @@ Game.prototype._doSquadCombat = function(squad, monster) {
 
                     // 普通攻击
                     const gBonus = GearSystem.applyGearBonus(hero, !!hero.talent[200]);
-                    const heroAtk = Math.floor(((hero.cflag[11] || 20) + (gBonus.atk || 0)) * attrMod);
+                    const heroAtk = Math.floor(((hero.cflag[CFLAGS.ATK] || 20) + (gBonus.atk || 0)) * attrMod);
                     const dmg = Math.max(1, heroAtk - monster.def);
                     monHp -= dmg;
                     combatLog.push(`【${rounds}回合】${hero.name}攻击${monster.name}，造成${dmg}伤害`);
@@ -576,7 +576,7 @@ Game.prototype._doSquadCombat = function(squad, monster) {
                         : aliveTargets.reduce((min, h) => h.hp < min.hp ? h : min, aliveTargets[0]);
                     const monAtk = Math.floor(monster.atk * (hasSpy && !betrayed ? 1.25 : 1));
                     const tBonus = GearSystem.applyGearBonus(target, !!target.talent[200]);
-                    const targetDef = (target.cflag[12] || 15) + (tBonus.def || 0);
+                    const targetDef = (target.cflag[CFLAGS.DEF] || 15) + (tBonus.def || 0);
                     const monDmg = Math.max(1, monAtk - targetDef);
                     target.hp = Math.max(0, target.hp - monDmg);
                     combatLog.push(`【${rounds}回合】${monster.name}攻击${target.name}，造成${monDmg}伤害`);
@@ -676,9 +676,9 @@ Game.prototype._doTeamCombat = function(leftTeam, rightTeam, options = {}) {
             // 魔王声望等级加成（每100声望=1级）
             const fameLv = isMaster ? this.getMasterFameLevel() : 0;
             const effLevel = (entity.level || 1) + fameLv;
-            const baseAtk = isMonster ? (entity.atk || 0) : ((entity.cflag[11] || 20) + (gBonus.atk || 0) + fameLv * 5);
-            const baseDef = isMonster ? (entity.def || 0) : ((entity.cflag[12] || 15) + (gBonus.def || 0) + fameLv * 4);
-            const baseSpd = isMonster ? (entity.spd || 0) : ((entity.cflag[13] || 10) + effLevel * 2 + fameLv * 3);
+            const baseAtk = isMonster ? (entity.atk || 0) : ((entity.cflag[CFLAGS.ATK] || 20) + (gBonus.atk || 0) + fameLv * 5);
+            const baseDef = isMonster ? (entity.def || 0) : ((entity.cflag[CFLAGS.DEF] || 15) + (gBonus.def || 0) + fameLv * 4);
+            const baseSpd = isMonster ? (entity.spd || 0) : ((entity.cflag[CFLAGS.SPD] || 10) + effLevel * 2 + fameLv * 3);
             const statusFx = isMonster ? { atkMod:0, defMod:0, spdMod:0, dotHp:0, dotMp:0, actionBlock:0, friendlyFire:0 } : this._applyStatusAilmentEffects(entity);
             // 勋章加成（仅前勇者/奴隶）
             const medalMult = (!isMonster && isExHero) ? this.getMedalBonus(entity) : 1;
@@ -703,7 +703,7 @@ Game.prototype._doTeamCombat = function(leftTeam, rightTeam, options = {}) {
                 buffTurns: 0,
                 invincible: 0,
                 statusFx: statusFx,
-                classId: isMonster ? 0 : (entity.cflag[950] || 0),
+                classId: isMonster ? 0 : (entity.cflag[CFLAGS.HERO_CLASS] || 0),
                 level: effLevel
             };
         };
@@ -1098,9 +1098,9 @@ Game.prototype._tryEscape = function(hero, monster) {
 }
 
         // 伪装者惩罚：如果小队中有伪装者，逃跑【30%
-        const squadId = hero.cflag[900];
+        const squadId = hero.cflag[CFLAGS.SQUAD_ID];
         if (squadId) {
-            const squadMembers = this.invaders.filter(h => h.cflag[900] === squadId);
+            const squadMembers = this.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === squadId);
             const hasSpy = squadMembers.some(h => h.cflag[912]);
             if (hasSpy) chance -= 30;
         }
@@ -1196,12 +1196,12 @@ Game.prototype._convertHeroToSlave = function(hero) {
         hero.fame = Math.floor(hero.fame * 0.5);
 
         // 清除勇者专属标记
-        hero.cflag[501] = 0;
-        hero.cflag[502] = 0;
-        hero.cflag[600] = 0;
+        hero.cflag[CFLAGS.HERO_FLOOR] = 0;
+        hero.cflag[CFLAGS.HERO_PROGRESS] = 0;
+        hero.cflag[CFLAGS.LOVE_POINTS] = 0;
 
-        // 初始化探索标【        hero.cflag[700] = 0; // 0=未探【 1=探索【        hero.cflag[701] = 10; // 当前楼层(反向从第10层开【
-        hero.cflag[702] = 0; // 当前进度
+        // 初始化探索标【        hero.cflag[CFLAGS.FALLEN_DEPTH] = 0; // 0=未探【 1=探索【        hero.cflag[CFLAGS.FALLEN_STAGE] = 10; // 当前楼层(反向从第10层开【
+        hero.cflag[CFLAGS.CORRUPTION] = 0; // 当前进度
         hero.cflag[703] = 0; // 累计获得EXP
 
         // 恢复部分状【        hero.hp = Math.floor(hero.maxHp * 0.3);
@@ -1231,8 +1231,8 @@ Game.prototype._imprisonHero = function(hero) {
             UI.showToast(`从勇【${hero.name} 身上没收【${confiscatedGold}G！`, 'success');
         }
 
-        // 标记俘虏状【        hero.cflag[600] = 1; // 俘虏标记
-        hero.cflag[601] = this.day; // 被俘天数
+        // 标记俘虏状【        hero.cflag[CFLAGS.LOVE_POINTS] = 1; // 俘虏标记
+        hero.cflag[CFLAGS.OBEDIENCE_POINTS] = this.day; // 被俘天数
 
         // 恢复少量状态（保证存活【        hero.hp = Math.max(1, Math.floor(hero.maxHp * 0.1));
         hero.mp = Math.max(1, Math.floor(hero.maxMp * 0.1));
@@ -1246,7 +1246,7 @@ Game.prototype._imprisonHero = function(hero) {
     // 派遣前勇者奴隶伪装混入勇者队】
 Game.prototype._getHeroClass = function(hero) {
         if (!hero) return null;
-        const classId = hero.cflag[950];
+        const classId = hero.cflag[CFLAGS.HERO_CLASS];
         if (!classId || !HERO_CLASS_DEFS[classId]) return null;
         return HERO_CLASS_DEFS[classId];
     }
@@ -1260,7 +1260,7 @@ Game.prototype._getSkillPower = function(hero, skill) {
     // 尝试使用技能（勇者内战用简化版）
 Game.prototype._tryUseHeroSkill = function(hero) {
         if (!hero) return null;
-        const classId = hero.cflag[950] || 0;
+        const classId = hero.cflag[CFLAGS.HERO_CLASS] || 0;
         const cls = HERO_CLASS_DEFS ? HERO_CLASS_DEFS[classId] : null;
         if (!cls || !cls.skills || cls.skills.length === 0) return null;
         const lv = hero.level || 1;
@@ -1333,7 +1333,7 @@ Game.prototype._useHeroSkill = function(hero, skillId, target, context) {
             case "pierce":
             case "execute":
             case "execute_pierce": {
-                const baseAtk = (hero.cflag[11] || 20);
+                const baseAtk = (hero.cflag[CFLAGS.ATK] || 20);
                 let dmg = Math.max(1, baseAtk + power - (target.def || 0));
                 if (skill.effectType === "crit_damage" && RAND(100) < 40) dmg = Math.floor(dmg * 1.8);
                 if (skill.effectType === "pierce" || skill.effectType === "execute_pierce") dmg = Math.floor(dmg * 1.3);
@@ -1346,7 +1346,7 @@ Game.prototype._useHeroSkill = function(hero, skillId, target, context) {
                 break;
             }
             case "multi_damage": {
-                const baseAtk = (hero.cflag[11] || 20);
+                const baseAtk = (hero.cflag[CFLAGS.ATK] || 20);
                 const hits = skill.hits || 2;
                 let totalDmg = 0;
                 for (let i = 0; i < hits; i++) {
@@ -1359,7 +1359,7 @@ Game.prototype._useHeroSkill = function(hero, skillId, target, context) {
             }
             case "aoe":
             case "big_bang": {
-                const baseAtk = (hero.cflag[11] || 20);
+                const baseAtk = (hero.cflag[CFLAGS.ATK] || 20);
                 result.damage = Math.max(1, baseAtk + power);
                 result.isAoE = true;
                 result.log = `【技能】${hero.name}使用${skill.name}造成范围伤害`;
@@ -1490,7 +1490,7 @@ Game.prototype._levelUpEntity = function(entity, levels = 1) {
         const oldLevel = entity.level || 1;
         const newLevel = oldLevel + levels;
         entity.level = newLevel;
-        entity.cflag[9] = newLevel;
+        entity.cflag[CFLAGS.BASE_HP] = newLevel;
         const power = newLevel;
         const oldMaxHp = entity.maxHp || 100;
         const oldMaxMp = entity.maxMp || 50;
@@ -1508,14 +1508,14 @@ Game.prototype._levelUpEntity = function(entity, levels = 1) {
         const isMaster = this.getMaster() === entity;
         if (isMaster) {
             // 魔王：攻防在现有值基础上累加（每级+5攻+4防）
-            entity.cflag[11] = (entity.cflag[11] || 100) + levels * 5;
-            entity.cflag[12] = (entity.cflag[12] || 100) + levels * 4;
+            entity.cflag[CFLAGS.ATK] = (entity.cflag[CFLAGS.ATK] || 100) + levels * 5;
+            entity.cflag[CFLAGS.DEF] = (entity.cflag[CFLAGS.DEF] || 100) + levels * 4;
         } else {
             // 其他：按勇者公式重新计算
-            entity.cflag[11] = 20 + power * 5;
-            entity.cflag[12] = 15 + power * 4;
+            entity.cflag[CFLAGS.ATK] = 20 + power * 5;
+            entity.cflag[CFLAGS.DEF] = 15 + power * 4;
         }
-        entity.cflag[13] = 10 + power * 3;  // 敏捷(速度)
+        entity.cflag[CFLAGS.SPD] = 10 + power * 3;  // 敏捷(速度)
     }
 
     // 判断角色是否可以分配任务（魔王或已陷落/上位状态）
