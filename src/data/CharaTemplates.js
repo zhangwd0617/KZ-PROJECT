@@ -775,8 +775,8 @@ CharaTemplates.applyRandomBackstory = function(c) {
         if (k === 'wt') continue;
         c.cstr[parseInt(k)] = bs[k];
     }
-    // 性弱点类型 -> cflag[954]
-    c.cflag[954] = bs.wt || 0;
+    // 性弱点类型 -> cflag[CFLAGS.SEXUAL_WEAKNESS]
+    c.cflag[CFLAGS.SEXUAL_WEAKNESS] = bs.wt || 0;
 
     // 家乡选择：从 WORLD_MAP_DATA 中按种族筛选城市
     const D = window.WORLD_MAP_DATA || { cities: [] };
@@ -792,9 +792,9 @@ CharaTemplates.applyRandomBackstory = function(c) {
     }
     if (candidates.length > 0) {
         const hometown = candidates[RAND(candidates.length)];
-        c.cstr[321] = hometown.name;
+        c.cstr[CSTRS.HOMETOWN] = hometown.name;
     } else {
-        c.cstr[321] = "未知之地";
+        c.cstr[CSTRS.HOMETOWN] = "未知之地";
     }
 
     // 配偶状态 (10%概率人妻)

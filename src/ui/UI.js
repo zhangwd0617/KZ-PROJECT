@@ -1427,12 +1427,12 @@ const UI = {
         // 背景故事
         let backstoryHtml = '';
         const backstoryFields = [
-            { key: 315, label: '勇者前生活' },
-            { key: 316, label: '成为勇者理由' },
-            { key: 317, label: '性弱点' },
-            { key: 320, label: '家族构成' },
-            { key: 318, label: '所属势力' },
-            { key: 321, label: '家乡' }
+            { key: CSTRS.PREVIOUS_LIFE, label: '勇者前生活' },
+            { key: CSTRS.REASON, label: '成为勇者理由' },
+            { key: CSTRS.SEXUAL_WEAKNESS_DESC, label: '性弱点' },
+            { key: CSTRS.FAMILY, label: '家族构成' },
+            { key: CSTRS.FACTION, label: '所属势力' },
+            { key: CSTRS.HOMETOWN, label: '家乡' }
         ];
         let hasBackstory = false;
         for (const f of backstoryFields) {

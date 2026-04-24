@@ -1,6 +1,10 @@
 // ERA Maou EX — ESM Entry Point
 // 按原 <script> 加载顺序导入所有模块
 
+// 0. Core infrastructure (constants & event bus must load first)
+import './core/constants.js';
+import './core/EventBus.js';
+
 // 1. Core engine base
 import './engine/EmueraCore.js';
 

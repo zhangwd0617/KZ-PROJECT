@@ -2175,7 +2175,7 @@ class TrainSystem {
 
     // ========== 性弱点加成系统 ==========
     _applyWeaknessBonus(comId, target, def) {
-        const weaknessType = target.cflag ? (target.cflag[954] || 0) : 0;
+        const weaknessType = target.cflag ? (target.cflag[CFLAGS.SEXUAL_WEAKNESS] || 0) : 0;
         if (!weaknessType || weaknessType === 0) return;
 
         const meta = (typeof getTrainMeta === 'function') ? getTrainMeta(comId) : null;
