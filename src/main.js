@@ -69,6 +69,13 @@ import './engine/Game.js';
 // 10. UI
 import './ui/WorldMapUI.js';
 import './ui/UI.js';
+import './ui/pages/CombatRenderer.js';
+import './ui/pages/TrainPage.js';
+import './ui/pages/CharaDetailPages.js';
+import './ui/pages/DisposalMuseumPage.js';
+import './ui/pages/ShopPage.js';
+import './ui/pages/PrisonTaskPage.js';
+import './ui/pages/ConfigWikiPage.js';
 
 // 11. Application bootstrap
 window.addEventListener('DOMContentLoaded', () => {
