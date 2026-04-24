@@ -181,7 +181,18 @@ const UI = {
             const c = game.getChara(i);
             if (i === game.master) continue;
             const isTarget = i === game.target;
-            listHtml += `<button class="game-btn ${isTarget?'accent':''}" style="margin-bottom:6px;width:100%;" onclick="G.shopAction('select_target', ${i})">${isTarget?'✓ ':''}${c.name} Lv.${c.level}</button>`;
+            const isAssi = i === game.assi;
+            const job = UI._getJobName(c);
+            const race = (window.APPEARANCE_DESC_DEFS && window.APPEARANCE_DESC_DEFS.race && window.APPEARANCE_DESC_DEFS.race[c.talent[314]]) || '人类';
+            const faction = UI._getFactionName(c);
+            const taskLabel = UI._getTaskLabel(c);
+            let extra = `<span style="color:var(--text-dim);font-size:0.75rem;">Lv.${c.level}</span>`;
+            extra += ` <span style="color:var(--text);font-size:0.72rem;">${job}</span>`;
+            extra += ` <span style="color:var(--info);font-size:0.7rem;">${race}</span>`;
+            extra += ` <span style="color:var(--warning);font-size:0.7rem;">${faction}</span>`;
+            if (taskLabel) extra += ` <span style="color:var(--success);font-size:0.7rem;">📋${taskLabel}</span>`;
+            if (isAssi) extra += ` <span style="color:#d4af37;font-size:0.7rem;font-weight:bold;">【助】</span>`;
+            listHtml += `<button class="game-btn ${isTarget?'accent':''}" style="margin-bottom:6px;width:100%;text-align:left;" onclick="G.shopAction('select_target', ${i})">${isTarget?'✓ ':''}${c.name} ${extra}</button>`;
         }
         listHtml += '</div>';
         this.textArea.innerHTML += listHtml;
@@ -194,6 +205,7 @@ const UI = {
         this.clearText();
         this.appendText(`【选择助手】\n`, "accent");
         this.appendDivider();
+        this.appendText(`<div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:8px;">⚠️ 只有完全陷落（服从刻印Lv3+）的奴隶才会愿意担任助手</div>`);
 
         const target = game.getTarget();
         const assi = game.getAssi();
@@ -208,7 +220,12 @@ const UI = {
             const c = game.getChara(i);
             if (i === game.master || i === game.target) continue;
             const isAssi = i === game.assi;
-            listHtml += `<button class="game-btn ${isAssi?'accent':''}" style="margin-bottom:6px;width:100%;" onclick="G.shopAction('select_assi', ${i})">${isAssi?'✓ ':''}${c.name}</button>`;
+            const canAssist = (c.mark[0] || 0) >= 3;
+            if (isAssi || canAssist) {
+                listHtml += `<button class="game-btn ${isAssi?'accent':''}" style="margin-bottom:6px;width:100%;" onclick="G.shopAction('select_assi', ${i})">${isAssi?'✓ ':''}${c.name} Lv.${c.level}${canAssist ? '' : '（反抗中）'}</button>`;
+            } else {
+                listHtml += `<button class="game-btn" style="margin-bottom:6px;width:100%;opacity:0.5;cursor:not-allowed;" disabled>🔒 ${c.name} Lv.${c.level}（反抗中）</button>`;
+            }
         }
         listHtml += `<button class="game-btn" style="margin-bottom:6px;width:100%;" onclick="G.shopAction('select_assi', -1)">❌ 取消助手</button>`;
         listHtml += '</div>';

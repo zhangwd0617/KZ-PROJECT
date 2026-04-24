@@ -495,56 +495,72 @@ CharaTemplates.createRandomSlave = function(levelMin = 1, levelMax = 10) {
     }
     c.callname = firstName;
 
-    // 2. 随机职业 + 对应战斗技能
-    const job = this.JOB_TABLE[RAND(this.JOB_TABLE.length)];
-    c.talent[job.id] = 1;
-    c.talent[job.skill] = 1 + RAND(3); // 战斗技能等级 1~3
-
-    // 3. 基础属性 (根据职业范围波动)
-    const hp = RAND_RANGE(job.hp[0], job.hp[1]);
-    const mp = RAND_RANGE(job.mp[0], job.mp[1]);
-    c.base[0] = hp; c.maxbase[0] = hp;
-    c.base[1] = mp; c.maxbase[1] = mp;
-    c.base[2] = 1000; c.maxbase[2] = 1000;
-    c.hp = hp; c.mp = mp;
-
-    // 4. 等级
-    c.level = RAND_RANGE(levelMin, levelMax);
-    c.cflag[CFLAGS.BASE_HP] = c.level;
-
-    // 5. 攻击/防御
-    c.atk = 10 + c.level * 5 + RAND(20);
-    c.def = 10 + c.level * 5 + RAND(20);
-
-    // 6. 随机性格 (单选)
+    // 2. 随机性格 (单选)
     const p = this.PERSONALITY_POOL[RAND(this.PERSONALITY_POOL.length)];
     c.talent[p] = 1;
 
-    // 7. 随机性向/兴趣 (单选，50%概率)
+    // 3. 随机性向/兴趣 (单选，50%概率)
     if (RAND(2) === 0) {
         const t = this.INTEREST_POOL[RAND(this.INTEREST_POOL.length)];
         c.talent[t] = 1;
     }
 
-    // 8. 随机体质 (每组独立33%概率，遵守互斥)
+    // 4. 随机体质 (每组独立33%概率，遵守互斥)
     for (const group of this.BODY_POOL) {
         if (RAND(3) === 0) {
             c.talent[group[RAND(group.length)]] = 1;
         }
     }
 
-    // 9. 随机处女心 (每组独立33%概率)
+    // 5. 随机处女心 (每组独立33%概率)
     for (const group of this.MAIDEN_POOL) {
         if (RAND(3) === 0) {
             c.talent[group[RAND(group.length)]] = 1;
         }
     }
 
-    // 10. 处女状态 (75%概率)
+    // 6. 处女状态 (75%概率)
     if (RAND(4) !== 0) c.talent[0] = 1;
 
-    // 11. 随机外观
+    // 7. 随机外观（包含种族设定，必须在职业分配前执行！）
     CharaTemplates.applyRandomAppearance(c);
+
+    // 8. V5.0 统一职业分配（基础职业）
+    const raceId = c.talent[314] || 1;
+    const classId = (typeof G !== 'undefined' && G._rollBasicClass) ? G._rollBasicClass(raceId) : 200;
+    const clsDef = window.CLASS_DEFS ? window.CLASS_DEFS[classId] : null;
+    if (clsDef) {
+        c.cflag[CFLAGS.CLASS_ID] = classId;
+        c.cflag[CFLAGS.HERO_CLASS] = classId;
+        c.cstr[355] = JSON.stringify(clsDef.skills);
+    }
+
+    // 9. V6.0: 等级 + 统一属性公式
+    const level = RAND_RANGE(levelMin, levelMax);
+    c.level = level;
+    c.cflag[CFLAGS.BASE_HP] = c.level;
+    // 应用统一公式
+    if (typeof G !== 'undefined' && G._recalcBaseStats) {
+        G._recalcBaseStats(c);
+        c.base[0] = c.maxbase[0];
+        c.base[1] = c.maxbase[1];
+        c.hp = c.maxHp;
+        c.mp = c.maxMp;
+    } else {
+        // fallback: 旧公式（无 Game 实例时）
+        let hp = 800 + level * 150 + RAND(level * 80);
+        let mp = 400 + level * 80;
+        if (clsDef && clsDef.stats) {
+            hp = Math.floor(hp * clsDef.stats.hp);
+            mp = Math.floor(mp * clsDef.stats.mp);
+        }
+        c.base[0] = hp; c.maxbase[0] = hp;
+        c.base[1] = mp; c.maxbase[1] = mp;
+        c.hp = hp; c.mp = mp;
+        c.cflag[CFLAGS.ATK] = 10 + level * 5 + RAND(20);
+        c.cflag[CFLAGS.DEF] = 10 + level * 5 + RAND(20);
+        c.cflag[CFLAGS.SPD] = 8 + level * 3 + RAND(10);
+    }
 
     // 12. 随机胸部
     const b = this.BREAST_POOL[RAND(this.BREAST_POOL.length)];

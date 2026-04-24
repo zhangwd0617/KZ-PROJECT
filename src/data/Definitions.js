@@ -817,89 +817,104 @@ window.FACILITY_DEFS = {
     }
 };
 
-// ========== 地下城怪物定义 (FLOOR_MONSTER_DEFS) ==========
-// 每层配置不同等级的怪物，等级区间: 层数 × 5 ~ 层数 × 10
-// 属性: name(名称), level(等级), hp(体力), mp(气力), atk(攻击), def(防御), spd(速度), icon(图标), description(描述)
+// ========== 地下城怪物模板 (MONSTER_TEMPLATES) ==========
+// V6.0: 怪物等级动态生成，第N层怪物等级在 [(N-1)*20, N*20] 区间浮动
+// 属性由等级自动计算，不再硬编码
 
-window.FLOOR_MONSTER_DEFS = {
-    1: [ // 幽暗洞穴  Lv5~10
-        { name: "洞穴蝙蝠",    level: 5,  hp: 350,  mp: 120, atk: 35, def: 18, spd: 12, icon: "🦇", description: "倒挂在洞顶的蝙蝠群，数量众多" },
-        { name: "巨型老鼠",    level: 7,  hp: 480,  mp: 100, atk: 42, def: 22, spd: 15, icon: "🐀", description: "被魔力侵蚀的巨型老鼠，牙齿带有毒素" },
-        { name: "洞穴史莱姆",  level: 8,  hp: 550,  mp: 150, atk: 38, def: 30, spd: 8,  icon: "💧", description: "吸收了洞穴魔力的蓝色史莱姆" },
-        { name: "岩蜥",        level: 10, hp: 700,  mp: 80,  atk: 50, def: 35, spd: 10, icon: "🦎", description: "潜伏在岩石缝隙中的捕食者" },
+window.MONSTER_AI_TYPES = ["attack", "defense", "magic", "speed", "balanced"];
+
+window.MONSTER_TEMPLATES = {
+    // 第1层: 幽暗洞穴 (Lv.1~20)
+    1: [
+        { name: "洞穴蝙蝠",    icon: "🦇", description: "倒挂在洞顶的蝙蝠群，数量众多", ai: "speed" },
+        { name: "巨型老鼠",    icon: "🐀", description: "被魔力侵蚀的巨型老鼠，牙齿带有毒素", ai: "attack" },
+        { name: "洞穴史莱姆",  icon: "💧", description: "吸收了洞穴魔力的蓝色史莱姆", ai: "defense" },
+        { name: "岩蜥",        icon: "🦎", description: "潜伏在岩石缝隙中的捕食者", ai: "balanced" },
     ],
-    2: [ // 翡翠洞窟  Lv10~20
-        { name: "毒孢子蘑菇",  level: 10, hp: 650,  mp: 200, atk: 45, def: 25, spd: 9,  icon: "🍄", description: "散发剧毒孢子的发光蘑菇" },
-        { name: "翡翠蜘蛛",    level: 12, hp: 800,  mp: 180, atk: 55, def: 30, spd: 18, icon: "🕷️", description: "拥有翡翠色外壳的剧毒蜘蛛" },
-        { name: "苔藓蜥蜴人",  level: 15, hp: 1000, mp: 250, atk: 68, def: 40, spd: 14, icon: "🦎", description: "身上长满发光苔藓的蜥蜴人战士" },
-        { name: "食苔巨虫",    level: 18, hp: 1300, mp: 150, atk: 75, def: 50, spd: 11, icon: "🐛", description: "以魔力苔藓为食的巨大蠕虫" },
+    // 第2层: 翡翠洞窟 (Lv.20~40)
+    2: [
+        { name: "毒孢子蘑菇",  icon: "🍄", description: "散发剧毒孢子的发光蘑菇", ai: "magic" },
+        { name: "翡翠蜘蛛",    icon: "🕷️", description: "拥有翡翠色外壳的剧毒蜘蛛", ai: "speed" },
+        { name: "苔藓蜥蜴人",  icon: "🦎", description: "身上长满发光苔藓的蜥蜴人战士", ai: "attack" },
+        { name: "食苔巨虫",    icon: "🐛", description: "以魔力苔藓为食的巨大蠕虫", ai: "defense" },
     ],
-    3: [ // 腐沼雨林  Lv15~30
-        { name: "沼泽鳄鱼",    level: 15, hp: 1100, mp: 200, atk: 70, def: 45, spd: 13, icon: "🐊", description: "潜伏在沼泽深处的巨型鳄鱼" },
-        { name: "食人花",      level: 18, hp: 950,  mp: 300, atk: 65, def: 35, spd: 16, icon: "🌺", description: "巨大的肉食植物，花瓣如同利齿" },
-        { name: "沼灵",        level: 22, hp: 1400, mp: 400, atk: 82, def: 48, spd: 20, icon: "👻", description: "由沼泽怨念凝聚而成的灵体" },
-        { name: "腐沼巨蛙",    level: 25, hp: 1600, mp: 250, atk: 90, def: 55, spd: 17, icon: "🐸", description: "吞下整头牛的巨型毒蛙" },
-        { name: "雨林蟒蛇",    level: 28, hp: 1800, mp: 200, atk: 95, def: 50, spd: 22, icon: "🐍", description: "长达十米的魔力蟒蛇，缠绕力惊人" },
+    // 第3层: 腐沼雨林 (Lv.40~60)
+    3: [
+        { name: "沼泽鳄鱼",    icon: "🐊", description: "潜伏在沼泽深处的巨型鳄鱼", ai: "attack" },
+        { name: "食人花",      icon: "🌺", description: "巨大的肉食植物，花瓣如同利齿", ai: "magic" },
+        { name: "沼灵",        icon: "👻", description: "由沼泽怨念凝聚而成的灵体", ai: "magic" },
+        { name: "腐沼巨蛙",    icon: "🐸", description: "吞下整头牛的巨型毒蛙", ai: "balanced" },
+        { name: "雨林蟒蛇",    icon: "🐍", description: "长达十米的魔力蟒蛇，缠绕力惊人", ai: "speed" },
     ],
-    4: [ // 霜皑冰原  Lv20~40
-        { name: "冰原狼",      level: 20, hp: 1300, mp: 200, atk: 85, def: 45, spd: 25, icon: "🐺", description: "毛发如冰晶般的狼群首领" },
-        { name: "小雪怪",      level: 25, hp: 1700, mp: 150, atk: 95, def: 60, spd: 12, icon: "❄️", description: "由积雪和魔力构成的低级雪怪" },
-        { name: "冰元素",      level: 30, hp: 2000, mp: 500, atk: 110, def: 70, spd: 18, icon: "🧊", description: "纯粹的冰元素生物，触碰即冻伤" },
-        { name: "冰霜巨熊",    level: 35, hp: 2500, mp: 200, atk: 130, def: 85, spd: 14, icon: "🐻", description: "冰原的霸主，一掌可碎巨石" },
-        { name: "冰龙幼崽",    level: 40, hp: 3000, mp: 600, atk: 150, def: 95, spd: 20, icon: "🐉", description: "误入冰原的幼龙，已能喷吐冰息" },
+    // 第4层: 霜皑冰原 (Lv.60~80)
+    4: [
+        { name: "冰原狼",      icon: "🐺", description: "毛发如冰晶般的狼群首领", ai: "speed" },
+        { name: "小雪怪",      icon: "❄️", description: "由积雪和魔力构成的低级雪怪", ai: "defense" },
+        { name: "冰元素",      icon: "🧊", description: "纯粹的冰元素生物，触碰即冻伤", ai: "magic" },
+        { name: "冰霜巨熊",    icon: "🐻", description: "冰原的霸主，一掌可碎巨石", ai: "attack" },
+        { name: "冰龙幼崽",    icon: "🐉", description: "误入冰原的幼龙，已能喷吐冰息", ai: "balanced" },
     ],
-    5: [ // 熔火深渊  Lv25~50
-        { name: "火蜥蜴",      level: 25, hp: 1500, mp: 300, atk: 100, def: 55, spd: 20, icon: "🦎", description: "在岩浆边缘栖息的火属性蜥蜴" },
-        { name: "熔岩史莱姆",  level: 30, hp: 1800, mp: 400, atk: 110, def: 80, spd: 10, icon: "🔥", description: "体内流淌着熔岩的灼热史莱姆" },
-        { name: "炎魔",        level: 35, hp: 2200, mp: 550, atk: 135, def: 70, spd: 22, icon: "👹", description: "从熔岩中诞生的低级恶魔" },
-        { name: "岩浆巨人",    level: 42, hp: 2800, mp: 300, atk: 160, def: 100, spd: 8,  icon: "🌋", description: "由凝固岩浆组成的巨型魔像" },
-        { name: "地狱犬",      level: 48, hp: 3200, mp: 450, atk: 175, def: 85, spd: 28, icon: "🐕", description: "三头地狱犬的幼体，已能喷火" },
-        { name: "红龙",        level: 50, hp: 3500, mp: 700, atk: 190, def: 110, spd: 18, icon: "🐲", description: "守护深渊入口的红龙" },
+    // 第5层: 熔火深渊 (Lv.80~100)
+    5: [
+        { name: "火蜥蜴",      icon: "🦎", description: "在岩浆边缘栖息的火属性蜥蜴", ai: "attack" },
+        { name: "熔岩史莱姆",  icon: "🔥", description: "体内流淌着熔岩的灼热史莱姆", ai: "defense" },
+        { name: "炎魔",        icon: "👹", description: "从熔岩中诞生的低级恶魔", ai: "magic" },
+        { name: "岩浆巨人",    icon: "🌋", description: "由凝固岩浆组成的巨型魔像", ai: "attack" },
+        { name: "地狱犬",      icon: "🐕", description: "三头地狱犬的幼体，已能喷火", ai: "speed" },
+        { name: "红龙",        icon: "🐲", description: "守护深渊入口的红龙", ai: "balanced" },
     ],
-    6: [ // 幻梦镜界  Lv30~60
-        { name: "镜妖",        level: 30, hp: 1600, mp: 500, atk: 105, def: 65, spd: 24, icon: "🪞", description: "从镜子中爬出的扭曲妖怪" },
-        { name: "幻影刺客",    level: 38, hp: 2000, mp: 400, atk: 145, def: 55, spd: 35, icon: "👤", description: "由幻觉凝聚的刺客，虚实难辨" },
-        { name: "梦境兽",      level: 45, hp: 2600, mp: 600, atk: 165, def: 80, spd: 26, icon: "🦄", description: "吞噬梦境的异界生物" },
-        { name: "虚空之眼",    level: 52, hp: 3000, mp: 800, atk: 180, def: 90, spd: 22, icon: "👁️", description: "凝视它的人会陷入永恒的噩梦" },
-        { name: "镜像勇者",    level: 55, hp: 3200, mp: 550, atk: 170, def: 100, spd: 28, icon: "🎭", description: "镜界制造的勇者复制品" },
-        { name: "梦魇",        level: 60, hp: 3800, mp: 900, atk: 200, def: 110, spd: 30, icon: "😈", description: "操控梦境的上级恶魔" },
+    // 第6层: 幻梦镜界 (Lv.100~120)
+    6: [
+        { name: "镜妖",        icon: "🪞", description: "从镜子中爬出的扭曲妖怪", ai: "magic" },
+        { name: "幻影刺客",    icon: "👤", description: "由幻觉凝聚的刺客，虚实难辨", ai: "speed" },
+        { name: "梦境兽",      icon: "🦄", description: "吞噬梦境的异界生物", ai: "balanced" },
+        { name: "虚空之眼",    icon: "👁️", description: "凝视它的人会陷入永恒的噩梦", ai: "magic" },
+        { name: "镜像勇者",    icon: "🎭", description: "镜界制造的勇者复制品", ai: "balanced" },
+        { name: "梦魇",        icon: "😈", description: "操控梦境的上级恶魔", ai: "magic" },
     ],
-    7: [ // 死寂沙海  Lv35~70
-        { name: "沙虫",        level: 35, hp: 2000, mp: 250, atk: 130, def: 70, spd: 18, icon: "🐛", description: "潜伏在沙下伺机而动的巨型沙虫" },
-        { name: "木乃伊",      level: 42, hp: 2400, mp: 400, atk: 145, def: 90, spd: 12, icon: "🧟", description: "古代诅咒复活的干尸战士" },
-        { name: "沙元素",      level: 48, hp: 2800, mp: 550, atk: 160, def: 100, spd: 20, icon: "🏜️", description: "由沙砾构成的元素生物" },
-        { name: "蝎王",        level: 55, hp: 3200, mp: 350, atk: 185, def: 95, spd: 32, icon: "🦂", description: "拥有剧毒的沙漠蝎王" },
-        { name: "法老亡灵",    level: 62, hp: 3600, mp: 700, atk: 195, def: 120, spd: 16, icon: "👑", description: "古代地下王国法老的亡灵" },
-        { name: "沙海巨鲸",    level: 70, hp: 4500, mp: 500, atk: 220, def: 130, spd: 14, icon: "🐋", description: "在沙海中游弋的传说巨兽" },
+    // 第7层: 死寂沙海 (Lv.120~140)
+    7: [
+        { name: "沙虫",        icon: "🐛", description: "潜伏在沙下伺机而动的巨型沙虫", ai: "attack" },
+        { name: "木乃伊",      icon: "🧟", description: "古代诅咒复活的干尸战士", ai: "defense" },
+        { name: "沙元素",      icon: "🏜️", description: "由沙砾构成的元素生物", ai: "magic" },
+        { name: "蝎王",        icon: "🦂", description: "拥有剧毒的沙漠蝎王", ai: "speed" },
+        { name: "法老亡灵",    icon: "👑", description: "古代地下王国法老的亡灵", ai: "magic" },
+        { name: "沙海巨鲸",    icon: "🐋", description: "在沙海中游弋的传说巨兽", ai: "attack" },
     ],
-    8: [ // 地下王城  Lv40~80
-        { name: "石像鬼",      level: 40, hp: 2200, mp: 350, atk: 150, def: 100, spd: 22, icon: "🗿", description: "古代宫殿的守卫雕像突然活了过来" },
-        { name: "亡灵骑士",    level: 48, hp: 2800, mp: 400, atk: 175, def: 115, spd: 20, icon: "💀", description: "效忠古代王国的亡灵骑士" },
-        { name: "古代守卫",    level: 55, hp: 3200, mp: 500, atk: 190, def: 130, spd: 18, icon: "🛡️", description: "古代魔法强化的宫殿守卫" },
-        { name: "暗影刺客",    level: 62, hp: 2800, mp: 450, atk: 210, def: 85, spd: 38, icon: "🥷", description: "潜伏在王城阴影中的暗杀者" },
-        { name: "魔导傀儡",    level: 70, hp: 4000, mp: 800, atk: 230, def: 140, spd: 15, icon: "🤖", description: "古代魔导技术的最高杰作" },
-        { name: "死亡骑士",    level: 78, hp: 4500, mp: 600, atk: 250, def: 150, spd: 22, icon: "⚔️", description: "统领亡灵军团的死亡骑士" },
-        { name: "古代龙王",    level: 80, hp: 5000, mp: 900, atk: 260, def: 160, spd: 20, icon: "🐉", description: "古代王国的守护龙，沉睡了千年" },
+    // 第8层: 地下王城 (Lv.140~160)
+    8: [
+        { name: "石像鬼",      icon: "🗿", description: "古代宫殿的守卫雕像突然活了过来", ai: "defense" },
+        { name: "亡灵骑士",    icon: "💀", description: "效忠古代王国的亡灵骑士", ai: "balanced" },
+        { name: "古代守卫",    icon: "🛡️", description: "古代魔法强化的宫殿守卫", ai: "defense" },
+        { name: "暗影刺客",    icon: "🥷", description: "潜伏在王城阴影中的暗杀者", ai: "speed" },
+        { name: "魔导傀儡",    icon: "🤖", description: "古代魔导技术的最高杰作", ai: "magic" },
+        { name: "死亡骑士",    icon: "⚔️", description: "统领亡灵军团的死亡骑士", ai: "attack" },
+        { name: "古代龙王",    icon: "🐉", description: "古代王国的守护龙，沉睡了千年", ai: "balanced" },
     ],
-    9: [ // 狂风苔原  Lv45~90
-        { name: "风狼",        level: 45, hp: 2400, mp: 300, atk: 165, def: 80, spd: 35, icon: "🐺", description: "驾驭狂风的风元素狼群" },
-        { name: "冰霜巨人",    level: 52, hp: 3200, mp: 400, atk: 190, def: 120, spd: 12, icon: "🧊", description: "身高五米的冰霜巨人" },
-        { name: "风暴元素",    level: 58, hp: 3400, mp: 700, atk: 200, def: 100, spd: 40, icon: "🌪️", description: "纯粹风暴凝聚的元素生物" },
-        { name: "雪女",        level: 65, hp: 3000, mp: 850, atk: 185, def: 95, spd: 32, icon: "👻", description: "在暴风雪中出现的神秘雪女" },
-        { name: "雷神鹰",      level: 72, hp: 3600, mp: 600, atk: 220, def: 110, spd: 42, icon: "🦅", description: "羽翼带电的传说猛禽" },
-        { name: "世界蛇",      level: 85, hp: 5000, mp: 800, atk: 260, def: 140, spd: 28, icon: "🐍", description: "盘踞在苔原深处的世界蛇遗种" },
-        { name: "芬里尔",      level: 90, hp: 5500, mp: 700, atk: 280, def: 150, spd: 35, icon: "🐺", description: "传说中的魔狼，呼出的气息能冻结灵魂" },
+    // 第9层: 狂风苔原 (Lv.160~180)
+    9: [
+        { name: "风狼",        icon: "🐺", description: "驾驭狂风的风元素狼群", ai: "speed" },
+        { name: "冰霜巨人",    icon: "🧊", description: "身高五米的冰霜巨人", ai: "attack" },
+        { name: "风暴元素",    icon: "🌪️", description: "纯粹风暴凝聚的元素生物", ai: "magic" },
+        { name: "雪女",        icon: "👻", description: "在暴风雪中出现的神秘雪女", ai: "magic" },
+        { name: "雷神鹰",      icon: "🦅", description: "羽翼带电的传说猛禽", ai: "speed" },
+        { name: "世界蛇",      icon: "🐍", description: "盘踞在苔原深处的世界蛇遗种", ai: "balanced" },
+        { name: "芬里尔",      icon: "🐺", description: "传说中的魔狼，呼出的气息能冻结灵魂", ai: "speed" },
     ],
-    10: [ // 魔王宫殿  Lv50~100
-        { name: "恶魔卫士",    level: 50, hp: 2800, mp: 400, atk: 175, def: 110, spd: 22, icon: "👿", description: "魔王宫殿的普通守卫" },
-        { name: "黑暗骑士",    level: 60, hp: 3500, mp: 500, atk: 210, def: 135, spd: 20, icon: "🛡️", description: "身穿黑曜石铠甲的精英骑士" },
-        { name: "深渊法师",    level: 70, hp: 3200, mp: 1000, atk: 230, def: 100, spd: 28, icon: "🧙", description: "钻研深渊魔法的宫廷法师" },
-        { name: "魔龙",        level: 80, hp: 4800, mp: 800, atk: 270, def: 160, spd: 24, icon: "🐲", description: "臣服于魔王的强大魔龙" },
-        { name: "堕天使",      level: 88, hp: 4500, mp: 950, atk: 260, def: 140, spd: 38, icon: "😇", description: "堕落的天界使者，拥有神圣与黑暗的双重力量" },
-        { name: "混沌恶魔",    level: 95, hp: 5500, mp: 900, atk: 300, def: 170, spd: 30, icon: "👹", description: "从混沌中诞生的上级恶魔" },
-        { name: "魔王亲卫队",  level: 100, hp: 6500, mp: 1000, atk: 320, def: 190, spd: 32, icon: "👑", description: "魔王直属的亲卫队队长，仅次于魔王的存在" },
+    // 第10层: 魔王宫殿 (Lv.180~200)
+    10: [
+        { name: "恶魔卫士",    icon: "👿", description: "魔王宫殿的普通守卫", ai: "balanced" },
+        { name: "黑暗骑士",    icon: "🛡️", description: "身穿黑曜石铠甲的精英骑士", ai: "defense" },
+        { name: "深渊法师",    icon: "🧙", description: "钻研深渊魔法的宫廷法师", ai: "magic" },
+        { name: "魔龙",        icon: "🐲", description: "臣服于魔王的强大魔龙", ai: "attack" },
+        { name: "堕天使",      icon: "😇", description: "堕落的天界使者，拥有神圣与黑暗的双重力量", ai: "magic" },
+        { name: "混沌恶魔",    icon: "👹", description: "从混沌中诞生的上级恶魔", ai: "balanced" },
+        { name: "魔王亲卫队",  icon: "👑", description: "魔王直属的亲卫队队长，仅次于魔王的存在", ai: "attack" },
     ]
 };
+
+// 旧定义保留兼容（过渡期间）
+window.FLOOR_MONSTER_DEFS = {};
 
 // ========== 御敌策略定义 (STRATEGY_DEFS) ==========
 // 基于原始游戏 DUNGEON_TRAP.ERB 中全部陷阱转化
@@ -1508,8 +1523,11 @@ window.STATUS_AILMENT_TURN_CFIDS = {
     confusion: 929, charm: 930
 };
 
-// 治疗职业列表（用于队伍中自动恢复异常状态）
-window.HEALER_CLASS_IDS = [202, 209]; // 神官、巫女
+// 治疗职业列表（V5.0 动态从 CLASS_DEFS 中筛选）
+window.HEALER_CLASS_IDS = (window.CLASS_DEFS ? Object.keys(window.CLASS_DEFS).map(Number).filter(id => {
+    const role = window.CLASS_DEFS[id].role;
+    return role && (role.includes('healer') || role.includes('heal'));
+}) : [202, 209]);
 
 // ========== 勇者入侵配置 ==========
 window.HERO_INVASION_CONFIG = {
@@ -1564,28 +1582,62 @@ window.HERO_INVASION_CONFIG = {
 };
 
 
-// ========== 精英怪物类型定义 ==========
+// ========== 精英怪物类型定义 (V6.0) ==========
+// 首领 = 该层最高等级(Lv.N*20)同级战力的 1.1 倍
+// 守关Boss = 该层最高等级同级战力的 1.2 倍
 window.ELITE_TYPE_DEFS = {
+    normal: {
+        label: "普通",
+        hpMul: 1.0, atkMul: 1.0, defMul: 1.0, spdMul: 1.0,
+        dropRarityBonus: 0, icon: "", namePrefix: "", descSuffix: ""
+    },
     chief: {
-        name: "首领",
-        levelMod: 0,        // 等级 = 楼层最大等级
-        statMult: 1.05,     // 属性 × 1.05
-        namePrefix: "首领·",
-        dropRarityBonus: 1, // 稀有度保底+1
-        dropFloorOffset: 0, // 掉落装备楼层偏移
-        icon: "👑",
-        descSuffix: "【首领级】"
+        label: "首领",
+        hpMul: 1.0, atkMul: 1.1, defMul: 1.1, spdMul: 1.0,
+        dropRarityBonus: 1, icon: "👑", namePrefix: "首领·", descSuffix: "【首领级】"
     },
     overlord: {
-        name: "霸主",
-        levelMod: 5,        // 等级 = 楼层最大等级 + 5
-        statMult: 1.10,     // 属性 × 1.10
-        namePrefix: "霸主·",
-        dropRarityBonus: 2, // 稀有度保底+2
-        dropFloorOffset: 1, // 有概率掉落下一楼层装备
-        icon: "💀",
-        descSuffix: "【霸主级】"
+        label: "守关Boss",
+        hpMul: 1.2, atkMul: 1.2, defMul: 1.2, spdMul: 0.9,
+        dropRarityBonus: 2, icon: "💀", namePrefix: "霸主·", descSuffix: "【霸主级】"
     }
+};
+
+// ========== 晋升徽章定义 (V6.0 等级锁系统) ==========
+// 每20级一道锁，击败对应层守关Boss后从宝箱获取
+window.BADGE_DEFS = {
+    20:  { id: 9020, name: "20级晋升徽章", icon: "🔰", desc: "击败第1层守关Boss的证明，使用后解锁Lv.21升级上限", sellPrice: 20000 },
+    40:  { id: 9040, name: "40级晋升徽章", icon: "🔰", desc: "击败第2层守关Boss的证明", sellPrice: 40000 },
+    60:  { id: 9060, name: "60级晋升徽章", icon: "🔰", desc: "击败第3层守关Boss的证明", sellPrice: 60000 },
+    80:  { id: 9080, name: "80级晋升徽章", icon: "🔰", desc: "击败第4层守关Boss的证明", sellPrice: 80000 },
+    100: { id: 9100, name: "100级晋升徽章", icon: "🔰", desc: "击败第5层守关Boss的证明", sellPrice: 100000 },
+    120: { id: 9120, name: "120级晋升徽章", icon: "🔰", desc: "击败第6层守关Boss的证明", sellPrice: 120000 },
+    140: { id: 9140, name: "140级晋升徽章", icon: "🔰", desc: "击败第7层守关Boss的证明", sellPrice: 140000 },
+    160: { id: 9160, name: "160级晋升徽章", icon: "🔰", desc: "击败第8层守关Boss的证明", sellPrice: 160000 },
+    180: { id: 9180, name: "180级晋升徽章", icon: "🔰", desc: "击败第9层守关Boss的证明", sellPrice: 180000 },
+    200: { id: 9200, name: "200级晋升徽章", icon: "👑", desc: "地下城至高荣誉，击败第10层守关Boss的证明", sellPrice: 200000 }
+};
+
+// 转职徽章
+window.CLASS_CHANGE_BADGE_DEF = {
+    id: 9100, name: "转职徽章", icon: "⚜️",
+    desc: "守关Boss的稀有掉落，20级转职的必需品。高等级但仍未转职的勇者常为此苦恼。",
+    sellPrice: 50000
+};
+
+// 等级锁配置
+window.LEVEL_LOCK_CONFIG = {
+    // lockLevel -> { requiredFloor: 需要击败的楼层, badgeId: 徽章ID }
+    20:  { requiredFloor: 1,  badgeId: 9020 },
+    40:  { requiredFloor: 2,  badgeId: 9040 },
+    60:  { requiredFloor: 3,  badgeId: 9060 },
+    80:  { requiredFloor: 4,  badgeId: 9080 },
+    100: { requiredFloor: 5,  badgeId: 9100 },
+    120: { requiredFloor: 6,  badgeId: 9120 },
+    140: { requiredFloor: 7,  badgeId: 9140 },
+    160: { requiredFloor: 8,  badgeId: 9160 },
+    180: { requiredFloor: 9,  badgeId: 9180 },
+    200: { requiredFloor: 10, badgeId: 9200 }
 };
 
 // ========== 楼层设施定义 ==========
@@ -1897,3 +1949,307 @@ window.RELATION_EVENT_DEFS = {
     betray: { name: "背叛", icon: "🔪", desc: "在战斗中背叛了同伴", delta: -2 },
     steal_loot: { name: "独吞宝物", icon: "👿", desc: "私自独占了珍贵的战利品", delta: -2 }
 };
+
+
+// ============================================
+// V5.0 种族特长与分层职业系统
+// ============================================
+
+// ---------- 种族特长定义 ----------
+window.RACE_TRAITS = {
+  1: {
+    name: "适应性",
+    stats: { hp: 1.0, mp: 1.0, atk: 1.0, def: 1.0, spd: 1.0 },
+    passiveId: "human_adaptability",
+    affinity: {},
+    weakness: {},
+    desc: "均衡发展的种族，可以胜任任何职业"
+  },
+  2: {
+    name: "自然亲和",
+    stats: { hp: 0.9, mp: 1.3, atk: 0.95, def: 0.9, spd: 1.15 },
+    passiveId: "elf_nature",
+    affinity: { nature: 1.25, light: 1.1 },
+    weakness: { dark: 1.2, fire: 1.1 },
+    desc: "魔力与速度出众，但体质脆弱。森林中速度+20%"
+  },
+  3: {
+    name: "野性本能",
+    stats: { hp: 1.2, mp: 0.8, atk: 1.15, def: 1.0, spd: 0.95 },
+    passiveId: "orc_feral",
+    affinity: { earth: 1.2 },
+    weakness: { ice: 1.15 },
+    desc: "体力与攻击力极强，HP<30%时攻击力+25%"
+  },
+  4: {
+    name: "锻造大师",
+    stats: { hp: 1.15, mp: 0.85, atk: 1.0, def: 1.2, spd: 0.8 },
+    passiveId: "dwarf_forge",
+    affinity: { earth: 1.25, fire: 1.1 },
+    weakness: { nature: 1.15 },
+    desc: "防御力与耐久无人能及，对异常状态抗性+30%"
+  },
+  5: {
+    name: "黑暗亲和",
+    stats: { hp: 1.1, mp: 1.15, atk: 1.1, def: 0.95, spd: 1.0 },
+    passiveId: "demon_dark",
+    affinity: { dark: 1.3, fire: 1.15 },
+    weakness: { light: 1.3 },
+    desc: "攻守兼备的黑暗种族，暗属性伤害+20%"
+  },
+  6: {
+    name: "神圣庇护",
+    stats: { hp: 0.95, mp: 1.25, atk: 0.9, def: 1.15, spd: 1.05 },
+    passiveId: "angel_holy",
+    affinity: { light: 1.3, wind: 1.1 },
+    weakness: { dark: 1.25 },
+    desc: "回复技能效果+25%，对暗属性伤害-20%"
+  },
+  7: {
+    name: "龙血觉醒",
+    stats: { hp: 1.25, mp: 1.0, atk: 1.2, def: 1.1, spd: 0.75 },
+    passiveId: "dragon_blood",
+    affinity: { fire: 1.25, ice: 1.2 },
+    weakness: { nature: 1.15 },
+    desc: "HP>50%时攻击力+15%，对火/冰抗性+30%"
+  },
+  8: {
+    name: "深海祝福",
+    stats: { hp: 0.95, mp: 1.2, atk: 0.9, def: 0.95, spd: 1.15 },
+    passiveId: "sea_blessing",
+    affinity: { water: 1.3, ice: 1.15 },
+    weakness: { fire: 1.2, lightning: 1.15 },
+    desc: "水中全属性+15%，对冰抗性+20%"
+  },
+  9: {
+    name: "血之渴望",
+    stats: { hp: 1.0, mp: 1.05, atk: 1.15, def: 0.95, spd: 1.15 },
+    passiveId: "vampire_bloodlust",
+    affinity: { dark: 1.25, blood: 1.2 },
+    weakness: { light: 1.35, fire: 1.15 },
+    desc: "造成伤害的15%转化为HP回复，惧怕圣光"
+  },
+  10: {
+    name: "混沌多面手",
+    stats: { hp: 1.05, mp: 1.1, atk: 1.1, def: 1.0, spd: 1.05 },
+    passiveId: "hybrid_chaos",
+    affinity: { dark: 1.15, fire: 1.1 },
+    weakness: { light: 1.15 },
+    desc: "每回合开始时随机一项属性+10%"
+  }
+};
+
+// ---------- 统一职业定义表（基础+进阶） ----------
+window.CLASS_DEFS = {
+  // ===== 基础职业（ID 200-214）=====
+  200: { tier: "basic", name: "战士",     advClassId: 300, role: "front_dps",  desc: "均衡的近战物理输出者，攻守兼备",                           stats: { hp: 1.20, mp: 1.00, atk: 1.25, def: 1.05, spd: 0.95 }, ai: { agg: 0.70, def: 0.20, sup: 0.10 }, skills: [1001, 1002, 2001, 3001], weapons: ["sword","axe","hammer"] },
+  201: { tier: "basic", name: "魔法师",   advClassId: 301, role: "magic_dps",  desc: "高MP的AoE魔法大师，擅长范围毁灭",                          stats: { hp: 0.85, mp: 1.50, atk: 1.20, def: 0.85, spd: 1.00 }, ai: { agg: 0.60, def: 0.20, sup: 0.20 }, skills: [1001, 1003, 2002, 3002], weapons: ["staff","wand"] },
+  202: { tier: "basic", name: "神官",     advClassId: 302, role: "healer",     desc: "团队回复与净化核心，神圣魔法的大师",                       stats: { hp: 0.95, mp: 1.30, atk: 0.85, def: 1.00, spd: 0.95 }, ai: { agg: 0.10, def: 0.40, sup: 0.50 }, skills: [1004, 1002, 2003, 3003], weapons: ["mace","staff","wand"] },
+  203: { tier: "basic", name: "盗贼",     advClassId: 303, role: "assassin",   desc: "高SPD的暴击刺客，从暗影中收割生命",                       stats: { hp: 0.95, mp: 1.00, atk: 1.15, def: 0.90, spd: 1.30 }, ai: { agg: 0.60, def: 0.20, sup: 0.20 }, skills: [1001, 1005, 2004, 3004], weapons: ["dagger","claw"] },
+  204: { tier: "basic", name: "骑士",     advClassId: 304, role: "tank",       desc: "高DEF的护盾型前排，守护队友的钢铁壁垒",                   stats: { hp: 1.20, mp: 1.00, atk: 1.00, def: 1.30, spd: 0.80 }, ai: { agg: 0.30, def: 0.50, sup: 0.20 }, skills: [1002, 1006, 2005, 3005], weapons: ["sword","spear","shield"] },
+  205: { tier: "basic", name: "炼金术士", advClassId: 305, role: "dot_aoe",    desc: "毒/燃烧DoT与范围破坏，用科学毁灭敌人",                     stats: { hp: 1.00, mp: 1.20, atk: 1.05, def: 1.00, spd: 1.00 }, ai: { agg: 0.50, def: 0.20, sup: 0.30 }, skills: [1003, 1007, 2006, 3006], weapons: ["flask","dagger"] },
+  206: { tier: "basic", name: "游侠",     advClassId: 306, role: "ranged",     desc: "高命中多段射击，百步穿杨的远程专家",                       stats: { hp: 0.95, mp: 1.00, atk: 1.15, def: 0.90, spd: 1.15 }, ai: { agg: 0.50, def: 0.30, sup: 0.20 }, skills: [1001, 1005, 2007, 3007], weapons: ["bow","crossbow"] },
+  207: { tier: "basic", name: "忍者",     advClassId: 307, role: "ninja",      desc: "高速闪避与即死攻击，来无影去无踪",                         stats: { hp: 0.90, mp: 1.10, atk: 1.10, def: 0.85, spd: 1.20 }, ai: { agg: 0.50, def: 0.20, sup: 0.30 }, skills: [1001, 1005, 2008, 3008], weapons: ["kunai","shuriken","dagger"] },
+  208: { tier: "basic", name: "格斗家",   advClassId: 308, role: "brawler",    desc: "徒手高连击爆发，以肉体为武器的格斗大师",                   stats: { hp: 1.15, mp: 0.90, atk: 1.20, def: 1.00, spd: 1.05 }, ai: { agg: 0.70, def: 0.20, sup: 0.10 }, skills: [1001, 1008, 2009, 3009], weapons: ["fist","claw"] },
+  209: { tier: "basic", name: "巫女",     advClassId: 309, role: "healer_buff", desc: "治疗+敌方封印，神圣与咒术的双重使者",                     stats: { hp: 0.90, mp: 1.30, atk: 0.90, def: 1.05, spd: 1.00 }, ai: { agg: 0.20, def: 0.40, sup: 0.40 }, skills: [1004, 1002, 2010, 3010], weapons: ["wand","staff","paper"] },
+  210: { tier: "basic", name: "枪兵",     advClassId: 310, role: "pierce",     desc: "对坦克特化的贯穿DPS，长枪如龙",                            stats: { hp: 1.05, mp: 1.00, atk: 1.20, def: 0.95, spd: 1.05 }, ai: { agg: 0.60, def: 0.30, sup: 0.10 }, skills: [1001, 1008, 2011, 3011], weapons: ["spear","halberd"] },
+  211: { tier: "basic", name: "吟游诗人", advClassId: 311, role: "bard",       desc: "全队Buff与士气提升，用歌声扭转战局",                       stats: { hp: 0.90, mp: 1.15, atk: 0.90, def: 0.90, spd: 1.10 }, ai: { agg: 0.20, def: 0.30, sup: 0.50 }, skills: [1004, 1008, 2012, 3012], weapons: ["instrument","dagger"] },
+  212: { tier: "basic", name: "暗杀者",   advClassId: 312, role: "assassin",   desc: "低HP目标处刑专家，一击必杀的黑暗使者",                     stats: { hp: 0.85, mp: 1.05, atk: 1.30, def: 0.80, spd: 1.25 }, ai: { agg: 0.70, def: 0.20, sup: 0.10 }, skills: [1001, 1005, 2013, 3013], weapons: ["dagger","claw"] },
+  213: { tier: "basic", name: "医者",     advClassId: 313, role: "healer_dot", desc: "单体极限治疗与异常解除，妙手回春",                         stats: { hp: 1.00, mp: 1.20, atk: 0.85, def: 1.00, spd: 1.00 }, ai: { agg: 0.20, def: 0.30, sup: 0.50 }, skills: [1004, 1007, 2014, 3014], weapons: ["syringe","dagger"] },
+  214: { tier: "basic", name: "舞娘",     advClassId: 314, role: "dancer",     desc: "魅惑与敌方Debuff，用舞蹈操控战场",                         stats: { hp: 0.85, mp: 1.10, atk: 0.85, def: 0.85, spd: 1.20 }, ai: { agg: 0.20, def: 0.30, sup: 0.50 }, skills: [1005, 1007, 2015, 3015], weapons: ["fan","whip","dagger"] },
+
+  // ===== 进阶职业（ID 300-314）=====
+  300: { tier: "advanced", name: "狂战士",   baseClassId: 200, role: "front_burst",  desc: "牺牲防御换取极限输出，HP越低伤害越高",                    stats: { hp: 1.25, mp: 1.00, atk: 1.45, def: 0.80, spd: 1.05 }, ai: { agg: 0.85, def: 0.10, sup: 0.05 }, skills: [1101, 1102, 3101, 3102, 4001], weapons: ["sword","axe","hammer","greatsword","dual_axe"] },
+  301: { tier: "advanced", name: "大魔导师", baseClassId: 201, role: "magic_aoe",    desc: "掌控毁灭级魔法的至高法师，可改变战场元素环境",            stats: { hp: 0.80, mp: 1.70, atk: 1.35, def: 0.80, spd: 1.00 }, ai: { agg: 0.70, def: 0.15, sup: 0.15 }, skills: [1101, 1103, 3103, 3104, 4002], weapons: ["staff","wand","orb","grimoire"] },
+  302: { tier: "advanced", name: "大主教",   baseClassId: 202, role: "healer_core",  desc: "群体复活+神圣护盾，团队不可动摇的核心",                   stats: { hp: 0.90, mp: 1.50, atk: 0.85, def: 1.10, spd: 0.95 }, ai: { agg: 0.10, def: 0.35, sup: 0.55 }, skills: [1104, 1102, 3105, 3106, 4003], weapons: ["mace","staff","wand","scepter"] },
+  303: { tier: "advanced", name: "影舞者",   baseClassId: 203, role: "dodge_assassin", desc: "闪避转化为反击伤害，在敌人攻击间隙跳舞",                stats: { hp: 0.90, mp: 1.10, atk: 1.20, def: 0.85, spd: 1.40 }, ai: { agg: 0.60, def: 0.20, sup: 0.20 }, skills: [1105, 1101, 3107, 3108, 4004], weapons: ["dagger","claw","dual_dagger"] },
+  304: { tier: "advanced", name: "圣骑士",   baseClassId: 204, role: "holy_tank",    desc: "伤害转化为治疗，圣光笼罩的不灭壁垒",                      stats: { hp: 1.25, mp: 1.10, atk: 1.05, def: 1.35, spd: 0.80 }, ai: { agg: 0.35, def: 0.45, sup: 0.20 }, skills: [1102, 1104, 3109, 3110, 4005], weapons: ["sword","spear","shield","holy_sword","tower_shield"] },
+  305: { tier: "advanced", name: "贤者",     baseClassId: 205, role: "battle_control", desc: "大范围增益+敌人弱化，用智慧支配战场",                   stats: { hp: 1.00, mp: 1.35, atk: 1.10, def: 1.00, spd: 1.00 }, ai: { agg: 0.40, def: 0.25, sup: 0.35 }, skills: [1103, 1107, 3111, 3112, 4006], weapons: ["flask","dagger","tome"] },
+  306: { tier: "advanced", name: "风行者",   baseClassId: 206, role: "mobile_ranged", desc: "攻击后自动位移回避，风一般的射手",                       stats: { hp: 0.90, mp: 1.10, atk: 1.20, def: 0.85, spd: 1.30 }, ai: { agg: 0.55, def: 0.25, sup: 0.20 }, skills: [1105, 1101, 3113, 3114, 4007], weapons: ["bow","crossbow","longbow"] },
+  307: { tier: "advanced", name: "影忍",     baseClassId: 207, role: "master_ninja", desc: "隐身+必中即死，暗杀的终极形态",                           stats: { hp: 0.85, mp: 1.20, atk: 1.20, def: 0.80, spd: 1.35 }, ai: { agg: 0.60, def: 0.15, sup: 0.25 }, skills: [1105, 1101, 3115, 3116, 4008], weapons: ["kunai","shuriken","dagger","ninjato"] },
+  308: { tier: "advanced", name: "拳圣",     baseClassId: 208, role: "combo_burst",  desc: "连击数越多伤害越高，拳速突破音速",                         stats: { hp: 1.20, mp: 0.95, atk: 1.35, def: 0.95, spd: 1.15 }, ai: { agg: 0.75, def: 0.15, sup: 0.10 }, skills: [1101, 1108, 3117, 3118, 4009], weapons: ["fist","claw","gauntlet"] },
+  309: { tier: "advanced", name: "巫女长",   baseClassId: 209, role: "holy_seal",    desc: "全场封印+神圣审判，神的代行者",                           stats: { hp: 0.85, mp: 1.45, atk: 0.95, def: 1.10, spd: 1.00 }, ai: { agg: 0.25, def: 0.35, sup: 0.40 }, skills: [1104, 1102, 3119, 3120, 4010], weapons: ["wand","staff","paper","sacred_wand"] },
+  310: { tier: "advanced", name: "龙骑士",   baseClassId: 210, role: "mounted_pierce", desc: "对大型敌人特化，人与龙的完美配合",                     stats: { hp: 1.15, mp: 1.05, atk: 1.30, def: 1.05, spd: 1.00 }, ai: { agg: 0.65, def: 0.25, sup: 0.10 }, skills: [1101, 1106, 3121, 3122, 4011], weapons: ["spear","halberd","dragon_lance"] },
+  311: { tier: "advanced", name: "战歌者",   baseClassId: 211, role: "battle_command", desc: "增益带伤害附加，用歌声指挥全军",                       stats: { hp: 0.85, mp: 1.25, atk: 1.00, def: 0.90, spd: 1.10 }, ai: { agg: 0.30, def: 0.25, sup: 0.45 }, skills: [1104, 1108, 3123, 3124, 4012], weapons: ["instrument","dagger","harp"] },
+  312: { tier: "advanced", name: "死神",     baseClassId: 212, role: "soul_reaper",  desc: "击杀刷新行动，灵魂的收割者",                               stats: { hp: 0.80, mp: 1.10, atk: 1.45, def: 0.75, spd: 1.30 }, ai: { agg: 0.75, def: 0.15, sup: 0.10 }, skills: [1101, 1105, 3125, 3126, 4013], weapons: ["dagger","claw","scythe"] },
+  313: { tier: "advanced", name: "神医",     baseClassId: 213, role: "extreme_heal", desc: "单体满血复活，超越生死的医术",                             stats: { hp: 1.00, mp: 1.35, atk: 0.85, def: 1.05, spd: 1.00 }, ai: { agg: 0.15, def: 0.30, sup: 0.55 }, skills: [1104, 1107, 3127, 3128, 4014], weapons: ["syringe","dagger","elixir"] },
+  314: { tier: "advanced", name: "舞姬",     baseClassId: 214, role: "battle_charm", desc: "群体魅惑+敌方自相残杀，战场上的绝色妖姬",                 stats: { hp: 0.80, mp: 1.20, atk: 0.90, def: 0.80, spd: 1.25 }, ai: { agg: 0.25, def: 0.25, sup: 0.50 }, skills: [1105, 1107, 3129, 3130, 4015], weapons: ["fan","whip","dagger","charm_fan"] },
+
+  // ===== 魔王专属职业 =====
+  999: { tier: "master", name: "魔王", role: "master", desc: "地下迷宫的主宰，统治一切的存在", stats: { hp: 1.30, mp: 1.20, atk: 1.30, def: 1.20, spd: 1.10 }, ai: { agg: 0.60, def: 0.30, sup: 0.10 }, skills: [1101, 1102, 1103, 1106, 4001], weapons: ["sword","staff","orb","grimoire","demon_sword"] }
+};
+
+// ---------- 统一技能定义表 ----------
+window.CLASS_SKILL_DEFS = {
+  // ===== 基础通用技能（所有基础职业）=====
+  1001: { name: "普通攻击",   type: "damage",     element: "physical", power: 1.0,  target: "single",    desc: "最基础的物理攻击" },
+  1002: { name: "防御姿态",   type: "buff_def",   element: "none",     power: 0.2,  duration: 2, target: "self",      desc: "提升自身防御力20%" },
+  1003: { name: "魔力飞弹",   type: "damage",     element: "magic",    power: 1.1,  target: "single",    desc: "最基础的魔法攻击" },
+  1004: { name: "快速治疗",   type: "heal",       element: "holy",     power: 0.3,  target: "single",    desc: "恢复自身30%最大HP" },
+  1005: { name: "疾风步",     type: "buff_spd",   element: "wind",     power: 0.2,  duration: 2, target: "self",      desc: "提升自身速度20%" },
+  1006: { name: "挑衅",       type: "taunt",      element: "none",     power: 0,    duration: 2, target: "single",    desc: "强制目标下回合攻击自己" },
+  1007: { name: "毒瓶投掷",   type: "dot",        element: "poison",   power: 0.15, duration: 3, target: "single",    desc: "每回合造成15%攻击力的毒伤害" },
+  1008: { name: "聚力",       type: "buff_atk",   element: "none",     power: 0.2,  duration: 2, target: "self",      desc: "提升自身攻击力20%" },
+
+  // ===== 高级通用技能（所有进阶职业）=====
+  1101: { name: "强力斩击",   type: "damage",     element: "physical", power: 1.5,  target: "single",    desc: "强力的物理攻击" },
+  1102: { name: "魔法屏障",   type: "buff_def",   element: "magic",    power: 0.4,  duration: 3, target: "self",      desc: "大幅提升防御并抵消一次魔法伤害" },
+  1103: { name: "炎爆术",     type: "damage",     element: "fire",     power: 1.6,  target: "single",    desc: "高威力火属性魔法" },
+  1104: { name: "群体治疗",   type: "mass_heal",  element: "holy",     power: 0.25, target: "all_ally",  desc: "恢复全队25%最大HP" },
+  1105: { name: "瞬身",       type: "buff_spd",   element: "wind",     power: 0.4,  duration: 2, target: "self",      desc: "大幅提升速度并提升闪避率" },
+  1106: { name: "铁壁",       type: "buff_def",   element: "earth",    power: 0.5,  duration: 3, target: "self",      desc: "极大幅提升防御50%" },
+  1107: { name: "猛毒云",     type: "dot",        element: "poison",   power: 0.25, duration: 3, target: "all_enemy", desc: "使全体敌人中毒" },
+  1108: { name: "战意高涨",   type: "buff_atk",   element: "none",     power: 0.35, duration: 3, target: "self",      desc: "大幅提升攻击力35%" },
+
+  // ===== 基础职业技能（200-214，每个1个）=====
+  2001: { name: "战吼",       type: "buff_atk",   element: "none",     power: 0.25, duration: 3, target: "all_ally",  desc: "提升全队攻击力25%" },
+  2002: { name: "魔力护盾",   type: "buff_def",   element: "magic",    power: 0.3,  duration: 3, target: "self",      desc: "用魔力抵挡30%伤害" },
+  2003: { name: "神圣之光",   type: "heal",       element: "holy",     power: 0.5,  target: "single",    desc: "中量恢复HP并解除一个弱化" },
+  2004: { name: "背刺",       type: "damage",     element: "physical", power: 1.4,  target: "single",    critBonus: 0.2, desc: "从背后攻击，暴击率+20%" },
+  2005: { name: "盾击",       type: "damage",     element: "physical", power: 1.1,  target: "single",    desc: "用盾牌猛击，概率眩晕" },
+  2006: { name: "投掷药水",   type: "dot",        element: "poison",   power: 0.2,  duration: 3, target: "single",    desc: "投掷腐蚀性药水" },
+  2007: { name: "连射",       type: "damage",     element: "physical", power: 0.7,  hits: 2,     target: "single",    desc: "连续射出两箭" },
+  2008: { name: "烟雾弹",     type: "buff_spd",   element: "dark",     power: 0.3,  duration: 2, target: "self",      desc: "投掷烟雾弹提升闪避30%" },
+  2009: { name: "连打",       type: "damage",     element: "physical", power: 0.6,  hits: 3,     target: "single",    desc: "快速连续三次拳击" },
+  2010: { name: "封印符",     type: "seal",       element: "holy",     power: 0,    duration: 2, target: "single",    desc: "封印敌方技能一回合" },
+  2011: { name: "突刺",       type: "damage",     element: "pierce",   power: 1.3,  target: "single",    desc: "贯穿防御的强力突刺" },
+  2012: { name: "激励之歌",   type: "buff_atk",   element: "none",     power: 0.2,  duration: 3, target: "all_ally",  desc: "用歌声激励全队攻击力+20%" },
+  2013: { name: "暗袭",       type: "damage",     element: "dark",     power: 1.5,  target: "single",    desc: "黑暗中发动的致命一击" },
+  2014: { name: "解毒",       type: "cleanse",    element: "holy",     power: 0,    target: "single",    desc: "解除所有异常状态" },
+  2015: { name: "魅惑之舞",   type: "debuff_atk", element: "charm",    power: 0.25, duration: 2, target: "single",    desc: "用舞蹈降低敌方攻击力25%" },
+
+  // ===== 基础职业必杀技（3001-3015）=====
+  3001: { name: "狂暴",       type: "berserk",    element: "none",     power: 1.5, duration: 3, target: "self",      desc: "攻击力+50%，防御-30%" },
+  3002: { name: "陨石术",     type: "aoe",        element: "fire",     power: 1.3, target: "all_enemy", desc: "召唤陨石轰击全体敌人" },
+  3003: { name: "群体复活",   type: "resurrect",  element: "holy",     power: 0.3, target: "all_ally",  desc: "复活全体队友并恢复30%HP" },
+  3004: { name: "暗杀",       type: "execute",    element: "dark",     power: 2.0, target: "single",    desc: "对低HP敌人造成200%伤害" },
+  3005: { name: "圣盾庇护",   type: "invincible", element: "holy",     power: 0,   duration: 1, target: "self",      desc: "一回合内完全无敌" },
+  3006: { name: "大爆炸",     type: "big_bang",   element: "fire",     power: 1.8, target: "all_enemy", desc: "炼金术的终极奥义" },
+  3007: { name: "箭雨",       type: "aoe",        element: "physical", power: 1.1, target: "all_enemy", desc: "向天空射出无数箭矢" },
+  3008: { name: "影分身",     type: "buff_spd",   element: "dark",     power: 0.5, duration: 3, target: "self",      desc: "制造分身提升闪避50%" },
+  3009: { name: "百裂拳",     type: "damage",     element: "physical", power: 0.4, hits: 5,     target: "single",    desc: "一瞬间打出五连击" },
+  3010: { name: "神乐",       type: "cleanse",    element: "holy",     power: 0,   target: "all_ally",  desc: "净化全队所有负面状态" },
+  3011: { name: "龙枪突",     type: "damage",     element: "pierce",   power: 1.8, target: "single",    desc: "倾注全力的一击贯穿" },
+  3012: { name: "终曲",       type: "buff_all",   element: "none",     power: 0.3, duration: 3, target: "all_ally",  desc: "提升全队全属性30%" },
+  3013: { name: "虚无",       type: "execute",    element: "dark",     power: 3.0, target: "single",    desc: "将存在本身抹消的一击" },
+  3014: { name: "生命之泉",   type: "mass_heal",  element: "holy",     power: 0.4, duration: 3, target: "all_ally",  desc: "持续恢复全队HP三回合" },
+  3015: { name: "终焉之舞",   type: "debuff_all", element: "charm",    power: 0.2, duration: 3, target: "all_enemy", desc: "降低全体敌人全属性20%" },
+
+  // ===== 进阶职业技能（3101-3130，每个进阶职业2个）=====
+  // 狂战士（300）
+  3101: { name: "血之渴望",   type: "buff_atk",   element: "blood",    power: 0.35, duration: 3, target: "self",      condition: "hp<50%", desc: "HP<50%时攻击力额外+20%" },
+  3102: { name: "旋风斩",     type: "aoe",        element: "physical", power: 1.6,  target: "all_enemy", desc: "挥舞武器攻击全体敌人" },
+  // 大魔导师（301）
+  3103: { name: "元素风暴",   type: "damage",     element: "random",   power: 2.0,  target: "single",    desc: "随机属性的高威力魔法" },
+  3104: { name: "魔力逆流",   type: "buff_atk",   element: "magic",    power: 0.6,  duration: 3, target: "self",      desc: "以魔力强化下一次攻击" },
+  // 大主教（302）
+  3105: { name: "神圣护盾",   type: "buff_def",   element: "holy",     power: 0.5,  duration: 3, target: "all_ally",  desc: "给全队附加神圣护盾" },
+  3106: { name: "审判之光",   type: "damage",     element: "holy",     power: 1.8,  target: "single",    desc: "对邪恶敌人造成巨额伤害" },
+  // 影舞者（303）
+  3107: { name: "反击之舞",   type: "counter",    element: "physical", power: 1.2,  duration: 2, target: "self",      desc: "闪避后自动反击" },
+  3108: { name: "暗影步",     type: "buff_spd",   element: "dark",     power: 0.6,  duration: 2, target: "self",      desc: "融入暗影大幅提升闪避" },
+  // 圣骑士（304）
+  3109: { name: "圣光反噬",   type: "reflect",    element: "holy",     power: 0.5,  duration: 3, target: "self",      desc: "受到伤害时反弹30%为治疗" },
+  3110: { name: "天罚",       type: "damage",     element: "holy",     power: 1.7,  target: "single",    desc: "以圣光惩戒敌人" },
+  // 贤者（305）
+  3111: { name: "智慧光环",   type: "buff_all",   element: "none",     power: 0.25, duration: 3, target: "all_ally",  desc: "全队全属性+15%" },
+  3112: { name: "思维瓦解",   type: "debuff_all", element: "magic",    power: 0.25, duration: 3, target: "all_enemy", desc: "敌人全属性-15%" },
+  // 风行者（306）
+  3113: { name: "风之步",     type: "buff_spd",   element: "wind",     power: 0.55, duration: 2, target: "self",      desc: "攻击后自动后撤" },
+  3114: { name: "穿云箭",     type: "damage",     element: "physical", power: 2.2,  target: "single",    desc: "贯穿一切的狙击箭" },
+  // 影忍（307）
+  3115: { name: "隐身",       type: "stealth",    element: "dark",     power: 0,    duration: 2, target: "self",      desc: "进入隐身状态无法被选中" },
+  3116: { name: "暗杀术",     type: "execute",    element: "dark",     power: 3.0,  target: "single",    desc: "隐身状态下必中且暴击" },
+  // 拳圣（308）
+  3117: { name: "连击之势",   type: "buff_atk",   element: "physical", power: 0.18, duration: 3, target: "self",      desc: "每次攻击后攻击力+10%" },
+  3118: { name: "破山击",     type: "damage",     element: "physical", power: 2.8,  target: "single",    desc: "凝聚全力的破山一拳" },
+  // 巫女长（309）
+  3119: { name: "神圣结界",   type: "buff_def",   element: "holy",     power: 0.45, duration: 3, target: "all_ally",  desc: "全队防御+30%" },
+  3120: { name: "神罚之雷",   type: "damage",     element: "lightning",power: 2.0,  target: "single",    desc: "召唤神雷审判罪人" },
+  // 龙骑士（310）
+  3121: { name: "龙息",       type: "damage",     element: "fire",     power: 1.8,  target: "all_enemy", desc: "与龙配合喷吐烈焰" },
+  3122: { name: "龙翼横扫",   type: "damage",     element: "physical", power: 2.2,  target: "single",    desc: "龙翼挥击造成巨额伤害" },
+  // 战歌者（311）
+  3123: { name: "战歌",       type: "buff_atk",   element: "none",     power: 0.35, duration: 3, target: "all_ally",  desc: "全队攻击+25%且附带伤害" },
+  3124: { name: "安魂曲",     type: "heal",       element: "holy",     power: 0.55, target: "all_ally",  desc: "用歌声治愈全队" },
+  // 死神（312）
+  3125: { name: "灵魂收割",   type: "execute",    element: "dark",     power: 3.5,  target: "single",    desc: "收割濒死灵魂" },
+  3126: { name: "死亡宣告",   type: "dot",        element: "dark",     power: 0.45, duration: 3, target: "single",    desc: "标记目标使其持续流失生命" },
+  // 神医（313）
+  3127: { name: "回春术",     type: "heal",       element: "holy",     power: 1.0,  target: "single",    desc: "恢复目标80%最大HP" },
+  3128: { name: "起死回生",   type: "resurrect",  element: "holy",     power: 1.0,  target: "single",    desc: "满血复活一名队友" },
+  // 舞姬（314）
+  3129: { name: "群体魅惑",   type: "debuff_atk", element: "charm",    power: 0.35, duration: 2, target: "all_enemy", desc: "全体敌人攻击力-20%" },
+  3130: { name: "幻舞",       type: "confuse",    element: "charm",    power: 0,    duration: 2, target: "all_enemy", desc: "敌人概率互相攻击" },
+
+  // ===== 进阶职业必杀技（4001-4015）=====
+  4001: { name: "诸神黄昏",   type: "big_bang",   element: "physical", power: 3.0, target: "all_enemy", desc: "放弃一切防御的终极一击" },
+  4002: { name: "星陨",       type: "big_bang",   element: "magic",    power: 3.2, target: "all_enemy", desc: "召唤陨石雨毁灭战场" },
+  4003: { name: "神圣审判",   type: "aoe",        element: "holy",     power: 2.8, target: "all_enemy", desc: "以神之名义净化一切邪恶" },
+  4004: { name: "死亡华尔兹", type: "damage",     element: "dark",     power: 2.8, hits: 3,     target: "single",    desc: "在死亡边缘跳舞的三连击" },
+  4005: { name: "圣光领域",   type: "buff_all",   element: "holy",     power: 0.5, duration: 3, target: "all_ally",  desc: "全队全属性+40%并持续回复" },
+  4006: { name: "真理之门",   type: "big_bang",   element: "magic",    power: 3.0, target: "all_enemy", desc: "打开真理之门毁灭敌人" },
+  4007: { name: "风暴之眼",   type: "aoe",        element: "wind",     power: 2.5, target: "all_enemy", desc: "在风暴中心射出毁灭之箭" },
+  4008: { name: "瞬狱杀",     type: "execute",    element: "dark",     power: 4.5, target: "single",    desc: "瞬杀——无法闪避的即死攻击" },
+  4009: { name: "天冲拳",     type: "damage",     element: "physical", power: 3.5, target: "single",    desc: "冲破天际的终极一拳" },
+  4010: { name: "神乐·终焉",  type: "cleanse",    element: "holy",     power: 0,   target: "all_ally",  desc: "净化一切并封印全场敌人" },
+  4011: { name: "龙枪·天翔",  type: "damage",     element: "pierce",   power: 3.2, target: "single",    desc: "人与龙合力的天翔一击" },
+  4012: { name: "镇魂歌",     type: "buff_all",   element: "none",     power: 0.45, duration: 3, target: "all_ally",  desc: "全队全属性+35%并附加伤害" },
+  4013: { name: "死神的拥抱", type: "execute",    element: "dark",     power: 5.0, target: "single",    desc: "无视防御的绝对处刑" },
+  4014: { name: "生命之树",   type: "mass_heal",  element: "holy",     power: 0.8, duration: 3, target: "all_ally",  desc: "全队持续大幅回复并复活倒下者" },
+  4015: { name: "天魔之舞",   type: "debuff_all", element: "charm",    power: 0.4, duration: 3, target: "all_enemy", desc: "让敌人陷入疯狂的终极之舞" }
+};
+
+// ---------- 元素类型图标 ----------
+window.ELEMENT_ICONS = {
+  physical: "⚔️",
+  magic: "✨",
+  fire: "🔥",
+  ice: "❄️",
+  lightning: "⚡",
+  wind: "💨",
+  earth: "🪨",
+  water: "💧",
+  holy: "✝️",
+  dark: "💀",
+  poison: "☠️",
+  blood: "🩸",
+  charm: "💋",
+  pierce: "🎯",
+  none: "",
+  random: "🎲"
+};
+
+// ---------- 种族×职业偏好矩阵 ----------
+window.RACE_CLASS_PREFERENCE = {
+  1: { favored: [],         disfavored: [],       bonus: {} },
+  2: { favored: [201,206,207,211], disfavored: [208,210], bonus: { "201": { mp: 1.05 } } },
+  3: { favored: [200,208,210],     disfavored: [201,213], bonus: { "200": { atk: 1.05 } } },
+  4: { favored: [204,205,210],     disfavored: [201,207], bonus: { "204": { def: 1.05 } } },
+  5: { favored: [201,203,212],     disfavored: [202,209], bonus: { "201": { atk: 1.05 } } },
+  6: { favored: [202,209,213],     disfavored: [203,212], bonus: { "202": { mp: 1.05 } } },
+  7: { favored: [200,204,210],     disfavored: [201,207], bonus: { "200": { hp: 1.05 } } },
+  8: { favored: [201,206,214],     disfavored: [208,210], bonus: { "206": { spd: 1.05 } } },
+  9: { favored: [203,207,212],     disfavored: [202,209], bonus: { "203": { spd: 1.05 } } },
+  10:{ favored: [],                disfavored: [],       bonus: {} }
+};
+
+// ---------- 种族职业限制（禁止列表） ----------
+window.RACE_CLASS_RESTRICTIONS = {
+    1: [],                           // 人类：无限制
+    2: [204, 208],                   // 精灵：不能骑士、格斗家（体质脆弱）
+    3: [201, 202, 209, 213],         // 兽人：不能魔法师、神官、巫女、医者（魔力低下）
+    4: [207, 212, 214],              // 矮人：不能忍者、暗杀者、舞娘（速度迟缓）
+    5: [202, 204, 209],              // 魔族：不能神官、骑士、巫女（黑暗与神圣/守护冲突）
+    6: [203, 207, 212],              // 天使：不能盗贼、忍者、暗杀者（神圣种族不适合暗影）
+    7: [201, 205, 207],              // 龙人：不能魔法师、炼金术士、忍者（行动迟缓）
+    8: [204, 208],                   // 海族：不能骑士、格斗家（水生种族不适合陆地格斗/重甲）
+    9: [202, 209, 213],              // 吸血鬼：不能神官、巫女、医者（惧怕圣光）
+    10: []                           // 恶魔混血：无限制
+};
+
+// V5.0: 覆盖治疗职业列表（确保在 CLASS_DEFS 加载后执行）
+window.HEALER_CLASS_IDS = Object.keys(window.CLASS_DEFS || {}).map(Number).filter(id => {
+    const role = window.CLASS_DEFS[id].role;
+    return role && (role.includes('healer') || role.includes('heal'));
+});

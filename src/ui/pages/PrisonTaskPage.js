@@ -162,13 +162,21 @@ Object.assign(UI, {
             listHtml += `<div style="font-size:0.78rem;color:var(--accent);margin:8px 0 4px;font-weight:600;">🔓 俘虏操作</div>`;
             for (let i = 0; i < game.prisoners.length; i++) {
                 const p = game.prisoners[i];
+                const mark = p.mark[0] || 0;
+                const canConvert = mark >= 3;
                 listHtml += `<div style="display:flex;gap:6px;align-items:stretch;margin-bottom:6px;">`;
                 listHtml += `<div style="flex:1;padding:7px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:space-between;min-height:40px;">`;
                 listHtml += `<span><strong>${p.name}</strong> <span style="color:var(--text-dim);font-size:0.75rem;">Lv.${p.level}</span></span>`;
+                listHtml += `<span style="font-size:0.75rem;color:${canConvert ? 'var(--success)' : 'var(--warning)'};">服从Lv.${mark}${canConvert ? ' ✓可转化' : ''}</span>`;
                 listHtml += `</div>`;
                 listHtml += `<button class="game-btn" style="min-width:70px;" onclick="UI.renderGearOperations(G,${i},'prisoner')">🎒 物品</button>`;
                 listHtml += `<button class="game-btn danger" style="min-width:70px;" onclick="UI.interrogatePrisoner(G,${i})">🔥 拷问</button>`;
                 listHtml += `<button class="game-btn accent" style="min-width:70px;" onclick="UI.brainwashPrisoner(G,${i})">🧠 洗脑</button>`;
+                if (canConvert) {
+                    listHtml += `<button class="game-btn" style="min-width:70px;background:var(--success);color:#fff;" onclick="UI.convertPrisoner(G,${i})">⛓️ 转化</button>`;
+                } else {
+                    listHtml += `<button class="game-btn" style="min-width:70px;opacity:0.5;" disabled>🔒 转化</button>`;
+                }
                 listHtml += `<button class="game-btn" style="min-width:70px;" onclick="UI.releasePrisoner(G,${i})">🚪 释放</button>`;
                 listHtml += `</div>`;
             }
@@ -183,29 +191,43 @@ Object.assign(UI, {
     interrogatePrisoner(game, index) {
         const p = game.prisoners[index];
         if (!p) return;
-        // 拷问效果：HP-10%，尝试投降判定
+        // 拷问效果：HP-10%，增加屈服度
         p.hp = Math.max(1, Math.floor(p.hp * 0.9));
-        const result = game._trySurrender(p);
-        if (result.success) {
-            // 投降，转化为奴隶
-            const hero = game.prisoners.splice(index, 1)[0];
-            game._convertHeroToSlave(hero);
+        const oldMark = p.mark[0] || 0;
+        // 拷问增加1级屈服度（最高到2）
+        if (oldMark < 2) {
+            p.mark[0] = oldMark + 1;
+            UI.showToast(`${p.name} 的意志被削弱了！（服从Lv.${p.mark[0]}）`, 'warning');
+        } else if (oldMark >= 3) {
+            UI.showToast(`${p.name} 已经完全屈服，可以转化了`, 'success');
         } else {
-            UI.showToast(`${p.name} 经受住了拷问...`, 'warning');
+            UI.showToast(`${p.name} 经受住了拷问...但已经快到极限了`, 'warning');
         }
         this.renderPrison(game);
     },
 
-    // 洗脑俘虏（监狱Lv3解锁）
+    // 洗脑俘虏
     brainwashPrisoner(game, index) {
         const p = game.prisoners[index];
         if (!p) return;
-        // 洗脑直接成功
-        const hero = game.prisoners.splice(index, 1)[0];
-        hero.mark[0] = 3;
-        hero.addExp(81, 3); // 洗脑经验+3
-        game._convertHeroToSlave(hero);
-        UI.showToast(`${hero.name}被彻底洗脑，洗脑经验+3`, 'accent');
+        // 洗脑增加2级屈服度
+        const oldMark = p.mark[0] || 0;
+        p.mark[0] = Math.min(5, oldMark + 2);
+        p.addExp(81, 3); // 洗脑经验+3
+        UI.showToast(`${p.name} 被洗脑了！（服从Lv.${p.mark[0]}）`, 'accent');
+        this.renderPrison(game);
+    },
+
+    // 转化俘虏为奴隶（需要服从Lv.3+）
+    convertPrisoner(game, index) {
+        const p = game.prisoners[index];
+        if (!p) return;
+        const result = game._convertHeroToSlave(p);
+        if (result && result.success) {
+            UI.showToast(result.msg, 'success');
+        } else {
+            UI.showToast(result ? result.msg : '转化失败', 'warning');
+        }
         this.renderPrison(game);
     },
 

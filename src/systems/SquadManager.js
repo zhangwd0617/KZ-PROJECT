@@ -113,7 +113,11 @@ Game.prototype._calculateSquadMorale = function(squad) {
         let hasHealer = false;
         for (let i = 0; i < squad.length; i++) {
             const m = squad[i];
-            if (healerClasses.includes(m.cflag[CFLAGS.HERO_CLASS] || 0)) hasHealer = true;
+            {
+                const cid = m.cflag[CFLAGS.CLASS_ID] || m.cflag[CFLAGS.HERO_CLASS] || 0;
+                const role = window.CLASS_DEFS && window.CLASS_DEFS[cid] ? window.CLASS_DEFS[cid].role : '';
+                if (role && (role.includes('healer') || role.includes('heal'))) hasHealer = true;
+            }
             for (let j = i + 1; j < squad.length; j++) {
                 const other = squad[j];
                 const rel = this._getHeroRelation(m, other);
@@ -135,8 +139,11 @@ Game.prototype._calculateSquadMorale = function(squad) {
     // 小队治疗职业自动恢复
 Game.prototype._applySquadHealing = function(squad) {
         if (!squad || squad.length < 2) return;
-        const healerClasses = [202, 205, 209]; // 神官,炼金术士,巫女
-        const healers = squad.filter(m => healerClasses.includes(m.cflag[CFLAGS.HERO_CLASS] || 0));
+        const healers = squad.filter(m => {
+            const cid = m.cflag[CFLAGS.CLASS_ID] || m.cflag[CFLAGS.HERO_CLASS] || 0;
+            const role = window.CLASS_DEFS && window.CLASS_DEFS[cid] ? window.CLASS_DEFS[cid].role : '';
+            return role && (role.includes('healer') || role.includes('heal'));
+        });
         if (healers.length === 0) return;
         for (const member of squad) {
             if (member.hp <= 0) continue;

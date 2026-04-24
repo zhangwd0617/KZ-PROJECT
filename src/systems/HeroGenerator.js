@@ -37,40 +37,28 @@ Game.prototype.generateHero = function() {
         hero.talent[314] = preRace; // 预设种族
         hero.name = name;
         hero.callname = name;
-        hero.base[0] = 1000 + power * 200 + RAND(power * 100);
-        hero.maxbase[0] = hero.base[0];
-        hero.hp = hero.base[0];
-        hero.base[1] = 500 + power * 100;
-        hero.maxbase[1] = hero.base[1];
-        hero.mp = hero.base[1];
         hero.level = power;
         hero.cflag[CFLAGS.BASE_HP] = power;
-        hero.cflag[CFLAGS.ATK] = 20 + power * 5;  // 攻击
-        hero.cflag[CFLAGS.DEF] = 15 + power * 4;  // 防御
-        hero.cflag[CFLAGS.SPD] = 10 + power * 3;  // 敏捷(速度)
         // 勇者初始金币（新平衡）
         hero.gold = Math.floor(power * power + RAND(power * 10));
 
-        // === 勇者职业分配 ===
-        if (typeof HERO_CLASS_POOL !== 'undefined') {
-            const classId = HERO_CLASS_POOL[RAND(HERO_CLASS_POOL.length)];
-            const cls = HERO_CLASS_DEFS[classId];
-            if (cls) {
-                hero.cflag[CFLAGS.HERO_CLASS] = classId; // 存储职业ID
-                hero.talent[cls.talentId] = 1;
-                // 应用职业属性修正
-                const s = cls.baseStats;
-                hero.base[0] = Math.floor(hero.base[0] * s.hp);
-                hero.maxbase[0] = hero.base[0];
-                hero.hp = hero.base[0];
-                hero.base[1] = Math.floor(hero.base[1] * s.mp);
-                hero.maxbase[1] = hero.base[1];
-                hero.mp = hero.base[1];
-                hero.cflag[CFLAGS.ATK] = Math.floor(hero.cflag[CFLAGS.ATK] * s.atk);
-                hero.cflag[CFLAGS.DEF] = Math.floor(hero.cflag[CFLAGS.DEF] * s.def);
-                hero.cflag[CFLAGS.SPD] = Math.floor(hero.cflag[CFLAGS.SPD] * s.spd);
-            }
+        // === V5.0 统一职业分配 ===
+        const raceId = hero.talent[314] || 1;
+        const classId = this._rollBasicClass(raceId);
+        const clsDef = window.CLASS_DEFS ? window.CLASS_DEFS[classId] : null;
+        if (clsDef) {
+            // 存储职业ID（新系统用 CLASS_ID，旧系统保留 HERO_CLASS 兼容）
+            hero.cflag[CFLAGS.CLASS_ID] = classId;
+            hero.cflag[CFLAGS.HERO_CLASS] = classId;
+            // 初始化技能列表
+            hero.cstr[355] = JSON.stringify(clsDef.skills);
         }
+        // V6.0 统一属性公式
+        this._recalcBaseStats(hero);
+        hero.base[0] = hero.maxbase[0];
+        hero.base[1] = hero.maxbase[1];
+        hero.hp = hero.maxHp;
+        hero.mp = hero.maxMp;
         if (!isFemale) {
             hero.talent[122] = 1; // 男性
             hero.talent[1] = 1;   // 童贞
@@ -136,12 +124,15 @@ Game.prototype.generateHero = function() {
         const rarityBonus = { N: 1.0, R: 1.1, SR: 1.2, SSR: 1.35, UR: 1.5 };
         const rb = rarityBonus[rarity] || 1.0;
         if (rb > 1.0) {
-            hero.base[0] = Math.floor(hero.base[0] * rb);
-            hero.maxbase[0] = hero.base[0];
-            hero.hp = hero.base[0];
+            hero.maxbase[0] = Math.floor(hero.maxbase[0] * rb);
+            hero.maxbase[1] = Math.floor(hero.maxbase[1] * rb);
+            hero.base[0] = hero.maxbase[0];
+            hero.base[1] = hero.maxbase[1];
             hero.cflag[CFLAGS.ATK] = Math.floor(hero.cflag[CFLAGS.ATK] * rb);
             hero.cflag[CFLAGS.DEF] = Math.floor(hero.cflag[CFLAGS.DEF] * rb);
             hero.cflag[CFLAGS.SPD] = Math.floor(hero.cflag[CFLAGS.SPD] * rb);
+            hero.hp = hero.maxHp;
+            hero.mp = hero.maxMp;
         }
         if (rarity === 'UR') {
             hero.cstr[CSTRS.RELATION_LOG] = '【UR】传说中的勇者';
@@ -153,16 +144,16 @@ Game.prototype.generateHero = function() {
         }
 
         // === 角色定位（前排/中排/后排）===
-        const classId = hero.cflag[CFLAGS.HERO_CLASS] || 0;
-        const backClasses = [202, 209];
-        const frontClasses = [204, 211];
-        if (backClasses.includes(classId)) {
-            hero.cflag[CFLAGS.HERO_PARTY_ROLE] = 3;
-        } else if (frontClasses.includes(classId)) {
-            hero.cflag[CFLAGS.HERO_PARTY_ROLE] = 1;
-        } else {
-            hero.cflag[CFLAGS.HERO_PARTY_ROLE] = 2;
-        }
+        const roleMap = { front_dps: 1, tank: 1, front_burst: 1, holy_tank: 1, mounted_pierce: 1, combo_burst: 1,
+                          brawler: 1, pierce: 1,
+                          magic_dps: 3, healer: 3, healer_buff: 3, healer_dot: 3, bard: 3, battle_command: 3,
+                          extreme_heal: 3, holy_seal: 3, healer_core: 3, magic_aoe: 3, battle_control: 3,
+                          battle_charm: 3,
+                          assassin: 2, ninja: 2, dot_aoe: 2, ranged: 2, dodge_assassin: 2, mobile_ranged: 2,
+                          master_ninja: 2, soul_reaper: 2, dancer: 2 };
+        const curClsDef = window.CLASS_DEFS ? window.CLASS_DEFS[hero.cflag[CFLAGS.CLASS_ID]] : null;
+        const role = curClsDef ? curClsDef.role : '';
+        hero.cflag[CFLAGS.HERO_PARTY_ROLE] = roleMap[role] || 2;
         // === 勇者冒险口号 ===
         const mottoPool = HERO_MOTTO_POOLS[goalId] || HERO_MOTTO_POOLS.defeat_master;
         hero.cstr[CSTRS.NAME] = mottoPool[RAND(mottoPool.length)];
@@ -172,11 +163,7 @@ Game.prototype.generateHero = function() {
             CharaTemplates.applyRandomAppearance(hero);
             CharaTemplates.applyRandomBackstory(hero);
             CharaTemplates.generateAppearanceDesc(hero);
-            // 赋予勇者一个 JOB_TABLE 职业（用于信息显示）
-            if (typeof CharaTemplates.JOB_TABLE !== 'undefined') {
-                const job = CharaTemplates.JOB_TABLE[RAND(CharaTemplates.JOB_TABLE.length)];
-                hero.talent[job.id] = 1;
-            }
+            // V5.0: 职业已通过 CLASS_DEFS 统一分配，无需额外的 JOB_TABLE 职业标记
         }
 
         // === 生成初始任务 ===
@@ -197,6 +184,8 @@ Game.prototype.generateHero = function() {
             penises: isMale || isFuta ? [{ id: 0, name: "\u8089\u68d2", ejaculationGauge: 0, sensitivity: 1.0, linkedParts: ["V", "A", "O"] }] : [],
             orgasmSystem: "standard"
         };
+
+        if (!hero.gear) hero.gear = { head: null, body: null, legs: null, hands: null, neck: null, ring: null, weapons: [], items: [] };
 
         return hero;
     }
@@ -243,3 +232,77 @@ Game.prototype.generateAffinity = function(entity) {
     }
 
     // 生成随机小队名
+
+
+// ========== V5.0 种族特长与职业系统辅助函数 ==========
+
+/**
+ * 根据种族偏好随机抽取基础职业
+ */
+Game.prototype._rollBasicClass = function(raceId) {
+    const defs = window.CLASS_DEFS || {};
+    let basicIds = Object.keys(defs).filter(id => defs[id].tier === 'basic').map(Number);
+    if (basicIds.length === 0) return 200;
+
+    // 应用种族职业限制
+    const restrictions = window.RACE_CLASS_RESTRICTIONS ? (window.RACE_CLASS_RESTRICTIONS[raceId] || []) : [];
+    basicIds = basicIds.filter(id => !restrictions.includes(id));
+    if (basicIds.length === 0) return 200; // 兜底
+
+    const pref = window.RACE_CLASS_PREFERENCE ? (window.RACE_CLASS_PREFERENCE[raceId] || {}) : {};
+    const favored = pref.favored || [];
+    const disfavored = pref.disfavored || [];
+
+    // 构建权重池
+    const weights = basicIds.map(id => {
+        if (favored.includes(id)) return 2.0;
+        if (disfavored.includes(id)) return 0.5;
+        return 1.0;
+    });
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
+    let roll = Math.random() * totalWeight;
+    for (let i = 0; i < basicIds.length; i++) {
+        roll -= weights[i];
+        if (roll <= 0) return basicIds[i];
+    }
+    return basicIds[0];
+};
+
+/**
+ * 应用种族属性修正
+ */
+Game.prototype._applyRaceStats = function(entity, raceId) {
+    const traits = window.RACE_TRAITS ? window.RACE_TRAITS[raceId] : null;
+    if (!traits || !traits.stats) {
+        entity.cflag[CFLAGS.RACE_PASSIVE] = raceId;
+        return;
+    }
+    // V6.0: use unified formula instead of manual multipliers
+    this._recalcBaseStats(entity);
+    entity.base[0] = entity.maxbase[0];
+    entity.base[1] = entity.maxbase[1];
+    entity.hp = entity.maxHp;
+    entity.mp = entity.maxMp;
+    // 记录种族被动
+    entity.cflag[CFLAGS.RACE_PASSIVE] = raceId;
+};
+
+/**
+ * 应用种族×职业额外加成
+ */
+Game.prototype._applyRaceClassBonus = function(entity, raceId, classId) {
+    const pref = window.RACE_CLASS_PREFERENCE ? (window.RACE_CLASS_PREFERENCE[raceId] || {}) : {};
+    const bonus = pref.bonus ? (pref.bonus[String(classId)] || {}) : {};
+    if (!bonus.hp && !bonus.mp && !bonus.atk && !bonus.def && !bonus.spd) return;
+    // V6.0: ensure unified base before applying bonus
+    this._recalcBaseStats(entity);
+    if (bonus.hp) { entity.maxbase[0] = Math.floor(entity.maxbase[0] * bonus.hp); entity.base[0] = entity.maxbase[0]; }
+    if (bonus.mp) { entity.maxbase[1] = Math.floor(entity.maxbase[1] * bonus.mp); entity.base[1] = entity.maxbase[1]; }
+    if (bonus.atk) entity.cflag[CFLAGS.ATK] = Math.floor(entity.cflag[CFLAGS.ATK] * bonus.atk);
+    if (bonus.def) entity.cflag[CFLAGS.DEF] = Math.floor(entity.cflag[CFLAGS.DEF] * bonus.def);
+    if (bonus.spd) entity.cflag[CFLAGS.SPD] = Math.floor(entity.cflag[CFLAGS.SPD] * bonus.spd);
+    entity.hp = entity.maxHp;
+    entity.mp = entity.maxMp;
+};
+
+

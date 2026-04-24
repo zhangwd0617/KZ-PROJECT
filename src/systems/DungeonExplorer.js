@@ -133,7 +133,7 @@ Game.prototype.moveHeroDaily = function(hero) {
         // === 守关Boss战判定 ===
         const oldProgress = this.getHeroProgress(hero);
         if (!explore.results._defeated && oldProgress < 100 && oldProgress + moveSpeed >= 100) {
-            const bossMonster = this._spawnMonster(floorId, 'chief');
+            const bossMonster = this._spawnMonster(floorId, 'overlord');
             let bossCombat = null;
             const squadId = hero.cflag[CFLAGS.SQUAD_ID];
             if (squadId && hero.cflag[CFLAGS.SQUAD_LEADER] === 1) {
@@ -170,17 +170,13 @@ Game.prototype.moveHeroDaily = function(hero) {
                     // 通关地下城 + 击败Boss 声望奖励
                     const bossFame = 10 + floorId * 5;
                     hero.fame += bossFame;
-                    // 关底宝箱奖励
-                    const chestItem = this._generateChestLoot(hero.level, 'legendary', hero, floorId);
-                    if (chestItem) {
-                        const r = GearSystem.equipItem(hero, chestItem);
-                        explore.results.events.push({
-                            type: 'boss_chest',
-                            name: '📦 关底宝箱',
-                            description: r.msg || '获得传说级装备',
-                            icon: '📦'
-                        });
+
+                    // === V6.0: 守关Boss宝箱掉落 ===
+                    const badgeEvents = this._generateBossChestLoot(bossCombat, floorId);
+                    if (badgeEvents.length > 0) {
+                        explore.results.events.push(...badgeEvents);
                     }
+
                     // 进入下一层
                     hero.cflag[CFLAGS.HERO_FLOOR] = floorId + 1;
                     hero.cflag[CFLAGS.HERO_PROGRESS] = 0;
@@ -631,6 +627,117 @@ Game.prototype._checkProgressChests = function(hero, oldProgress, newProgress, f
                 });
             }
         }
+        return events;
+    }
+
+    // V6.0: 守关Boss宝箱掉落 — 晋升徽章（每箱仅1个）+ 转职徽章（10%）+ 金币 + 装备
+    Game.prototype._generateBossChestLoot = function(bossCombat, floorId) {
+        const events = [];
+        const survivors = (bossCombat.leftTeam || []).filter(u => u.hp > 0 && !u.isSpy && !u.isMonster && !u.isMaster).map(u => u.entity);
+        if (survivors.length === 0) return events;
+
+        // 1. 晋升徽章 — 每箱只掉1个！
+        const lockLevel = floorId * 20; // 第1层=20, 第2层=40, ...
+        const badgeDef = window.BADGE_DEFS ? window.BADGE_DEFS[lockLevel] : null;
+        if (badgeDef) {
+            // 只有1个幸存者能获得晋升徽章
+            const lucky = survivors[RAND(survivors.length)];
+            const badgeItem = {
+                id: badgeDef.id,
+                name: badgeDef.name,
+                icon: badgeDef.icon,
+                type: "badge",
+                badgeType: "promotion",
+                lockLevel: lockLevel,
+                desc: badgeDef.desc,
+                sellPrice: badgeDef.sellPrice
+            };
+            this._giveItem(lucky, badgeItem);
+
+            // 未获得者记录（用于后续AI行为）
+            for (const s of survivors) {
+                if (s !== lucky) {
+                    if (!s._missedBadges) s._missedBadges = [];
+                    s._missedBadges.push(lockLevel);
+                }
+            }
+
+            // 分赃不均：小队成员关系恶化
+            if (survivors.length > 1) {
+                for (let i = 0; i < survivors.length; i++) {
+                    for (let j = i + 1; j < survivors.length; j++) {
+                        const a = survivors[i], b = survivors[j];
+                        if (a === lucky || b === lucky) {
+                            this._setHeroRelation(a, b, -1, 'badge_dispute');
+                        }
+                    }
+                }
+            }
+
+            events.push({
+                type: 'boss_chest',
+                name: `📦 关底宝箱 — ${badgeDef.name}`,
+                description: `${lucky.name}获得了${badgeDef.name}！（突破Lv.${lockLevel}等级锁）${survivors.length > 1 ? '其他人只能干瞪眼...' : ''}`,
+                icon: '📦',
+                badge: badgeDef.name,
+                winner: lucky.name
+            });
+        }
+
+        // 2. 转职徽章 — 10%概率
+        if (RAND(100) < 10) {
+            const lucky2 = survivors[RAND(survivors.length)];
+            const ccBadge = window.CLASS_CHANGE_BADGE_DEF;
+            if (ccBadge) {
+                this._giveItem(lucky2, {
+                    id: ccBadge.id,
+                    name: ccBadge.name,
+                    icon: ccBadge.icon,
+                    type: "badge",
+                    badgeType: "class_change",
+                    desc: ccBadge.desc,
+                    sellPrice: ccBadge.sellPrice
+                });
+                events.push({
+                    type: 'boss_chest',
+                    name: `📦 额外掉落 — ${ccBadge.name}`,
+                    description: `${lucky2.name}获得了${ccBadge.name}！（20级转职必需品）`,
+                    icon: ccBadge.icon || '⚜️'
+                });
+            }
+        }
+
+        // 3. 金币
+        const goldGain = lockLevel * 100;
+        for (const s of survivors) {
+            s.gold += goldGain;
+        }
+        events.push({
+            type: 'boss_chest',
+            name: '💰 金币奖励',
+            description: `每人获得${goldGain}G`,
+            icon: '💰',
+            gold: goldGain
+        });
+
+        // 4. 装备（1-2件，稀有度基于层数）
+        const maxRarity = this._getFloorDropMaxRarity(floorId);
+        const equipCount = 1 + RAND(2);
+        for (let i = 0; i < equipCount; i++) {
+            const slotTypes = ['head', 'body', 'legs', 'hands', 'neck', 'ring', 'weapon'];
+            const slot = slotTypes[RAND(slotTypes.length)];
+            const rarity = Math.min(maxRarity, 2 + RAND(4)); // 至少精良
+            const gear = GearSystem.generateGear(slot, lockLevel, rarity);
+            const lucky3 = survivors[RAND(survivors.length)];
+            const r = GearSystem.equipItem(lucky3, gear);
+            events.push({
+                type: 'boss_chest',
+                name: `🎁 ${r.msg || '获得装备'}`,
+                description: r.msg || gear.name,
+                icon: '⚔️'
+            });
+        }
+
         return events;
     }
 

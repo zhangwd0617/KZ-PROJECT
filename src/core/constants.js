@@ -75,6 +75,16 @@ export const CFLAGS = {
     MEDAL_COUNT: 988,         // 勋章数
     MEDAL_EXP: 989,           // 勋章经验
 
+    // 职业系统（V5.0 统一职业）
+    CLASS_ID: 955,            // 统一职业ID（替代 HERO_CLASS）
+    RACE_PASSIVE: 956,        // 种族被动标记
+    PROMOTED: 957,            // 已转职标记
+
+    // V6.0 等级锁与徽章系统
+    EXP_TOTAL: 102,           // 总战斗经验（用于自动升级）
+    LEVEL_LOCK_BADGE_BASE: 9000, // 晋升徽章ID基准 = 9000 + lockLevel
+    CLASS_CHANGE_BADGE: 9100, // 转职徽章ID
+
     // 调教过滤
     COMMAND_FILTER: 991,      // 命令过滤位掩码
 };

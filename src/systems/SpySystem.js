@@ -141,10 +141,9 @@ Game.prototype.processSlaveExploreDaily = function() {
             } else {
                 // 修炼事件
                 if (squad.length > 0) {
-                    // 小队修炼：遇到怪物，小队一起战】
-                    const monsters = FLOOR_MONSTER_DEFS[floorId];
-                    if (monsters && monsters.length > 0) {
-                        const monster = monsters[RAND(monsters.length)];
+                    // 小队修炼：遇到怪物，小队一起战斗
+                    const monster = this._spawnMonster(floorId, 'normal');
+                    if (monster) {
                         const fullSquad = [slave, ...squad];
                         const combat = this._doTeamCombat(fullSquad, [monster]);
                         const expPerMember = combat.victory ? Math.floor(monster.level * 10 / fullSquad.filter(s => s.hp > 0).length) : 0;
@@ -276,7 +275,9 @@ Game.prototype._processSlaveGoodEvent = function(slave, floorId) {
             slave.mp = Math.min(slave.maxMp, slave.mp + Math.floor(slave.maxMp * evt.restoreBoth));
         }
         if (gainedExp > 0) {
-            slave.exp[0] = (slave.exp[0] || 0) + gainedExp;
+            // V6.0: 统一EXP系统
+            slave.addExp(102, gainedExp);
+            if (typeof this.checkLevelUp === 'function') this.checkLevelUp(slave);
             slave.cflag[703] = (slave.cflag[703] || 0) + gainedExp;
             text += ` (+${gainedExp}EXP)`;
         }
@@ -286,17 +287,20 @@ Game.prototype._processSlaveGoodEvent = function(slave, floorId) {
 
     // 奴隶修炼事件
 Game.prototype._processSlaveTrainEvent = function(slave, floorId) {
-        const monsters = FLOOR_MONSTER_DEFS[floorId];
-        const monLevel = monsters && monsters.length > 0 ? monsters[RAND(monsters.length)].level : floorId * 5;
-        const expGain = monLevel; // 修炼结果 = 当楼层怪物等级的经【        // 前勇者修炼获得金币（新平衡：与怪物等级²挂钩】
+        const templates = window.MONSTER_TEMPLATES[floorId];
+        const monLevel = floorId * 20; // V6.0: 该层最高等级
+        const expGain = monLevel; // 修炼结果 = 当楼层怪物等级的经验
+        // 前勇者修炼获得金币（新平衡：与怪物等级²挂钩）
         const goldGain = Math.floor(monLevel * monLevel + RAND(monLevel * 5));
         slave.gold += goldGain;
 
-        slave.exp[0] = (slave.exp[0] || 0) + expGain;
+        // V6.0: 统一EXP系统
+        slave.addExp(102, expGain);
+        if (typeof this.checkLevelUp === 'function') this.checkLevelUp(slave);
         slave.cflag[703] = (slave.cflag[703] || 0) + expGain;
 
         const trainTexts = [
-            `与地下城魔物战斗修炼，击败了${monsters ? monsters[RAND(monsters.length)].name : '魔物'}`,
+            `与地下城魔物战斗修炼，击败了${templates ? templates[RAND(templates.length)].name : '魔物'}`,
             `在魔力浓郁的区域冥想修炼`,
             `反复演练战斗技巧`,
             `独自深入危险区域历练`,

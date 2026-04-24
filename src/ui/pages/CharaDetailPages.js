@@ -8,34 +8,72 @@ Object.assign(UI, {
         this.clearButtons();
         let listHtml = '<div style="line-height:normal;">';
 
-        // 持有角色（魔王始终第一，其余按等级降序）
-        const charaList = [];
+        // 分类持有角色
+        const ownedList = [];
+        const prisonerList = [];
         for (let i = 0; i < game.characters.length; i++) {
-            charaList.push({ index: i, chara: game.getChara(i) });
+            const c = game.getChara(i);
+            const isCaptured = c.talent[200] || c.cflag[CFLAGS.CAPTURE_STATUS] === 1;
+            if (i === game.master) {
+                ownedList.push({ index: i, chara: c });
+            } else if (isCaptured && (c.mark[0] || 0) < 3) {
+                prisonerList.push({ index: i, chara: c });
+            } else {
+                ownedList.push({ index: i, chara: c });
+            }
         }
-        charaList.sort((a, b) => {
+        const sortByLevel = (a, b) => b.chara.level - a.chara.level;
+        ownedList.sort((a, b) => {
             if (a.index === game.master) return -1;
             if (b.index === game.master) return 1;
-            return b.chara.level - a.chara.level;
+            return sortByLevel(a, b);
         });
+        prisonerList.sort(sortByLevel);
 
+        // 持有角色（魔王始终第一，其余按等级降序）
         listHtml += `<div style="font-weight:bold;font-size:0.85rem;margin:8px 0 4px;color:var(--accent);">👤 持有角色</div>`;
-        for (const item of charaList) {
+        for (const item of ownedList) {
             const c = item.chara;
             const isMaster = item.index === game.master;
             const isExHero = c.talent[200];
-            const exploring = isExHero && c.cflag[CFLAGS.FALLEN_DEPTH];
+            const isAssi = item.index === game.assi;
             const name = isMaster ? `👑${c.name}` : (isExHero ? `🛡️${c.name}` : c.name);
             const borderColor = isMaster ? '#d4af37' : (isExHero ? '#8b5cf6' : 'var(--accent)');
+            const job = this._getJobName(c);
+            const race = (window.APPEARANCE_DESC_DEFS && window.APPEARANCE_DESC_DEFS.race && window.APPEARANCE_DESC_DEFS.race[c.talent[314]]) || '人类';
+            const faction = this._getFactionName(c);
+            const taskLabel = this._getTaskLabel(c);
+            const power = this._calcCombatPower(c);
             let extra = `<span style="color:var(--text-dim);font-size:0.75rem;">Lv.${c.level}</span>`;
-            if (exploring) {
-                const floor = c.cflag[CFLAGS.FALLEN_STAGE] || 10;
-                const progress = c.cflag[CFLAGS.CORRUPTION] || 0;
-                extra += ` <span style="color:var(--success);font-size:0.7rem;">探索第${floor}层 ${progress}%</span>`;
-            } else if (isExHero) {
-                extra += ` <span style="color:var(--info);font-size:0.7rem;">前勇者</span>`;
-            }
+            extra += ` <span style="color:#ff6b6b;font-size:0.7rem;font-weight:bold;">⚔️${power}</span>`;
+            extra += ` <span style="color:var(--text);font-size:0.72rem;">${job}</span>`;
+            extra += ` <span style="color:var(--info);font-size:0.7rem;">${race}</span>`;
+            extra += ` <span style="color:var(--warning);font-size:0.7rem;">${faction}</span>`;
+            if (taskLabel) extra += ` <span style="color:var(--success);font-size:0.7rem;">📋${taskLabel}</span>`;
+            if (isAssi) extra += ` <span style="color:#d4af37;font-size:0.7rem;font-weight:bold;">【助】</span>`;
             listHtml += `<button class="game-btn" style="margin-bottom:6px;width:100%;border-left:3px solid ${borderColor};text-align:left;" onclick="UI.renderCharaDetail(G, ${item.index}, 0, 'chara')">${name} ${extra}</button>`;
+        }
+
+        // 俘虏列表（被俘获但未完全陷落）
+        if (prisonerList.length > 0) {
+            listHtml += `<div style="font-weight:bold;font-size:0.85rem;margin:12px 0 4px;color:var(--danger);">⛓️ 俘虏</div>`;
+            for (const item of prisonerList) {
+                const c = item.chara;
+                const isAssi = item.index === game.assi;
+                const job = this._getJobName(c);
+                const race = (window.APPEARANCE_DESC_DEFS && window.APPEARANCE_DESC_DEFS.race && window.APPEARANCE_DESC_DEFS.race[c.talent[314]]) || '人类';
+                const faction = this._getFactionName(c);
+                const taskLabel = this._getTaskLabel(c);
+                const power = this._calcCombatPower(c);
+                let extra = `<span style="color:var(--text-dim);font-size:0.75rem;">Lv.${c.level}</span>`;
+                extra += ` <span style="color:#ff6b6b;font-size:0.7rem;font-weight:bold;">⚔️${power}</span>`;
+                extra += ` <span style="color:var(--text);font-size:0.72rem;">${job}</span>`;
+                extra += ` <span style="color:var(--info);font-size:0.7rem;">${race}</span>`;
+                extra += ` <span style="color:var(--warning);font-size:0.7rem;">${faction}</span>`;
+                if (taskLabel) extra += ` <span style="color:var(--success);font-size:0.7rem;">📋${taskLabel}</span>`;
+                if (isAssi) extra += ` <span style="color:#d4af37;font-size:0.7rem;font-weight:bold;">【助】</span>`;
+                listHtml += `<button class="game-btn" style="margin-bottom:6px;width:100%;border-left:3px solid var(--danger);text-align:left;opacity:0.92;" onclick="UI.renderCharaDetail(G, ${item.index}, 0, 'chara')">⛓️${c.name} ${extra}</button>`;
+            }
         }
 
         // 入侵勇者（按等级降序）
@@ -48,13 +86,38 @@ Object.assign(UI, {
                 const c = item.chara;
                 const floor = game.getHeroFloor(c);
                 const progress = game.getHeroProgress(c);
-                listHtml += `<button class="game-btn" style="margin-bottom:6px;width:100%;border-left:3px solid var(--danger);text-align:left;opacity:0.92;" onclick="UI.renderCharaDetail(G, ${item.index}, 0, 'hero')">🗡️ ${c.name} <span style="color:var(--text-dim);font-size:0.75rem;">Lv.${c.level}</span> <span style="color:var(--danger);font-size:0.7rem;">第${floor}层 ${progress}%</span></button>`;
+                const clsName = this._getHeroClassName(c);
+                const race = (window.APPEARANCE_DESC_DEFS && window.APPEARANCE_DESC_DEFS.race && window.APPEARANCE_DESC_DEFS.race[c.talent[314]]) || '人类';
+                const faction = this._getFactionName(c);
+                const taskLabel = this._getTaskLabel(c);
+                const power = this._calcCombatPower(c);
+                let extra = `<span style="color:var(--text-dim);font-size:0.75rem;">Lv.${c.level}</span>`;
+                extra += ` <span style="color:#ff6b6b;font-size:0.7rem;font-weight:bold;">⚔️${power}</span>`;
+                if (clsName) extra += ` <span style="color:var(--text);font-size:0.72rem;">${clsName}</span>`;
+                extra += ` <span style="color:var(--info);font-size:0.7rem;">${race}</span>`;
+                extra += ` <span style="color:var(--warning);font-size:0.7rem;">${faction}</span>`;
+                if (taskLabel) extra += ` <span style="color:var(--success);font-size:0.7rem;">📋${taskLabel}</span>`;
+                extra += ` <span style="color:var(--danger);font-size:0.7rem;">第${floor}层 ${progress}%</span>`;
+                listHtml += `<button class="game-btn" style="margin-bottom:6px;width:100%;border-left:3px solid var(--danger);text-align:left;opacity:0.92;" onclick="UI.renderCharaDetail(G, ${item.index}, 0, 'hero')">🗡️ ${c.name} ${extra}</button>`;
             }
         }
 
         listHtml += '</div>';
         this.textArea.innerHTML += listHtml;
         this.setButtons(`<button class="back-btn-top" onclick="G.setState('SHOP')">← 返回</button>`);
+    },
+
+    // V6.0: 计算综合战力
+    _calcCombatPower(c) {
+        if (!c) return 0;
+        const hp = c.maxHp || c.base[0] || 1;
+        const mp = c.maxMp || c.base[1] || 1;
+        const atk = c.cflag ? (c.cflag[11] || 20) : 20;
+        const def = c.cflag ? (c.cflag[12] || 15) : 15;
+        const spd = c.cflag ? (c.cflag[13] || 10) : 10;
+        // 战力 = (HP/10 + MP/20 + ATK*2 + DEF*1.5 + SPD*1)
+        let power = Math.floor(hp / 10 + mp / 20 + atk * 2 + def * 1.5 + spd * 1);
+        return power;
     },
 
     renderCharaDetail(game, index, page = 0, type = 'chara') {
@@ -81,7 +144,7 @@ Object.assign(UI, {
         const miniHeader = `
         <div class="chara-page-header-mini" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-card);border-radius:6px;margin-bottom:10px;border:1px solid var(--border);flex-wrap:wrap;">
             <div style="font-size:1.1rem;font-weight:bold;color:${type==='hero'?'var(--danger)':'var(--text)'};">${type==='hero'?'🗡️ ':''}${c.name}</div>
-            <div style="font-size:0.8rem;color:var(--text-dim);">Lv.${c.level} · ${job} · ${personality}</div>
+            <div style="font-size:0.8rem;color:var(--text-dim);">Lv.${c.level} · ⚔️${this._calcCombatPower(c)} · ${job} · ${personality}</div>
         </div>`;
 
         this.textArea.innerHTML = `<div class="chara-detail-wrap">${miniHeader}${content}</div>`;
@@ -321,10 +384,56 @@ Object.assign(UI, {
     },
 
     _getJobName(c) {
-        for (let i = 200; i <= 210; i++) {
+        // V5.0 优先使用 CLASS_DEFS
+        const classId = c.cflag[CFLAGS.CLASS_ID] || c.cflag[CFLAGS.HERO_CLASS];
+        if (classId && window.CLASS_DEFS && window.CLASS_DEFS[classId]) {
+            return window.CLASS_DEFS[classId].name;
+        }
+        // 向后兼容：从 talent 中查找旧职业
+        for (let i = 200; i <= 214; i++) {
             if (c.talent[i] && TALENT_DEFS[i]) return TALENT_DEFS[i].name;
         }
         return '无职业';
+    },
+
+    _getFactionName(c) {
+        // 魔王（玩家）
+        if (c.talent[94]) return '魔王军';
+        // 已完全陷落的前勇者/俘虏显示魔王军，并附带原势力
+        const isCaptured = c.talent[200] || c.cflag[CFLAGS.CAPTURE_STATUS] === 1;
+        if (isCaptured && (c.mark[0] || 0) >= 3) {
+            const original = (window.APPEARANCE_DESC_DEFS && window.APPEARANCE_DESC_DEFS.raceFaction && window.APPEARANCE_DESC_DEFS.raceFaction[c.talent[314]]) || '未知';
+            return `魔王军（原：${original}）`;
+        }
+        // 按种族返回统一势力名
+        return (window.APPEARANCE_DESC_DEFS && window.APPEARANCE_DESC_DEFS.raceFaction && window.APPEARANCE_DESC_DEFS.raceFaction[c.talent[314]]) || '未知势力';
+    },
+
+    _getHeroClassName(c) {
+        const clsId = c.cflag ? c.cflag[CFLAGS.HERO_CLASS] : 0;
+        if (!clsId || typeof HERO_CLASS_DEFS === 'undefined' || !HERO_CLASS_DEFS[clsId]) return '';
+        return HERO_CLASS_DEFS[clsId].name;
+    },
+
+    _getTaskLabel(c) {
+        // 奴隶/持有角色任务
+        const slaveTaskType = c.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0;
+        if (slaveTaskType !== 0) {
+            const defs = typeof SLAVE_TASK_DEFS !== 'undefined' ? SLAVE_TASK_DEFS : {};
+            const def = defs[slaveTaskType];
+            return def ? def.name : '任务中';
+        }
+        // 勇者任务
+        const heroTaskType = c.cflag[CFLAGS.HERO_TASK_TYPE] || 0;
+        if (heroTaskType !== 0) {
+            const desc = c.cstr[CSTRS.TASK_DESC];
+            if (desc) {
+                // 截断过长的描述，只取前16个字符
+                return desc.length > 16 ? desc.slice(0, 16) + '…' : desc;
+            }
+            return heroTaskType === 1 ? '讨伐地下城' : '执行委托';
+        }
+        return '';
     },
 
     _renderCharaPageBasic(c, job, personality, type = 'chara') {
@@ -412,12 +521,7 @@ Object.assign(UI, {
                 <div class="chara-stat-grid">
                     <div class="chara-stat-item"><span class="chara-stat-name">性别</span><span class="chara-stat-val">${c.talent[122] ? '男' : '女'}</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">种族</span><span class="chara-stat-val">${(window.APPEARANCE_DESC_DEFS && window.APPEARANCE_DESC_DEFS.race && window.APPEARANCE_DESC_DEFS.race[c.talent[314]]) || '人类'}</span></div>
-                    <div class="chara-stat-item"><span class="chara-stat-name">势力</span><span class="chara-stat-val">${(() => {
-                        if (c.talent[200] || c.cflag[CFLAGS.CAPTURE_STATUS] === 1) return '魔王一方';
-                        const faction = c.cstr[CSTRS.FACTION];
-                        if (faction) return faction;
-                        return (window.APPEARANCE_DESC_DEFS && window.APPEARANCE_DESC_DEFS.raceFaction && window.APPEARANCE_DESC_DEFS.raceFaction[c.talent[314]]) || '未知势力';
-                    })()}</span></div>
+                    <div class="chara-stat-item"><span class="chara-stat-name">势力</span><span class="chara-stat-val">${this._getFactionName(c)}</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">年龄</span><span class="chara-stat-val">${age}岁</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">身高</span><span class="chara-stat-val">${height}cm</span></div>
                     <div class="chara-stat-item"><span class="chara-stat-name">体重</span><span class="chara-stat-val">${weight}kg</span></div>
@@ -501,7 +605,169 @@ Object.assign(UI, {
         `;
     },
 
+    _getClassSkills(c) {
+        try {
+            const s = c.cstr[355];
+            if (s) return JSON.parse(s);
+        } catch (e) {}
+        // 兜底：从 CLASS_DEFS 推导
+        const classId = c.cflag[CFLAGS.CLASS_ID] || c.cflag[CFLAGS.HERO_CLASS] || 200;
+        const def = window.CLASS_DEFS ? window.CLASS_DEFS[classId] : null;
+        return def ? def.skills : [];
+    },
+
+    _renderClassInfo(c) {
+        const classId = c.cflag[CFLAGS.CLASS_ID] || c.cflag[CFLAGS.HERO_CLASS] || 200;
+        const def = window.CLASS_DEFS ? window.CLASS_DEFS[classId] : null;
+        if (!def) return '';
+
+        const isAdvanced = def.tier === 'advanced';
+        const roleLabels = {
+            front_dps: "前排·物理输出", magic_dps: "后排·魔法输出", healer: "后排·治疗",
+            assassin: "中排·爆发刺客", tank: "前排·坦克", dot_aoe: "中排·持续伤害",
+            ranged: "中排·远程输出", ninja: "中排·闪避特化", brawler: "前排·连击输出",
+            healer_buff: "后排·封印辅助", pierce: "前排·贯穿输出", bard: "后排·增益辅助",
+            healer_dot: "后排·治疗解毒", dancer: "中排·干扰控制",
+            front_burst: "前排·极限输出", magic_aoe: "后排·毁灭AoE", healer_core: "后排·团队核心",
+            dodge_assassin: "中排·闪避刺客", holy_tank: "前排·圣光坦克", battle_control: "中排·战场控制",
+            mobile_ranged: "中排·机动射手", master_ninja: "中排·暗杀大师", combo_burst: "前排·连击爆发",
+            holy_seal: "后排·神圣封印", mounted_pierce: "前排·骑乘贯穿", battle_command: "后排·战场指挥",
+            soul_reaper: "中排·灵魂收割", extreme_heal: "后排·极限治疗", battle_charm: "中排·战场魅惑"
+        };
+        const roleLabel = roleLabels[def.role] || def.role;
+        const tierIcon = isAdvanced ? '⭐' : '';
+
+        // 转职按钮
+        let promoteBtn = '';
+        if (!isAdvanced && c.level >= 20) {
+            const advDef = window.CLASS_DEFS ? window.CLASS_DEFS[def.advClassId] : null;
+            if (advDef) {
+                promoteBtn = `<button class="game-btn accent" style="margin-top:8px;font-size:0.8rem;padding:4px 12px;" onclick="UI._handlePromote(G, ${c.cflag[CFLAGS.CLASS_ID]})">⚔️ 转职为 ${advDef.name}</button>`;
+            }
+        } else if (isAdvanced) {
+            promoteBtn = `<div style="margin-top:6px;font-size:0.75rem;color:var(--success);">✓ 已完成转职</div>`;
+        } else {
+            promoteBtn = `<div style="margin-top:6px;font-size:0.75rem;color:var(--text-dim);">Lv.20 可转职为 ${window.CLASS_DEFS && window.CLASS_DEFS[def.advClassId] ? window.CLASS_DEFS[def.advClassId].name : '进阶职业'}</div>`;
+        }
+
+        // 种族特长
+        const raceId = c.talent[314] || 1;
+        const raceTrait = window.RACE_TRAITS ? window.RACE_TRAITS[raceId] : null;
+        let raceHtml = '';
+        if (raceTrait) {
+            const s = raceTrait.stats;
+            const statStr = [];
+            if (s.hp !== 1.0) statStr.push(`HP${s.hp > 1 ? '+' : ''}${Math.round((s.hp-1)*100)}%`);
+            if (s.mp !== 1.0) statStr.push(`MP${s.mp > 1 ? '+' : ''}${Math.round((s.mp-1)*100)}%`);
+            if (s.atk !== 1.0) statStr.push(`ATK${s.atk > 1 ? '+' : ''}${Math.round((s.atk-1)*100)}%`);
+            if (s.def !== 1.0) statStr.push(`DEF${s.def > 1 ? '+' : ''}${Math.round((s.def-1)*100)}%`);
+            if (s.spd !== 1.0) statStr.push(`SPD${s.spd > 1 ? '+' : ''}${Math.round((s.spd-1)*100)}%`);
+            raceHtml = `<div style="font-size:0.75rem;color:var(--info);margin-top:4px;">🧬 ${raceTrait.name} | ${statStr.join(' ')} | ${raceTrait.desc}</div>`;
+        }
+
+        return `
+        <div class="chara-section" style="border-color:var(--accent);">
+            <div class="chara-section-title" style="color:var(--accent);">🛡️ 职业信息</div>
+            <div style="font-size:0.9rem;font-weight:bold;margin-bottom:4px;">${tierIcon}${def.name} <span style="color:var(--text-dim);font-size:0.8rem;font-weight:normal;">(${roleLabel})</span></div>
+            <div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:4px;">${def.desc}</div>
+            ${raceHtml}
+            ${promoteBtn}
+        </div>`;
+    },
+
+    _renderCombatSkills(c) {
+        const skillIds = this._getClassSkills(c);
+        if (!skillIds || skillIds.length === 0) return '';
+        const defs = window.CLASS_SKILL_DEFS || {};
+        let html = '';
+        for (const sid of skillIds) {
+            const sdef = defs[sid];
+            if (!sdef) continue;
+            const isUlt = sid >= 3000;
+            const icon = isUlt ? '★' : '•';
+            const color = isUlt ? 'color:var(--danger);font-weight:bold;' : 'color:var(--text);';
+            const elIcon = window.ELEMENT_ICONS ? (window.ELEMENT_ICONS[sdef.element] || '') : '';
+            html += `<div style="font-size:0.82rem;margin:3px 0;padding:3px 6px;background:var(--bg);border-radius:4px;"><span style="${color}">${icon} ${sdef.name}</span> <span style="color:var(--text-dim);font-size:0.7rem;">${elIcon} ${sdef.desc}</span></div>`;
+        }
+        if (!html) return '';
+        return `
+        <div class="chara-section" style="border-color:#d4af37;">
+            <div class="chara-section-title" style="color:#d4af37;">⚔️ 战斗技能</div>
+            ${html}
+        </div>`;
+    },
+
+    _handlePromote(game, currentClassId) {
+        // 找到当前显示的角色索引
+        const idx = this._charaDetailIndex;
+        const type = this._charaDetailType;
+        if (type !== 'chara' || idx == null) return;
+        const c = game.getChara(idx);
+        if (!c) return;
+        const result = game.promoteClass(c);
+        if (result && result.can) {
+            UI.showToast(result.msg, 'success');
+            UI.renderCharaDetail(game, idx, 1, 'chara');
+        } else {
+            UI.showToast(result ? result.reason || result.msg : '转职失败', 'warning');
+        }
+    },
+
     _renderCharaPageStats(c, type = 'chara') {
+        const classInfo = this._renderClassInfo(c);
+        const combatSkills = this._renderCombatSkills(c);
+
+        // V6.0: 基础属性 + 经验条
+        const lv = c.level || 1;
+        const maxHp = c.maxHp || c.maxbase[0] || 1;
+        const maxMp = c.maxMp || c.maxbase[1] || 1;
+        const atk = c.cflag ? (c.cflag[11] || 20) : 20;
+        const def = c.cflag ? (c.cflag[12] || 15) : 15;
+        const spd = c.cflag ? (c.cflag[13] || 10) : 10;
+        const power = this._calcCombatPower(c);
+
+        // EXP条
+        const game = (typeof G !== 'undefined') ? G : null;
+        let expHtml2 = '';
+        if (game && game._calcLevelUpExp) {
+            const needExp = game._calcLevelUpExp(lv);
+            const curExp = c.exp[102] || 0;
+            const expPct = Math.min(100, Math.floor(curExp / needExp * 100));
+            // 检查是否卡级
+            const nextLock = Math.ceil((lv + 1) / 20) * 20;
+            let lockText = '';
+            if (lv >= nextLock - 1 && nextLock <= 200) {
+                const lockCfg = window.LEVEL_LOCK_CONFIG ? window.LEVEL_LOCK_CONFIG[nextLock] : null;
+                const hasBadge = lockCfg ? game._hasItem(c, lockCfg.badgeId) : true;
+                if (!hasBadge) {
+                    const badgeDef = window.BADGE_DEFS ? window.BADGE_DEFS[nextLock] : null;
+                    lockText = `<span style="color:var(--danger);font-size:0.75rem;"> 🔒需要${badgeDef ? badgeDef.name : '晋升徽章'}突破Lv.${nextLock}</span>`;
+                }
+            }
+            expHtml2 = `
+            <div class="chara-section">
+                <div class="chara-section-title">经验值 (Lv.${lv}) ${lockText}</div>
+                <div style="background:var(--bg-card);border-radius:4px;height:20px;overflow:hidden;border:1px solid var(--border);margin:4px 0;">
+                    <div style="background:linear-gradient(90deg,#4ecdc4,#44a08d);height:100%;width:${expPct}%;transition:width 0.3s;display:flex;align-items:center;justify-content:center;">
+                        <span style="font-size:0.7rem;color:#fff;text-shadow:0 0 2px rgba(0,0,0,0.5);">${curExp}/${needExp} (${expPct}%)</span>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        const statsHtml = `
+        <div class="chara-section">
+            <div class="chara-section-title">基础属性 · 综合战力 ⚔️${power}</div>
+            <div class="chara-stat-grid">
+                <div class="chara-stat-item"><span class="chara-stat-name">生命</span><span class="chara-stat-val">${maxHp}</span></div>
+                <div class="chara-stat-item"><span class="chara-stat-name">气力</span><span class="chara-stat-val">${maxMp}</span></div>
+                <div class="chara-stat-item"><span class="chara-stat-name">攻击</span><span class="chara-stat-val">${atk}</span></div>
+                <div class="chara-stat-item"><span class="chara-stat-name">防御</span><span class="chara-stat-val">${def}</span></div>
+                <div class="chara-stat-item"><span class="chara-stat-name">速度</span><span class="chara-stat-val">${spd}</span></div>
+                <div class="chara-stat-item"><span class="chara-stat-name">战力</span><span class="chara-stat-val" style="color:#ff6b6b;font-weight:bold;">⚔️${power}</span></div>
+            </div>
+        </div>`;
+
         // 能力
         let ablHtml = '';
         for (let i = 0; i < 105; i++) {
@@ -531,7 +797,7 @@ Object.assign(UI, {
         }
         if (!hasJuel) juelHtml = '<span style="color:var(--text-dim);font-size:0.8rem;">暂无珠子</span>';
 
-        return `
+        return `${classInfo}${combatSkills}${expHtml2}${statsHtml}
         <div class="chara-two-col">
             <div class="chara-section">
                 <div class="chara-section-title">能力</div>
@@ -687,6 +953,8 @@ Object.assign(UI, {
             <div class="chara-section-title">道具 (${g.items ? g.items.length : 0}/3)</div>
             <div class="chara-stat-grid">${itemHtml}</div>
         </div>
+        <!-- V6.0: 徽章显示 -->
+        ${this._renderBadgeSection(c, isMasterView, charaIndex)}
         ${isMasterView && charaIndex >= 0 && G && G.museum && G.museum.items.length > 0 ? `
         <div class="chara-section">
             <div class="chara-section-title">🏛️ 从收藏馆赠予</div>
@@ -699,6 +967,46 @@ Object.assign(UI, {
             </div>
         </div>` : ''}
         `;
+    },
+
+    _renderBadgeSection(c, isMasterView, charaIndex) {
+        const items = c.gear ? (c.gear.items || []) : [];
+        const badges = items.filter(it => it && it.type === 'badge');
+        if (badges.length === 0) return '';
+        let badgeHtml = '';
+        for (const b of badges) {
+            let actionBtn = '';
+            if (isMasterView && charaIndex >= 0 && b.badgeType === 'promotion') {
+                // 晋升徽章：魔王可以给奴隶/勇者使用
+                actionBtn = `<button class="game-btn accent" style="font-size:0.6rem;padding:2px 6px;margin-left:4px;" onclick="UI.useBadge(G, ${charaIndex}, ${b.id})">使用</button>`;
+            }
+            badgeHtml += `<div class="chara-stat-item">
+                <span class="chara-stat-name">${b.icon || '🏅'} ${b.name}</span>
+                <span class="chara-stat-val" style="font-size:0.72rem;color:var(--warning);">${b.desc || ''}</span>
+                ${actionBtn}
+            </div>`;
+        }
+        return `
+        <div class="chara-section">
+            <div class="chara-section-title">🏅 徽章</div>
+            <div class="chara-stat-grid">${badgeHtml}</div>
+        </div>`;
+    },
+
+    useBadge(game, charaIndex, badgeId) {
+        const c = game.getChara(charaIndex);
+        if (!c) return;
+        const badge = (c.gear.items || []).find(it => it && it.id === badgeId);
+        if (!badge) { UI.showToast('徽章不存在', 'warning'); return; }
+        if (badge.badgeType === 'promotion') {
+            // 使用晋升徽章：解锁对应等级锁
+            const lockLevel = badge.lockLevel;
+            UI.showToast(`${c.name}使用了${badge.name}，Lv.${lockLevel}等级锁已解除！`, 'success');
+            game._removeItem(c, badgeId);
+            UI.renderCharaDetail(game, charaIndex, 3, 'chara');
+        } else if (badge.badgeType === 'class_change') {
+            UI.showToast(`${badge.name}可在转职界面自动消耗`, 'info');
+        }
     },
 
     _renderCharaPageRelations(game, c, type = 'chara') {

@@ -481,8 +481,8 @@ Game.prototype.generateHeroTask = function(hero) {
                 const items = window.COMMISSION_ITEM_NAMES || ["古代遗物"];
                 targetName = items[RAND(items.length)];
             } else if (comDef.type === 'defeat_elite') {
-                const monsters = FLOOR_MONSTER_DEFS[comFloor];
-                targetName = monsters ? monsters[RAND(monsters.length)].name : "精英怪物";
+                const templates = window.MONSTER_TEMPLATES[comFloor];
+                targetName = templates ? templates[RAND(templates.length)].name : "精英怪物";
             }
             hero.cflag[CFLAGS.HERO_TASK_TYPE] = 2; // 完成委托
             hero.cflag[CFLAGS.HERO_REASON] = comFloor;

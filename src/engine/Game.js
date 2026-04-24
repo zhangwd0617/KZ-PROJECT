@@ -185,18 +185,16 @@ class Game {
         master.callname = "魔王";
         master.talent[122] = 1; // 男性
         master.talent[94] = 1; // 灭世魔王（主角专属：调教效果+50%）
-        // 魔王初始10级，攻防默认100，其他属性按勇者power=10公式
+        master.talent[314] = 5; // 魔族
+        master.cflag[CFLAGS.CLASS_ID] = 999; // 魔王专属职业
+        master.cflag[CFLAGS.HERO_CLASS] = 999;
+        master.cstr[355] = JSON.stringify(window.CLASS_DEFS && window.CLASS_DEFS[999] ? window.CLASS_DEFS[999].skills : []);
+        // V6.0 魔王使用统一属性公式
         master.level = 10;
         master.cflag[CFLAGS.BASE_HP] = 10;
-        master.cflag[CFLAGS.ATK] = 100; // 攻击默认100
-        master.cflag[CFLAGS.DEF] = 100; // 防御默认100
-        master.cflag[CFLAGS.SPD] = 10 + 10 * 3; // 速度按勇者公式
-        master.base[0] = 1000 + 10 * 200 + RAND(10 * 100);
-        master.maxbase[0] = master.base[0];
-        master.hp = master.base[0];
-        master.base[1] = 500 + 10 * 100;
-        master.maxbase[1] = master.base[1];
-        master.mp = master.base[1];
+        this._recalcBaseStats(master);
+        master.hp = master.maxHp;
+        master.mp = master.maxMp;
         master.affinity = this.generateAffinity(master);
         this.master = this.addCharaFromTemplate(master);
 
@@ -278,6 +276,13 @@ class Game {
                 this.setState("TRAIN", { target: this.target });
                 break;
             case "select_assi":
+                if (data >= 0 && data !== this.assi) {
+                    const candidate = this.getChara(data);
+                    if (candidate && data !== this.master && (candidate.mark[0] || 0) < 3) {
+                        UI.showToast('该角色尚未完全陷落，拒绝担任助手', 'warning');
+                        break;
+                    }
+                }
                 this.assi = data;
                 if (this.assi === this.target) this.assi = -1;
                 UI.renderShop(this);
@@ -1106,6 +1111,8 @@ class Game {
         this.museum = data.museum || { specimens: [], items: [] };
         this._floorChestState = data._floorChestState || {};
         this._heroRelations = data._heroRelations || {};
+        // V6.0 存档兼容性处理
+        this._migrateV6SaveData();
         UI.showToast("读档成功！");
         this.setState("SHOP");
         return true;
@@ -1346,7 +1353,302 @@ class Game {
         if (bit === undefined) return false;
         return (this.commandFilter & (1 << bit)) !== 0;
     }
+
+    // ========== V5.0 转职系统 ==========
+    canPromote(entity) {
+        if (!entity) return { can: false, reason: '角色不存在' };
+        const classId = entity.cflag[CFLAGS.CLASS_ID] || entity.cflag[CFLAGS.HERO_CLASS] || 0;
+        const clsDef = window.CLASS_DEFS ? window.CLASS_DEFS[classId] : null;
+        if (!clsDef) return { can: false, reason: '职业数据缺失' };
+        if (clsDef.tier !== 'basic') return { can: false, reason: '已是进阶职业' };
+        if (entity.level < 20) return { can: false, reason: '需要等级20' };
+        // V6.0: 需要转职徽章
+        if (!this._hasItem(entity, CFLAGS.CLASS_CHANGE_BADGE)) {
+            return { can: false, reason: '需要转职徽章（守关Boss低概率掉落）' };
+        }
+        const advDef = window.CLASS_DEFS ? window.CLASS_DEFS[clsDef.advClassId] : null;
+        if (!advDef) return { can: false, reason: '进阶职业数据缺失' };
+        return { can: true, advClassId: clsDef.advClassId, advName: advDef.name };
+    }
+
+    promoteClass(entity) {
+        const check = this.canPromote(entity);
+        if (!check.can) return check;
+        const advDef = window.CLASS_DEFS ? window.CLASS_DEFS[check.advClassId] : null;
+        if (!advDef) return { can: false, reason: '进阶职业数据缺失' };
+        // V6.0: 消耗转职徽章
+        this._removeItem(entity, CFLAGS.CLASS_CHANGE_BADGE);
+        // 更新职业ID
+        entity.cflag[CFLAGS.CLASS_ID] = check.advClassId;
+        entity.cflag[CFLAGS.HERO_CLASS] = check.advClassId;
+        // 更新技能列表
+        entity.cstr[355] = JSON.stringify(advDef.skills);
+        // 重新计算基础属性
+        this._recalcBaseStats(entity);
+        // 添加转职标记
+        entity.cflag[CFLAGS.PROMOTED] = 1;
+        return { can: true, msg: `${entity.name} 转职为 ${advDef.name}！` };
+    }
 }
+
+// V6.0: 统一属性成长公式 — 所有角色共用
+Game.prototype._recalcBaseStats = function(entity) {
+    if (!entity) return;
+    const lv = entity.level || 1;
+
+    // 获取种族修正
+    const raceId = entity.talent ? entity.talent[314] : 0;
+    const raceMod = (window.RACE_TRAITS && window.RACE_TRAITS[raceId]) ? window.RACE_TRAITS[raceId].stats : { hp: 1.0, mp: 1.0, atk: 1.0, def: 1.0, spd: 1.0 };
+
+    // 获取职业修正
+    const classId = entity.cflag ? (entity.cflag[CFLAGS.CLASS_ID] || entity.cflag[CFLAGS.HERO_CLASS]) : 0;
+    const clsMod = (window.CLASS_DEFS && window.CLASS_DEFS[classId]) ? window.CLASS_DEFS[classId].stats : { hp: 1.0, mp: 1.0, atk: 1.0, def: 1.0, spd: 1.0 };
+
+    // 基础属性（统一公式）
+    let baseHp  = 800 + lv * 20;
+    let baseMp  = 400 + lv * 10;
+    let baseAtk = 20  + lv * 3;
+    let baseDef = 15  + lv * 2;
+    let baseSpd = 8   + lv * 1;
+
+    // 应用种族修正
+    baseHp  = Math.floor(baseHp  * (raceMod.hp  || 1.0));
+    baseMp  = Math.floor(baseMp  * (raceMod.mp  || 1.0));
+    baseAtk = Math.floor(baseAtk * (raceMod.atk || 1.0));
+    baseDef = Math.floor(baseDef * (raceMod.def || 1.0));
+    baseSpd = Math.floor(baseSpd * (raceMod.spd || 1.0));
+
+    // 应用职业修正
+    baseHp  = Math.floor(baseHp  * (clsMod.hp  || 1.0));
+    baseMp  = Math.floor(baseMp  * (clsMod.mp  || 1.0));
+    baseAtk = Math.floor(baseAtk * (clsMod.atk || 1.0));
+    baseDef = Math.floor(baseDef * (clsMod.def || 1.0));
+    baseSpd = Math.floor(baseSpd * (clsMod.spd || 1.0));
+
+    // 应用装备百分比加成（V6.0）
+    if (typeof GearSystem !== 'undefined' && GearSystem.getTotalGearBonusPct) {
+        const gearPct = GearSystem.getTotalGearBonusPct(entity);
+        baseHp  = Math.floor(baseHp  * (1 + (gearPct.hpPct || 0)));
+        baseMp  = Math.floor(baseMp  * (1 + (gearPct.mpPct || 0)));
+        baseAtk = Math.floor(baseAtk * (1 + (gearPct.atkPct || 0)));
+        baseDef = Math.floor(baseDef * (1 + (gearPct.defPct || 0)));
+    }
+
+    // 写入属性
+    entity.maxbase[0] = baseHp;
+    entity.maxbase[1] = baseMp;
+    if (entity.base[0] > entity.maxbase[0]) entity.base[0] = entity.maxbase[0];
+    if (entity.base[1] > entity.maxbase[1]) entity.base[1] = entity.maxbase[1];
+
+    entity.cflag[CFLAGS.ATK] = baseAtk;
+    entity.cflag[CFLAGS.DEF] = baseDef;
+    entity.cflag[CFLAGS.SPD] = baseSpd;
+}
+
+// V6.0: 检查并执行自动升级
+Game.prototype.checkLevelUp = function(entity) {
+    if (!entity) return false;
+    const lv = entity.level || 1;
+    if (lv >= 200) return false; // 满级
+
+    // 计算当前等级所需EXP
+    const needExp = this._calcLevelUpExp(lv);
+    const curExp = entity.exp[102] || 0;
+    if (curExp < needExp) return false;
+
+    // 检查等级锁
+    const nextLockLevel = Math.ceil((lv + 1) / 20) * 20;
+    if (lv + 1 >= nextLockLevel && nextLockLevel <= 200) {
+        const lockCfg = window.LEVEL_LOCK_CONFIG ? window.LEVEL_LOCK_CONFIG[nextLockLevel] : null;
+        if (lockCfg) {
+            const badgeId = lockCfg.badgeId;
+            if (!this._hasItem(entity, badgeId)) {
+                // 卡级：经验保留但不升级
+                return false;
+            }
+        }
+    }
+
+    // 执行升级
+    entity.exp[102] = curExp - needExp;
+    this._levelUpEntity(entity, 1);
+    return true;
+}
+
+// V6.0: 计算升级所需EXP
+Game.prototype._calcLevelUpExp = function(level) {
+    // EXP = 50 * level^1.5 * (1 + floor((level-1)/10) * 0.5)
+    const spike = 1 + Math.floor((level - 1) / 10) * 0.5;
+    return Math.floor(50 * Math.pow(level, 1.5) * spike);
+}
+
+// V6.0: 统一升级属性增长
+Game.prototype._levelUpEntity = function(entity, levels = 1) {
+    if (!entity || levels <= 0) return;
+    const oldLevel = entity.level || 1;
+    const newLevel = Math.min(200, oldLevel + levels);
+    entity.level = newLevel;
+    entity.cflag[CFLAGS.BASE_HP] = newLevel;
+
+    // 重新计算全部属性
+    this._recalcBaseStats(entity);
+
+    // 恢复满HP/MP（升级奖励）
+    entity.hp = entity.maxHp;
+    entity.mp = entity.maxMp;
+}
+
+// V6.0: 物品管理辅助方法
+Game.prototype._hasItem = function(entity, itemId) {
+    if (!entity || !entity.gear || !entity.gear.items) return false;
+    return entity.gear.items.some(item => item && item.id === itemId);
+}
+
+Game.prototype._giveItem = function(entity, item) {
+    if (!entity || !item) return false;
+    if (!entity.gear) entity.gear = { head: null, body: null, legs: null, hands: null, neck: null, ring: null, weapons: [], items: [] };
+    if (!entity.gear.items) entity.gear.items = [];
+    entity.gear.items.push(item);
+    return true;
+}
+
+Game.prototype._removeItem = function(entity, itemId) {
+    if (!entity || !entity.gear || !entity.gear.items) return false;
+    const idx = entity.gear.items.findIndex(item => item && item.id === itemId);
+    if (idx >= 0) {
+        entity.gear.items.splice(idx, 1);
+        return true;
+    }
+    return false;
+}
+
+    // V6.0: 旧装备转换为百分比格式
+    Game.prototype._migrateOldGear = function(entity) {
+        if (!entity || !entity.gear) return;
+        const allGear = [
+            entity.gear.head, entity.gear.body, entity.gear.legs,
+            entity.gear.hands, entity.gear.neck, entity.gear.ring,
+            ...(entity.gear.weapons || [])
+        ].filter(g => g && g.stats);
+        for (const gear of allGear) {
+            const stats = gear.stats || {};
+            const hasFlat = stats.atk != null || stats.def != null || stats.hp != null || stats.mp != null;
+            const hasPct = stats.atkPct != null || stats.defPct != null || stats.hpPct != null || stats.mpPct != null;
+            if (!hasFlat || hasPct) continue; // 没有旧格式或已经是新格式
+
+            // 根据稀有度分配百分比
+            const rarity = gear.rarity || 1;
+            const q = (GearSystem && GearSystem.GEAR_QUALITY_PCT) ? GearSystem.GEAR_QUALITY_PCT[rarity] : null;
+            if (!q) continue;
+
+            // 转换：将平面加成映射为百分比
+            const newStats = {};
+            // 保持原有的槽位特性
+            const slot = gear.slot || 'body';
+            if (slot === 'weapon') {
+                if (stats.atk != null) newStats.atkPct = q.atkPct;
+                if (stats.hp != null) newStats.hpPct = Math.round(q.hpPct * 0.3 * 100) / 100;
+                if (stats.mp != null) newStats.mpPct = Math.round(q.mpPct * 0.2 * 100) / 100;
+            } else if (slot === 'head') {
+                if (stats.hp != null) newStats.hpPct = Math.round(q.hpPct * 0.6 * 100) / 100;
+                if (stats.mp != null) newStats.mpPct = Math.round(q.mpPct * 0.4 * 100) / 100;
+                if (stats.def != null) newStats.defPct = Math.round(q.defPct * 0.3 * 100) / 100;
+            } else if (slot === 'body') {
+                if (stats.hp != null) newStats.hpPct = q.hpPct;
+                if (stats.def != null) newStats.defPct = Math.round(q.defPct * 0.75 * 100) / 100;
+            } else if (slot === 'legs') {
+                if (stats.hp != null) newStats.hpPct = Math.round(q.hpPct * 0.75 * 100) / 100;
+                if (stats.def != null) newStats.defPct = Math.round(q.defPct * 0.5 * 100) / 100;
+                if (stats.mp != null) newStats.mpPct = Math.round(q.mpPct * 0.25 * 100) / 100;
+            } else if (slot === 'hands') {
+                if (stats.atk != null) newStats.atkPct = Math.round(q.atkPct * 0.6 * 100) / 100;
+                if (stats.def != null) newStats.defPct = Math.round(q.defPct * 0.4 * 100) / 100;
+            } else if (slot === 'neck') {
+                if (stats.mp != null) newStats.mpPct = q.mpPct;
+                if (stats.hp != null) newStats.hpPct = Math.round(q.hpPct * 0.4 * 100) / 100;
+            } else if (slot === 'ring') {
+                // 戒指：根据原有加成类型映射
+                if (stats.atk != null) newStats.atkPct = q.atkPct;
+                else if (stats.def != null) newStats.defPct = q.defPct;
+                else if (stats.hp != null) newStats.hpPct = q.hpPct;
+                else if (stats.mp != null) newStats.mpPct = q.mpPct;
+            }
+            gear.stats = newStats;
+        }
+    }
+
+    // V6.0: 存档兼容性迁移 — 旧存档自动补发徽章、初始化EXP、重算属性
+    Game.prototype._migrateV6SaveData = function() {
+        const allEntities = [
+            ...this.characters,
+            ...this.prisoners,
+            ...this.invaders
+        ];
+        for (const entity of allEntities) {
+            if (!entity) continue;
+
+            // 1. 初始化 gear.items 数组
+            if (!entity.gear) entity.gear = { head: null, body: null, legs: null, hands: null, neck: null, ring: null, weapons: [], items: [] };
+            if (!entity.gear.items) entity.gear.items = [];
+
+            // 2. 初始化 exp[102]（总战斗经验）— 旧存档根据等级反推一半经验
+            if (!entity.exp[102]) {
+                let totalExp = 0;
+                for (let lv = 1; lv < (entity.level || 1); lv++) {
+                    totalExp += this._calcLevelUpExp(lv);
+                }
+                // 反推一半经验（假设旧存档角色大约处于当前等级的一半进度）
+                entity.exp[102] = Math.floor(totalExp / 2);
+            }
+
+            // 3. 为等级已突破锁的角色补发对应徽章
+            const lv = entity.level || 1;
+            for (const lockLevelStr in window.LEVEL_LOCK_CONFIG) {
+                const lockLevel = parseInt(lockLevelStr);
+                if (lv >= lockLevel && lockLevel > 0) {
+                    const cfg = window.LEVEL_LOCK_CONFIG[lockLevel];
+                    if (cfg && !this._hasItem(entity, cfg.badgeId)) {
+                        const badgeDef = window.BADGE_DEFS[lockLevel];
+                        if (badgeDef) {
+                            this._giveItem(entity, {
+                                id: badgeDef.id,
+                                name: badgeDef.name,
+                                icon: badgeDef.icon,
+                                type: "badge",
+                                badgeType: "promotion",
+                                lockLevel: lockLevel,
+                                desc: badgeDef.desc,
+                                sellPrice: badgeDef.sellPrice
+                            });
+                        }
+                    }
+                }
+            }
+
+            // 4. 已转职角色补发转职徽章
+            if (entity.cflag[CFLAGS.PROMOTED] && !this._hasItem(entity, CFLAGS.CLASS_CHANGE_BADGE)) {
+                const cc = window.CLASS_CHANGE_BADGE_DEF;
+                if (cc) {
+                    this._giveItem(entity, {
+                        id: cc.id, name: cc.name, icon: cc.icon,
+                        type: "badge", badgeType: "class_change",
+                        desc: cc.desc, sellPrice: cc.sellPrice
+                    });
+                }
+            }
+
+            // 5. 旧装备转换为V6.0百分比格式
+            this._migrateOldGear(entity);
+
+            // 6. 重新计算属性（应用V6.0统一公式 + 装备百分比）
+            this._recalcBaseStats(entity);
+            // 确保 HP/MP 不超过最大值
+            if (entity.hp > entity.maxHp) entity.hp = entity.maxHp;
+            if (entity.mp > entity.maxMp) entity.mp = entity.maxMp;
+            if (entity.base[0] > entity.maxbase[0]) entity.base[0] = entity.maxbase[0];
+            if (entity.base[1] > entity.maxbase[1]) entity.base[1] = entity.maxbase[1];
+        }
+    }
 
 window.Game = Game;
 

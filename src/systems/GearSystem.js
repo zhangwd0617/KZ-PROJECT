@@ -8,6 +8,16 @@ class GearSystem {
     static RARITY_MAX = [0, 0.05, 0.08, 0.10, 0.15, 0.20];
     static CURSE_CHANCE = 0.20;
 
+    // V6.0: 装备品质百分比加成（基于角色基础属性）
+    static GEAR_QUALITY_PCT = {
+        0: { name: "破旧", atkPct: 0.00, defPct: 0.00, hpPct: 0.00, mpPct: 0.00 },
+        1: { name: "普通", atkPct: 0.05, defPct: 0.05, hpPct: 0.05, mpPct: 0.05 },
+        2: { name: "精良", atkPct: 0.15, defPct: 0.15, hpPct: 0.15, mpPct: 0.15 },
+        3: { name: "稀有", atkPct: 0.30, defPct: 0.30, hpPct: 0.30, mpPct: 0.30 },
+        4: { name: "史诗", atkPct: 0.50, defPct: 0.50, hpPct: 0.50, mpPct: 0.50 },
+        5: { name: "神话", atkPct: 0.80, defPct: 0.80, hpPct: 0.80, mpPct: 0.80 }
+    };
+
     static SLOT_NAMES = {
         head: "头盔", body: "衣服", legs: "裤子", hands: "手套",
         neck: "项链", ring: "戒指", weapon: "武器"
@@ -204,40 +214,40 @@ class GearSystem {
     }
 
     static _generateStats(slot, rarity, level) {
-        const base = Math.max(1, Math.floor(level * 2));
-        const minPct = this.RARITY_MIN[rarity];
-        const maxPct = this.RARITY_MAX[rarity];
-        const rollPct = minPct + Math.random() * (maxPct - minPct);
-        const value = Math.max(1, Math.floor(base * rollPct));
+        const q = this.GEAR_QUALITY_PCT[rarity] || this.GEAR_QUALITY_PCT[1];
         const stats = {};
         if (slot === "weapon") {
-            stats.atk = value * 2;
-            if (rarity >= 2 && Math.random() < 0.5) stats.hp = Math.floor(value * 0.5);
-            if (rarity >= 3 && Math.random() < 0.3) stats.mp = Math.floor(value * 0.3);
+            stats.atkPct = q.atkPct;
+            if (rarity >= 2 && Math.random() < 0.5) stats.hpPct = Math.round(q.hpPct * 0.3 * 100) / 100;
+            if (rarity >= 3 && Math.random() < 0.3) stats.mpPct = Math.round(q.mpPct * 0.2 * 100) / 100;
         } else if (slot === "head") {
-            stats.hp = Math.floor(value * 1.2);
-            stats.mp = Math.floor(value * 0.8);
-            if (rarity >= 3) stats.def = Math.floor(value * 0.5);
+            stats.hpPct = Math.round(q.hpPct * 0.6 * 100) / 100;
+            stats.mpPct = Math.round(q.mpPct * 0.4 * 100) / 100;
+            if (rarity >= 3) stats.defPct = Math.round(q.defPct * 0.3 * 100) / 100;
         } else if (slot === "body") {
-            stats.hp = value * 2;
-            stats.def = Math.floor(value * 1.5);
+            stats.hpPct = q.hpPct;
+            stats.defPct = Math.round(q.defPct * 0.75 * 100) / 100;
         } else if (slot === "legs") {
-            stats.hp = Math.floor(value * 1.5);
-            stats.def = value;
-            if (rarity >= 2) stats.mp = Math.floor(value * 0.5);
+            stats.hpPct = Math.round(q.hpPct * 0.75 * 100) / 100;
+            stats.defPct = Math.round(q.defPct * 0.5 * 100) / 100;
+            if (rarity >= 2) stats.mpPct = Math.round(q.mpPct * 0.25 * 100) / 100;
         } else if (slot === "hands") {
-            stats.atk = Math.floor(value * 1.2);
-            stats.def = Math.floor(value * 0.8);
+            stats.atkPct = Math.round(q.atkPct * 0.6 * 100) / 100;
+            stats.defPct = Math.round(q.defPct * 0.4 * 100) / 100;
         } else if (slot === "neck") {
-            stats.mp = value * 2;
-            if (rarity >= 2) stats.hp = Math.floor(value * 0.8);
+            stats.mpPct = q.mpPct;
+            if (rarity >= 2) stats.hpPct = Math.round(q.hpPct * 0.4 * 100) / 100;
         } else if (slot === "ring") {
-            const types = ["atk", "def", "hp", "mp"];
+            const types = ["atkPct", "defPct", "hpPct", "mpPct"];
             const type1 = types[RAND(types.length)];
-            stats[type1] = value;
+            const val1 = type1 === "atkPct" ? q.atkPct : type1 === "defPct" ? q.defPct : type1 === "hpPct" ? q.hpPct : q.mpPct;
+            stats[type1] = val1;
             if (rarity >= 3) {
                 let type2 = types[RAND(types.length)];
-                if (type2 !== type1) stats[type2] = Math.floor(value * 0.6);
+                if (type2 !== type1) {
+                    const val2 = type2 === "atkPct" ? q.atkPct : type2 === "defPct" ? q.defPct : type2 === "hpPct" ? q.hpPct : q.mpPct;
+                    stats[type2] = Math.round(val2 * 0.6 * 100) / 100;
+                }
             }
         }
         return stats;
@@ -280,8 +290,9 @@ class GearSystem {
             if (k === "duration" || k === "cleanse") continue;
             const v = gear.stats[k];
             const sign = (gear.cursed && gear.identified) ? "-" : "+";
-            const label = k === "atk" ? "攻" : k === "def" ? "防" : k.toUpperCase();
-            statStr += " " + sign + v + label;
+            let label = k === "atk" ? "攻" : k === "def" ? "防" : k === "atkPct" ? "攻%" : k === "defPct" ? "防%" : k === "hpPct" ? "体%" : k === "mpPct" ? "气%" : k.toUpperCase();
+            let valStr = k.endsWith('Pct') ? Math.round(v * 100) + "%" : v;
+            statStr += " " + sign + valStr + label;
         }
         if (gear.type === "weapon" && gear.hands) {
             statStr += " " + (gear.hands === 2 ? "双手" : "单手");
@@ -300,8 +311,9 @@ class GearSystem {
             if (k === "duration" || k === "cleanse") continue;
             const v = gear.stats[k];
             const sign = (gear.cursed && gear.identified) ? "-" : "+";
-            const label = k === "atk" ? "攻" : k === "def" ? "防" : k.toUpperCase();
-            statStr += " " + sign + v + label;
+            let label = k === "atk" ? "攻" : k === "def" ? "防" : k === "atkPct" ? "攻%" : k === "defPct" ? "防%" : k === "hpPct" ? "体%" : k === "mpPct" ? "气%" : k.toUpperCase();
+            let valStr = k.endsWith('Pct') ? Math.round(v * 100) + "%" : v;
+            statStr += " " + sign + valStr + label;
         }
         if (gear.type === "weapon" && gear.hands) {
             statStr += " " + (gear.hands === 2 ? "双手" : "单手");
@@ -339,6 +351,33 @@ class GearSystem {
             }
         }
         return bonus;
+    }
+
+    // V6.0: 计算装备百分比总加成
+    static getTotalGearBonusPct(entity) {
+        if (!entity || !entity.gear) return { atkPct: 0, defPct: 0, hpPct: 0, mpPct: 0 };
+        const result = { atkPct: 0, defPct: 0, hpPct: 0, mpPct: 0 };
+        const slots = ['head', 'body', 'legs', 'hands', 'neck', 'ring'];
+        for (const slot of slots) {
+            const gear = entity.gear[slot];
+            if (gear && gear.stats) {
+                for (const k in gear.stats) {
+                    if (k.endsWith('Pct') && typeof gear.stats[k] === 'number') {
+                        result[k] = (result[k] || 0) + gear.stats[k];
+                    }
+                }
+            }
+        }
+        for (const weapon of (entity.gear.weapons || [])) {
+            if (weapon && weapon.stats) {
+                for (const k in weapon.stats) {
+                    if (k.endsWith('Pct') && typeof weapon.stats[k] === 'number') {
+                        result[k] = (result[k] || 0) + weapon.stats[k];
+                    }
+                }
+            }
+        }
+        return result;
     }
 
     static equipItem(c, gear, forced) {

@@ -171,7 +171,9 @@ Object.assign(UI, {
     },
 
     _getHeroClassName(hero) {
-        const clsId = hero.cflag ? hero.cflag[CFLAGS.HERO_CLASS] : 0;
+        const clsId = hero.cflag ? (hero.cflag[CFLAGS.CLASS_ID] || hero.cflag[CFLAGS.HERO_CLASS]) : 0;
+        // V5.0 优先使用 CLASS_DEFS
+        if (window.CLASS_DEFS && window.CLASS_DEFS[clsId]) return window.CLASS_DEFS[clsId].name;
         if (!clsId || !HERO_CLASS_DEFS || !HERO_CLASS_DEFS[clsId]) return '';
         return HERO_CLASS_DEFS[clsId].name;
     },

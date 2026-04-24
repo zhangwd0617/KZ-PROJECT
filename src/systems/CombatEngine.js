@@ -164,9 +164,24 @@ Game.prototype._doCombat = function(hero, monster) {
                         heroMp -= 20;
                         combatLog.push(`【${rounds}回合】${hero.name}使用强化魔法 💪 攻击+${heroAtkMod} (持续2回合)`);
                     } else {
-                        const dmg = Math.max(1, getHeroAtk() - getMonDef());
-                        monHp -= dmg;
-                        combatLog.push(`【${rounds}回合】${hero.name}攻击 ⚔️ 造成${dmg}伤害 (怪物HP:${Math.max(0,monHp)})`);
+                        // V6.0 新伤害公式: (ATK - DEF*0.5) * 等级压制 * 随机浮动
+                        const lvDiff = hero.level - monster.level;
+                        let lvMult = 1.0;
+                        if (lvDiff >= 0) {
+                            lvMult = Math.min(1.5, 1.0 + lvDiff * 0.02);
+                        } else {
+                            lvMult = Math.max(0.3, 1.0 / (1.0 + Math.abs(lvDiff) * 0.03));
+                        }
+                        const randomFloat = 0.9 + Math.random() * 0.2;
+                        let dmg = Math.max(1, Math.floor((getHeroAtk() - getMonDef() * 0.5) * lvMult * randomFloat));
+                        // 暴击
+                        const critChance = Math.max(5, Math.min(30, 10 + (getHeroAtk() - getMonDef()) * 0.01));
+                        if (RAND(100) < critChance) {
+                            dmg = Math.floor(dmg * 1.5);
+                            combatLog.push(`【${rounds}回合】${hero.name}暴击 💥 造成${dmg}伤害 (怪物HP:${Math.max(0,monHp)})`);
+                        } else {
+                            combatLog.push(`【${rounds}回合】${hero.name}攻击 ⚔️ 造成${dmg}伤害 (怪物HP:${Math.max(0,monHp)})`);
+                        }
                     }
                 } else {
                     // ===== 怪物AI决策 =====
@@ -179,12 +194,27 @@ Game.prototype._doCombat = function(hero, monster) {
 
                         if (aiType === 'attack') {
                             if (roll < 50) {
-                                const rawDmg = Math.floor(getMonAtk() * 1.5);
-                                const dmg = Math.max(1, rawDmg - getHeroDef());
+                                const monLvDiff = monster.level - hero.level;
+                                let monLvMult = 1.0;
+                                if (monLvDiff >= 0) {
+                                    monLvMult = Math.min(1.5, 1.0 + monLvDiff * 0.02);
+                                } else {
+                                    monLvMult = Math.max(0.3, 1.0 / (1.0 + Math.abs(monLvDiff) * 0.03));
+                                }
+                                const monRandomFloat = 0.9 + Math.random() * 0.2;
+                                let dmg = Math.max(1, Math.floor((getMonAtk() - getHeroDef() * 0.5) * monLvMult * monRandomFloat * 1.5));
                                 heroHp -= dmg;
                                 combatLog.push(`【${rounds}回合】${monster.name}猛击 💢 造成${dmg}伤害 (勇者HP:${Math.max(0,heroHp)})`);
                             } else if (roll < 80) {
-                                const dmg = Math.max(1, getMonAtk() - getHeroDef());
+                                const monLvDiff = monster.level - hero.level;
+                                let monLvMult = 1.0;
+                                if (monLvDiff >= 0) {
+                                    monLvMult = Math.min(1.5, 1.0 + monLvDiff * 0.02);
+                                } else {
+                                    monLvMult = Math.max(0.3, 1.0 / (1.0 + Math.abs(monLvDiff) * 0.03));
+                                }
+                                const monRandomFloat = 0.9 + Math.random() * 0.2;
+                                let dmg = Math.max(1, Math.floor((getMonAtk() - getHeroDef() * 0.5) * monLvMult * monRandomFloat));
                                 heroHp -= dmg;
                                 combatLog.push(`【${rounds}回合】${monster.name}攻击 🗡️ 造成${dmg}伤害 (勇者HP:${Math.max(0,heroHp)})`);
                             } else if (roll < 95 && monBuffTurns <= 0) {
@@ -196,7 +226,15 @@ Game.prototype._doCombat = function(hero, monster) {
                             }
                         } else if (aiType === 'defense') {
                             if (roll < 40) {
-                                const dmg = Math.max(1, getMonAtk() - getHeroDef());
+                                const monLvDiff = monster.level - hero.level;
+                                let monLvMult = 1.0;
+                                if (monLvDiff >= 0) {
+                                    monLvMult = Math.min(1.5, 1.0 + monLvDiff * 0.02);
+                                } else {
+                                    monLvMult = Math.max(0.3, 1.0 / (1.0 + Math.abs(monLvDiff) * 0.03));
+                                }
+                                const monRandomFloat = 0.9 + Math.random() * 0.2;
+                                let dmg = Math.max(1, Math.floor((getMonAtk() - getHeroDef() * 0.5) * monLvMult * monRandomFloat));
                                 heroHp -= dmg;
                                 combatLog.push(`【${rounds}回合】${monster.name}攻击 🗡️ 造成${dmg}伤害 (勇者HP:${Math.max(0,heroHp)})`);
                             } else if (roll < 75 && monBuffTurns <= 0) {
@@ -213,7 +251,15 @@ Game.prototype._doCombat = function(hero, monster) {
                         } else if (aiType === 'magic') {
                             if (roll < 45) {
                                 const pierceDef = Math.floor(getHeroDef() * 0.3);
-                                const dmg = Math.max(1, Math.floor(getMonAtk() * 1.2) - (getHeroDef() - pierceDef));
+                                const monLvDiff = monster.level - hero.level;
+                                let monLvMult = 1.0;
+                                if (monLvDiff >= 0) {
+                                    monLvMult = Math.min(1.5, 1.0 + monLvDiff * 0.02);
+                                } else {
+                                    monLvMult = Math.max(0.3, 1.0 / (1.0 + Math.abs(monLvDiff) * 0.03));
+                                }
+                                const monRandomFloat = 0.9 + Math.random() * 0.2;
+                                let dmg = Math.max(1, Math.floor((Math.floor(getMonAtk() * 1.2) - (getHeroDef() - pierceDef)) * monLvMult * monRandomFloat));
                                 heroHp -= dmg;
                                 combatLog.push(`【${rounds}回合】${monster.name}魔法弹 🔮 造成${dmg}伤害(穿透) (勇者HP:${Math.max(0,heroHp)})`);
                                 // 魔法型怪物有概率附加异常状态
@@ -222,7 +268,15 @@ Game.prototype._doCombat = function(hero, monster) {
                                     combatLog.push(`  → ${hero.name}被麻痹了！`);
                                 }
                             } else if (roll < 70) {
-                                const dmg = Math.max(1, getMonAtk() - getHeroDef());
+                                const monLvDiff = monster.level - hero.level;
+                                let monLvMult = 1.0;
+                                if (monLvDiff >= 0) {
+                                    monLvMult = Math.min(1.5, 1.0 + monLvDiff * 0.02);
+                                } else {
+                                    monLvMult = Math.max(0.3, 1.0 / (1.0 + Math.abs(monLvDiff) * 0.03));
+                                }
+                                const monRandomFloat = 0.9 + Math.random() * 0.2;
+                                let dmg = Math.max(1, Math.floor((getMonAtk() - getHeroDef() * 0.5) * monLvMult * monRandomFloat));
                                 heroHp -= dmg;
                                 combatLog.push(`【${rounds}回合】${monster.name}攻击 🗡️ 造成${dmg}伤害 (勇者HP:${Math.max(0,heroHp)})`);
                             } else if (roll < 90 && monMp >= 10) {
@@ -235,19 +289,43 @@ Game.prototype._doCombat = function(hero, monster) {
                                 monBuffTurns = 2;
                                 combatLog.push(`【${rounds}回合】${monster.name}魔力增幅 🔮 攻击+${monAtkMod}`);
                             } else {
-                                const dmg = Math.max(1, getMonAtk() - getHeroDef());
+                                const monLvDiff = monster.level - hero.level;
+                                let monLvMult = 1.0;
+                                if (monLvDiff >= 0) {
+                                    monLvMult = Math.min(1.5, 1.0 + monLvDiff * 0.02);
+                                } else {
+                                    monLvMult = Math.max(0.3, 1.0 / (1.0 + Math.abs(monLvDiff) * 0.03));
+                                }
+                                const monRandomFloat = 0.9 + Math.random() * 0.2;
+                                let dmg = Math.max(1, Math.floor((getMonAtk() - getHeroDef() * 0.5) * monLvMult * monRandomFloat));
                                 heroHp -= dmg;
                                 combatLog.push(`【${rounds}回合】${monster.name}攻击 🗡️ 造成${dmg}伤害 (勇者HP:${Math.max(0,heroHp)})`);
                             }
                         } else if (aiType === 'speed') {
                             if (roll < 40) {
-                                const dmg1 = Math.max(1, Math.floor(getMonAtk() * 0.7) - getHeroDef());
-                                const dmg2 = Math.max(1, Math.floor(getMonAtk() * 0.6) - getHeroDef());
+                                const monLvDiff = monster.level - hero.level;
+                                let monLvMult = 1.0;
+                                if (monLvDiff >= 0) {
+                                    monLvMult = Math.min(1.5, 1.0 + monLvDiff * 0.02);
+                                } else {
+                                    monLvMult = Math.max(0.3, 1.0 / (1.0 + Math.abs(monLvDiff) * 0.03));
+                                }
+                                const monRandomFloat = 0.9 + Math.random() * 0.2;
+                                const dmg1 = Math.max(1, Math.floor((Math.floor(getMonAtk() * 0.7) - getHeroDef() * 0.5) * monLvMult * monRandomFloat));
+                                const dmg2 = Math.max(1, Math.floor((Math.floor(getMonAtk() * 0.6) - getHeroDef() * 0.5) * monLvMult * monRandomFloat));
                                 heroHp -= dmg1;
                                 if (heroHp > 0) heroHp -= dmg2;
                                 combatLog.push(`【${rounds}回合】${monster.name}迅捷连击 💨 ${dmg1}+${dmg2}伤害 (勇者HP:${Math.max(0,heroHp)})`);
                             } else if (roll < 75) {
-                                const dmg = Math.max(1, getMonAtk() - getHeroDef());
+                                const monLvDiff = monster.level - hero.level;
+                                let monLvMult = 1.0;
+                                if (monLvDiff >= 0) {
+                                    monLvMult = Math.min(1.5, 1.0 + monLvDiff * 0.02);
+                                } else {
+                                    monLvMult = Math.max(0.3, 1.0 / (1.0 + Math.abs(monLvDiff) * 0.03));
+                                }
+                                const monRandomFloat = 0.9 + Math.random() * 0.2;
+                                let dmg = Math.max(1, Math.floor((getMonAtk() - getHeroDef() * 0.5) * monLvMult * monRandomFloat));
                                 heroHp -= dmg;
                                 combatLog.push(`【${rounds}回合】${monster.name}攻击 🗡️ 造成${dmg}伤害 (勇者HP:${Math.max(0,heroHp)})`);
                             } else if (roll < 95 && monBuffTurns <= 0) {
@@ -255,18 +333,41 @@ Game.prototype._doCombat = function(hero, monster) {
                                 monBuffTurns = 2;
                                 combatLog.push(`【${rounds}回合】${monster.name}闪避姿态 💨 防御提升`);
                             } else {
-                                const dmg = Math.max(1, getMonAtk() - getHeroDef());
+                                const monLvDiff = monster.level - hero.level;
+                                let monLvMult = 1.0;
+                                if (monLvDiff >= 0) {
+                                    monLvMult = Math.min(1.5, 1.0 + monLvDiff * 0.02);
+                                } else {
+                                    monLvMult = Math.max(0.3, 1.0 / (1.0 + Math.abs(monLvDiff) * 0.03));
+                                }
+                                const monRandomFloat = 0.9 + Math.random() * 0.2;
+                                let dmg = Math.max(1, Math.floor((getMonAtk() - getHeroDef() * 0.5) * monLvMult * monRandomFloat));
                                 heroHp -= dmg;
                                 combatLog.push(`【${rounds}回合】${monster.name}攻击 🗡️ 造成${dmg}伤害 (勇者HP:${Math.max(0,heroHp)})`);
                             }
                         } else {
                             if (roll < 50) {
-                                const dmg = Math.max(1, getMonAtk() - getHeroDef());
+                                const monLvDiff = monster.level - hero.level;
+                                let monLvMult = 1.0;
+                                if (monLvDiff >= 0) {
+                                    monLvMult = Math.min(1.5, 1.0 + monLvDiff * 0.02);
+                                } else {
+                                    monLvMult = Math.max(0.3, 1.0 / (1.0 + Math.abs(monLvDiff) * 0.03));
+                                }
+                                const monRandomFloat = 0.9 + Math.random() * 0.2;
+                                let dmg = Math.max(1, Math.floor((getMonAtk() - getHeroDef() * 0.5) * monLvMult * monRandomFloat));
                                 heroHp -= dmg;
                                 combatLog.push(`【${rounds}回合】${monster.name}攻击 🗡️ 造成${dmg}伤害 (勇者HP:${Math.max(0,heroHp)})`);
                             } else if (roll < 75) {
-                                const rawDmg = Math.floor(getMonAtk() * 1.3);
-                                const dmg = Math.max(1, rawDmg - getHeroDef());
+                                const monLvDiff = monster.level - hero.level;
+                                let monLvMult = 1.0;
+                                if (monLvDiff >= 0) {
+                                    monLvMult = Math.min(1.5, 1.0 + monLvDiff * 0.02);
+                                } else {
+                                    monLvMult = Math.max(0.3, 1.0 / (1.0 + Math.abs(monLvDiff) * 0.03));
+                                }
+                                const monRandomFloat = 0.9 + Math.random() * 0.2;
+                                let dmg = Math.max(1, Math.floor((getMonAtk() - getHeroDef() * 0.5) * monLvMult * monRandomFloat * 1.3));
                                 heroHp -= dmg;
                                 combatLog.push(`【${rounds}回合】${monster.name}强力攻击 💥 造成${dmg}伤害 (勇者HP:${Math.max(0,heroHp)})`);
                                 if (RAND(100) < 20) {
@@ -290,7 +391,15 @@ Game.prototype._doCombat = function(hero, monster) {
                                 monBuffTurns = 2;
                                 combatLog.push(`【${rounds}回合】${monster.name}强化 💪 攻击+${monAtkMod}`);
                             } else {
-                                const dmg = Math.max(1, getMonAtk() - getHeroDef());
+                                const monLvDiff = monster.level - hero.level;
+                                let monLvMult = 1.0;
+                                if (monLvDiff >= 0) {
+                                    monLvMult = Math.min(1.5, 1.0 + monLvDiff * 0.02);
+                                } else {
+                                    monLvMult = Math.max(0.3, 1.0 / (1.0 + Math.abs(monLvDiff) * 0.03));
+                                }
+                                const monRandomFloat = 0.9 + Math.random() * 0.2;
+                                let dmg = Math.max(1, Math.floor((getMonAtk() - getHeroDef() * 0.5) * monLvMult * monRandomFloat));
                                 heroHp -= dmg;
                                 combatLog.push(`【${rounds}回合】${monster.name}攻击 🗡️ 造成${dmg}伤害 (勇者HP:${Math.max(0,heroHp)})`);
                             }
@@ -350,7 +459,8 @@ Game.prototype._doCombat = function(hero, monster) {
         let drop = null;
         if (victory) {
             const expGain = monster.level * 10;
-            hero.exp[0] = (hero.exp[0] || 0) + expGain;
+            hero.addExp(102, expGain);
+            this.checkLevelUp(hero);
             const goldGain = Math.floor(monster.level * monster.level * 2 + RAND(monster.level * 10));
             hero.gold += goldGain;
             combatLog.push(`【胜利】${hero.name}击败了${monster.name}(战斗${rounds}回合) 获得${expGain}EXP ${goldGain}G`);
@@ -512,7 +622,7 @@ Game.prototype._doSquadCombat = function(squad, monster) {
 
                     // 治疗职业回合开始时治疗最低HP队友
                     const cls = this._getHeroClass(hero);
-                    if (cls && HEALER_CLASS_IDS.includes(hero.cflag[CFLAGS.HERO_CLASS])) {
+                    if (cls && HEALER_CLASS_IDS && HEALER_CLASS_IDS.includes(hero.cflag[CFLAGS.CLASS_ID] || hero.cflag[CFLAGS.HERO_CLASS])) {
                         const allies = realHeroes.filter(h => h.hp > 0 && h.hp < h.maxHp * 0.6);
                         if (allies.length > 0 && RAND(100) < 30) {
                             const target = allies.reduce((min, h) => h.hp / h.maxHp < min.hp / min.maxHp ? h : min, allies[0]);
@@ -619,7 +729,10 @@ Game.prototype._doSquadCombat = function(squad, monster) {
         if (victory) {
             const expPerMember = Math.floor(monster.level * 10 / Math.max(1, survivors.filter(h => !h.cflag[912]).length));
             for (const hero of survivors) {
-                if (!hero.cflag[912]) hero.exp[0] = (hero.exp[0] || 0) + expPerMember;
+                if (!hero.cflag[912]) {
+                    hero.addExp(102, expPerMember);
+                    this.checkLevelUp(hero);
+                }
             }
             combatLog.push(`【胜利】小队击败了${monster.name}(战斗${rounds}回合) 每人获得${expPerMember}EXP`);
             // 精英怪物掉落处理
@@ -843,7 +956,7 @@ Game.prototype._doTeamCombat = function(leftTeam, rightTeam, options = {}) {
                     }
                 }
 
-                if (!actor.isMonster && HEALER_CLASS_IDS && HEALER_CLASS_IDS.includes(actor.classId)) {
+                if (!actor.isMonster && HEALER_CLASS_IDS && HEALER_CLASS_IDS.includes(actor.classId || actor.cflag && (actor.cflag[CFLAGS.CLASS_ID] || actor.cflag[CFLAGS.HERO_CLASS]))) {
                     const allies = (actor.team === 'left' ? leftUnits : rightUnits).filter(u => u.hp > 0 && u.hp < u.maxHp * 0.6);
                     if (allies.length > 0 && RAND(100) < 30) {
                         const healTarget = allies.reduce((min, u) => u.hp / u.maxHp < min.hp / min.maxHp ? u : min, allies[0]);
@@ -931,7 +1044,8 @@ Game.prototype._doTeamCombat = function(leftTeam, rightTeam, options = {}) {
             if (!options.noExp) {
                 const expPerMember = Math.floor(highestLevelMonster.level * 10 / Math.max(1, realLeftAlive.length));
                 for (const u of realLeftAlive) {
-                    u.entity.exp[0] = (u.entity.exp[0] || 0) + expPerMember;
+                    u.entity.addExp(102, expPerMember);
+                    this.checkLevelUp(u.entity);
                 }
                 combatLog.push(`【胜利】${aliveLeft.map(u => u.name).join(',')}击败了敌人(战斗${rounds}回合) 每人获得${expPerMember}EXP`);
             } else {
@@ -997,41 +1111,63 @@ Game.prototype._getMonsterAIType = function(monster) {
 
     // 处理被击败勇者的俘虏流程
     // skipEscape: 奴隶/魔王主动出击时，跳过逃跑判定（勇者无法从主动出击方手中逃脱）
-Game.prototype._spawnMonster = function(floorId, eliteType) {
-        const monsters = FLOOR_MONSTER_DEFS[floorId];
-        if (!monsters || monsters.length === 0) return null;
-        const maxLevel = this._getFloorMaxMonsterLevel(floorId);
-        let baseMonster;
-        if (eliteType === 'normal' || !eliteType) {
-            baseMonster = monsters[RAND(monsters.length)];
-        } else {
-            // 精英怪以该楼层最高等级怪物为模板
-            baseMonster = monsters.reduce((max, m) => m.level > max.level ? m : max, monsters[0]);
+    // V6.0: 动态怪物生成 — 等级区间 [(N-1)*20, N*20]，属性由等级自动计算
+    Game.prototype._spawnMonster = function(floorId, eliteType) {
+        const templates = window.MONSTER_TEMPLATES[floorId];
+        if (!templates || templates.length === 0) return null;
+
+        // 等级区间
+        const minLv = Math.max(1, (floorId - 1) * 20);
+        const maxLv = floorId * 20;
+        let level = minLv + RAND(maxLv - minLv + 1);
+
+        // 5%概率遇到 N*20+5 的超等级怪物
+        if (RAND(100) < 5) {
+            level = maxLv + 5;
         }
-        const monster = Object.assign({}, baseMonster);
-        monster.eliteType = eliteType || 'normal';
+
+        // 精英怪固定为该层最高等级
         if (eliteType === 'chief' || eliteType === 'overlord') {
-            const def = ELITE_TYPE_DEFS[eliteType];
-            if (def) {
-                monster.level = maxLevel + def.levelMod;
-                monster.hp = Math.floor(monster.hp * def.statMult);
-                monster.mp = Math.floor(monster.mp * def.statMult);
-                monster.atk = Math.floor(monster.atk * def.statMult);
-                monster.def = Math.floor(monster.def * def.statMult);
-                monster.spd = Math.floor(monster.spd * def.statMult);
-                monster.name = def.namePrefix + monster.name;
-                monster.icon = def.icon;
-                monster.description = monster.description + def.descSuffix;
-            }
+            level = maxLv;
         }
+
+        // 随机选取模板
+        const baseTemplate = templates[RAND(templates.length)];
+        const monster = Object.assign({}, baseTemplate);
+        monster.level = level;
+        monster.eliteType = eliteType || 'normal';
+
+        // 应用精英倍率
+        const eDef = window.ELITE_TYPE_DEFS[eliteType || 'normal'];
+        const hpMul = eDef ? eDef.hpMul : 1.0;
+        const atkMul = eDef ? eDef.atkMul : 1.0;
+        const defMul = eDef ? eDef.defMul : 1.0;
+        const spdMul = eDef ? eDef.spdMul : 1.0;
+
+        // V6.0 统一属性公式
+        monster.hp  = Math.floor((800 + level * 20) * hpMul);
+        monster.mp  = Math.floor((400 + level * 10) * hpMul);
+        monster.atk = Math.floor((20 + level * 3) * atkMul);
+        monster.def = Math.floor((15 + level * 2) * defMul);
+        monster.spd = Math.floor((8 + level * 1) * spdMul);
+
+        // 精英怪命名
+        if (eDef && eDef.namePrefix) {
+            monster.name = eDef.namePrefix + monster.name;
+        }
+        if (eDef && eDef.icon) {
+            monster.icon = eDef.icon;
+        }
+        if (eDef && eDef.descSuffix) {
+            monster.description = monster.description + eDef.descSuffix;
+        }
+
         return monster;
     }
 
     // 处理勇者探索一层（触发事件，返回数值效果）
-Game.prototype._getFloorMaxMonsterLevel = function(floorId) {
-        const monsters = FLOOR_MONSTER_DEFS[floorId];
-        if (!monsters || monsters.length === 0) return floorId * 10;
-        return Math.max(...monsters.map(m => m.level));
+    Game.prototype._getFloorMaxMonsterLevel = function(floorId) {
+        return floorId * 20;
     }
 
     // 获取楼层掉落品质上限（与宝箱系统保持一致）
@@ -1162,37 +1298,34 @@ Game.prototype._processCapture = function(hero, monster, skipEscape = false) {
             }
         }
 
-        // 2. 进入投降判】
+        // 2. 进入投降判定（投降只影响初始屈服度，不直接转化）
         const surrenderResult = this._trySurrender(hero);
+        let initialMark = 0;
         if (isEscapee) {
-            // 逃跑者再次被捕时，投降率大幅提升
-            let modChance = 50 + Math.floor((1 - hero.hp / Math.max(1, hero.maxHp)) * 40);
-            modChance = Math.max(0, Math.min(95, modChance));
-            if (RAND(100) < modChance) {
-                this._convertHeroToSlave(hero);
-                return { type: 'surrender', message: `${hero.name}再次被魔王捕【..她的身体比意志更先屈服了。"欢迎回来，我的奴隶。"魔王在她耳边低语。` };
-            }
+            // 逃跑者再次被捕时，初始屈服度+1
+            initialMark = 1;
         }
         if (surrenderResult.success) {
-            // 投降：转化为奴隶，服从Lv3
-            this._convertHeroToSlave(hero);
-            return { type: 'surrender', message: surrenderResult.message };
-        } else {
-            // 不投降：关入监狱
-            this._imprisonHero(hero);
-            return { type: 'imprisoned', message: surrenderResult.message };
+            initialMark = Math.max(initialMark, 1); // 投降者初始屈服度至少1
         }
+        // 无论是否投降，一律先关入监狱
+        this._imprisonHero(hero, initialMark);
+        return { type: surrenderResult.success ? 'surrender' : 'imprisoned', message: surrenderResult.message };
     }
 
-    // 逃跑判定：勇者尝试从被击败状态中逃跑
+    // 将监狱中的俘虏转化为奴隶（需要 mark[0] >= 3）
 Game.prototype._convertHeroToSlave = function(hero) {
-        // 服从度直接设为Lv3
-        hero.mark[0] = 3;
+        if (!hero) return { success: false, msg: '角色不存在' };
+        if ((hero.mark[0] || 0) < 3) return { success: false, msg: `该俘虏尚未完全屈服（当前服从Lv.${hero.mark[0] || 0}，需要Lv.3）` };
+
+        // 从监狱中移除
+        const pIdx = this.prisoners.indexOf(hero);
+        if (pIdx >= 0) this.prisoners.splice(pIdx, 1);
 
         // 赋予"前勇者"特质
         hero.talent[200] = 1;
 
-        // 声望减半（勇者时期声望 × 0.5）
+        // 声望减半
         hero.fame = Math.floor(hero.fame * 0.5);
 
         // 清除勇者专属标记
@@ -1200,25 +1333,31 @@ Game.prototype._convertHeroToSlave = function(hero) {
         hero.cflag[CFLAGS.HERO_PROGRESS] = 0;
         hero.cflag[CFLAGS.LOVE_POINTS] = 0;
 
-        // 初始化探索标【        hero.cflag[CFLAGS.FALLEN_DEPTH] = 0; // 0=未探【 1=探索【        hero.cflag[CFLAGS.FALLEN_STAGE] = 10; // 当前楼层(反向从第10层开【
-        hero.cflag[CFLAGS.CORRUPTION] = 0; // 当前进度
-        hero.cflag[703] = 0; // 累计获得EXP
+        // 初始化探索标记
+        hero.cflag[CFLAGS.FALLEN_DEPTH] = 0;
+        hero.cflag[CFLAGS.FALLEN_STAGE] = 10;
+        hero.cflag[CFLAGS.CORRUPTION] = 0;
+        hero.cflag[703] = 0;
 
-        // 恢复部分状【        hero.hp = Math.floor(hero.maxHp * 0.3);
+        // 恢复部分状态
+        hero.hp = Math.floor(hero.maxHp * 0.3);
         hero.mp = Math.floor(hero.maxMp * 0.2);
+
+        // 重新计算属性
+        this._recalcBaseStats(hero);
 
         // 加入奴隶列表
         hero.affinity = this.generateAffinity(hero);
         this.addCharaFromTemplate(hero);
-        UI.showToast(`勇者${hero.name} 投降了！成为了你的奴【(服从Lv.${hero.mark[0]})`, 'success');
+        UI.showToast(`${hero.name} 已彻底屈服，成为你的奴隶！(服从Lv.${hero.mark[0]})`, 'success');
+        return { success: true, msg: `${hero.name} 已转化为奴隶` };
     }
 
-    // 将勇者关入监】
-Game.prototype._imprisonHero = function(hero) {
-        // 检查监狱容】
+    // 将勇者关入监狱
+Game.prototype._imprisonHero = function(hero, initialMark = 0) {
+        // 检查监狱容量
         const maxCap = this.getMaxPrisoners();
         if (this.prisoners.length >= maxCap) {
-            // 监狱已满，最老的俘虏被处决或释放（简化：移除第一个）
             const removed = this.prisoners.shift();
             UI.showToast(`监狱已满，${removed.name} 被处决了`, 'danger');
         }
@@ -1228,13 +1367,23 @@ Game.prototype._imprisonHero = function(hero) {
         if (confiscatedGold > 0) {
             this.money += confiscatedGold;
             hero.gold = 0;
-            UI.showToast(`从勇【${hero.name} 身上没收【${confiscatedGold}G！`, 'success');
+            UI.showToast(`从勇者${hero.name} 身上没收了${confiscatedGold}G！`, 'success');
         }
 
-        // 标记俘虏状【        hero.cflag[CFLAGS.LOVE_POINTS] = 1; // 俘虏标记
+        // 标记俘虏状态
+        hero.cflag[CFLAGS.CAPTURE_STATUS] = 1;
+        hero.cflag[CFLAGS.LOVE_POINTS] = 1;
         hero.cflag[CFLAGS.OBEDIENCE_POINTS] = this.day; // 被俘天数
 
-        // 恢复少量状态（保证存活【        hero.hp = Math.max(1, Math.floor(hero.maxHp * 0.1));
+        // 设置初始屈服度（投降的更高）
+        hero.mark[0] = initialMark;
+
+        // 清除勇者专属标记
+        hero.cflag[CFLAGS.HERO_FLOOR] = 0;
+        hero.cflag[CFLAGS.HERO_PROGRESS] = 0;
+
+        // 恢复少量状态（保证存活）
+        hero.hp = Math.max(1, Math.floor(hero.maxHp * 0.1));
         hero.mp = Math.max(1, Math.floor(hero.maxMp * 0.1));
 
         this.prisoners.push(hero);
@@ -1246,7 +1395,9 @@ Game.prototype._imprisonHero = function(hero) {
     // 派遣前勇者奴隶伪装混入勇者队】
 Game.prototype._getHeroClass = function(hero) {
         if (!hero) return null;
-        const classId = hero.cflag[CFLAGS.HERO_CLASS];
+        // V5.0 优先使用 CLASS_DEFS
+        const classId = hero.cflag[CFLAGS.CLASS_ID] || hero.cflag[CFLAGS.HERO_CLASS];
+        if (window.CLASS_DEFS && window.CLASS_DEFS[classId]) return window.CLASS_DEFS[classId];
         if (!classId || !HERO_CLASS_DEFS[classId]) return null;
         return HERO_CLASS_DEFS[classId];
     }
@@ -1260,60 +1411,44 @@ Game.prototype._getSkillPower = function(hero, skill) {
     // 尝试使用技能（勇者内战用简化版）
 Game.prototype._tryUseHeroSkill = function(hero) {
         if (!hero) return null;
-        const classId = hero.cflag[CFLAGS.HERO_CLASS] || 0;
-        const cls = HERO_CLASS_DEFS ? HERO_CLASS_DEFS[classId] : null;
+        // V5.0 使用 CLASS_DEFS + CLASS_SKILL_DEFS
+        const classId = hero.cflag[CFLAGS.CLASS_ID] || hero.cflag[CFLAGS.HERO_CLASS] || 0;
+        const cls = window.CLASS_DEFS ? window.CLASS_DEFS[classId] : (HERO_CLASS_DEFS ? HERO_CLASS_DEFS[classId] : null);
         if (!cls || !cls.skills || cls.skills.length === 0) return null;
         const lv = hero.level || 1;
-        // 按优先级检查技能：专属 > 通用2 > 通用1
-        const skillIds = [cls.skills[2], cls.skills[1], cls.skills[0]].filter(Boolean);
+        // 按优先级检查技能：必杀/高级 > 职业技能 > 通用
+        const skillIds = [...cls.skills].reverse().filter(Boolean);
         for (const sid of skillIds) {
-            const skillDef = HERO_SKILL_DEFS ? HERO_SKILL_DEFS[sid] : null;
+            const skillDef = window.CLASS_SKILL_DEFS ? window.CLASS_SKILL_DEFS[sid] : (HERO_SKILL_DEFS ? HERO_SKILL_DEFS[sid] : null);
             if (!skillDef) continue;
-            const prob = Math.min(50, lv * 3); // 基础概率，每级+3%，最高50%
-            if (skillDef.effectType === 'berserk' || skillDef.effectType === 'execute' || skillDef.effectType === 'assassinate') {
-                // 专属技能概率更低
+            const st = skillDef.type || skillDef.effectType || '';
+            const prob = Math.min(50, lv * 3);
+            if (st === 'berserk' || st === 'execute' || st === 'execute_pierce' || st === 'big_bang') {
                 if (RAND(100) >= Math.min(40, lv * 2)) continue;
             } else {
                 if (RAND(100) >= prob) continue;
             }
-            // 构建简化技能对象
             const result = {
                 name: skillDef.name,
-                effectType: skillDef.effectType,
+                effectType: st,
                 damage: 0,
                 heal: 0,
                 ailmentChance: 0
             };
             const power = this._getSkillPower(hero, skillDef);
-            switch (skillDef.effectType) {
-                case 'damage':
-                case 'crit_damage':
-                case 'pierce':
-                case 'execute':
-                case 'execute_pierce':
-                case 'berserk':
-                    result.damage = power;
-                    break;
-                case 'aoe':
-                case 'big_bang':
-                    result.damage = Math.floor(power * 0.8);
-                    break;
-                case 'heal':
-                case 'mass_heal':
-                    result.heal = Math.min(0.3, power / 100);
-                    break;
+            switch (st) {
+                case 'damage': case 'crit_damage': case 'pierce': case 'execute': case 'execute_pierce': case 'berserk':
+                    result.damage = power; break;
+                case 'aoe': case 'big_bang':
+                    result.damage = Math.floor(power * 0.8); break;
+                case 'heal': case 'mass_heal':
+                    result.heal = Math.min(0.3, power / 100); break;
                 case 'dot':
-                    result.ailmentChance = 0.4;
-                    result.damage = Math.floor(power * 0.5);
-                    break;
-                case 'stun':
-                    result.ailmentChance = 0.5;
-                    break;
-                case 'debuff_atk':
-                case 'debuff_def':
-                case 'debuff_spd':
-                    result.ailmentChance = 0.35;
-                    break;
+                    result.ailmentChance = 0.4; result.damage = Math.floor(power * 0.5); break;
+                case 'stun': case 'seal': case 'confuse':
+                    result.ailmentChance = 0.5; break;
+                case 'debuff_atk': case 'debuff_def': case 'debuff_spd': case 'debuff_all':
+                    result.ailmentChance = 0.35; break;
             }
             return result;
         }
@@ -1322,12 +1457,14 @@ Game.prototype._tryUseHeroSkill = function(hero) {
 
 Game.prototype._useHeroSkill = function(hero, skillId, target, context) {
         if (!hero || !skillId) return null;
-        const skill = HERO_SKILL_DEFS[skillId];
+        // V5.0 优先使用 CLASS_SKILL_DEFS
+        const skill = window.CLASS_SKILL_DEFS ? window.CLASS_SKILL_DEFS[skillId] : (HERO_SKILL_DEFS ? HERO_SKILL_DEFS[skillId] : null);
         if (!skill) return null;
         const power = this._getSkillPower(hero, skill);
-        const result = { used: true, skillName: skill.name, cost: skill.cost, logs: [] };
+        const st = skill.type || skill.effectType || '';
+        const result = { used: true, skillName: skill.name, cost: skill.cost || 0, logs: [] };
 
-        switch (skill.effectType) {
+        switch (st) {
             case "damage":
             case "crit_damage":
             case "pierce":
@@ -1443,80 +1580,55 @@ Game.prototype._chooseHeroSkill = function(hero, context) {
         if (!cls || !cls.skills) return null;
         const hpPct = hero.hp / Math.max(1, hero.maxHp);
         const mpPct = hero.mp / Math.max(1, hero.maxMp);
-        const [s1, s2, s3] = cls.skills;
-        const sk1 = HERO_SKILL_DEFS[s1];
-        const sk2 = HERO_SKILL_DEFS[s2];
-        const sk3 = HERO_SKILL_DEFS[s3];
+        const skillDefs = window.CLASS_SKILL_DEFS || HERO_SKILL_DEFS || {};
+        const skills = cls.skills.map(id => skillDefs[id]).filter(Boolean);
+        if (skills.length === 0) return null;
 
-        // 专属技能：MP充足且战况需要时使用
-        if (sk3 && mpPct >= 0.4 && RAND(100) < 15) {
-            return s3;
+        // 必杀技（技能ID >= 3000）：MP充足时有15%概率使用
+        const ultIdx = cls.skills.findIndex(id => id >= 3000);
+        if (ultIdx >= 0) {
+            const ult = skillDefs[cls.skills[ultIdx]];
+            if (ult && mpPct >= 0.4 && RAND(100) < 15) return cls.skills[ultIdx];
         }
 
         // 根据AI倾向选择
-        const ai = cls.ai || { aggressive: 0.5, defensive: 0.3, support: 0.2 };
+        const ai = cls.ai || { agg: 0.5, def: 0.3, sup: 0.2 };
         const roll = RAND(100);
 
-        if (hpPct < 0.35 && sk1 && sk1.effectType === "heal") {
-            return s1; // 优先治疗
+        const getSType = (sk) => sk.type || sk.effectType || '';
+        const isHeal = (sk) => getSType(sk) === 'heal' || getSType(sk) === 'mass_heal';
+        const isDamage = (sk) => {
+            const t = getSType(sk);
+            return t.includes('damage') || t === 'dot' || t === 'execute' || t === 'execute_pierce' || t === 'aoe' || t === 'big_bang';
+        };
+        const isBuff = (sk) => getSType(sk).includes('buff');
+        const isSupport = (sk) => {
+            const t = getSType(sk);
+            return t === 'heal' || t === 'mass_heal' || t === 'cleanse' || t.includes('debuff') || t === 'seal' || t === 'taunt' || t === 'confuse';
+        };
+
+        // 紧急治疗
+        for (let i = 0; i < cls.skills.length; i++) {
+            if (hpPct < 0.35 && isHeal(skills[i])) return cls.skills[i];
         }
-        if (context === "squad" && hpPct < 0.5 && sk2 && sk2.effectType === "mass_heal") {
-            return s2;
+        if (context === "squad") {
+            for (let i = 0; i < cls.skills.length; i++) {
+                if (hpPct < 0.5 && getSType(skills[i]) === 'mass_heal') return cls.skills[i];
+            }
         }
 
-        if (roll < ai.aggressive * 100) {
-            // 攻击倾向：选择伤害技能
-            if (sk1 && (sk1.effectType.includes("damage") || sk1.effectType === "dot" || sk1.effectType === "execute")) return s1;
-            if (sk2 && (sk2.effectType.includes("damage") || sk2.effectType === "dot" || sk2.effectType === "execute")) return s2;
-        } else if (roll < (ai.aggressive + ai.defensive) * 100) {
-            // 防御倾向：增益/护盾
-            if (sk1 && sk1.effectType.includes("buff")) return s1;
-            if (sk2 && sk2.effectType.includes("buff")) return s2;
+        if (roll < ai.agg * 100) {
+            for (let i = 0; i < cls.skills.length; i++) if (isDamage(skills[i])) return cls.skills[i];
+        } else if (roll < (ai.agg + ai.def) * 100) {
+            for (let i = 0; i < cls.skills.length; i++) if (isBuff(skills[i])) return cls.skills[i];
         } else {
-            // 辅助倾向：治疗/净化/减益
-            if (sk1 && (sk1.effectType === "heal" || sk1.effectType === "cleanse" || sk1.effectType.includes("debuff"))) return s1;
-            if (sk2 && (sk2.effectType === "heal" || sk2.effectType === "cleanse" || sk2.effectType.includes("debuff"))) return s2;
+            for (let i = 0; i < cls.skills.length; i++) if (isSupport(skills[i])) return cls.skills[i];
         }
 
         // 默认返回第一个可用技能
-        if (sk1) return s1;
-        if (sk2) return s2;
-        return null;
+        return cls.skills[0];
     }
     // ========== 勇者入侵系统（新：声望驱动 + 每日刷新） ==========
-
-Game.prototype._levelUpEntity = function(entity, levels = 1) {
-        if (!entity || levels <= 0) return;
-        const oldLevel = entity.level || 1;
-        const newLevel = oldLevel + levels;
-        entity.level = newLevel;
-        entity.cflag[CFLAGS.BASE_HP] = newLevel;
-        const power = newLevel;
-        const oldMaxHp = entity.maxHp || 100;
-        const oldMaxMp = entity.maxMp || 50;
-        // HP/MP 按勇者公式重新计算
-        entity.base[0] = 1000 + power * 200 + RAND(power * 100);
-        entity.maxbase[0] = entity.base[0];
-        entity.base[1] = 500 + power * 100;
-        entity.maxbase[1] = entity.base[1];
-        // HP/MP 按比例保留
-        const hpRatio = oldMaxHp > 0 ? entity.hp / oldMaxHp : 1;
-        const mpRatio = oldMaxMp > 0 ? entity.mp / oldMaxMp : 1;
-        entity.hp = Math.min(entity.maxHp, Math.max(1, Math.floor(entity.maxHp * hpRatio)));
-        entity.mp = Math.min(entity.maxMp, Math.max(0, Math.floor(entity.maxMp * mpRatio)));
-        // 战斗属性
-        const isMaster = this.getMaster() === entity;
-        if (isMaster) {
-            // 魔王：攻防在现有值基础上累加（每级+5攻+4防）
-            entity.cflag[CFLAGS.ATK] = (entity.cflag[CFLAGS.ATK] || 100) + levels * 5;
-            entity.cflag[CFLAGS.DEF] = (entity.cflag[CFLAGS.DEF] || 100) + levels * 4;
-        } else {
-            // 其他：按勇者公式重新计算
-            entity.cflag[CFLAGS.ATK] = 20 + power * 5;
-            entity.cflag[CFLAGS.DEF] = 15 + power * 4;
-        }
-        entity.cflag[CFLAGS.SPD] = 10 + power * 3;  // 敏捷(速度)
-    }
 
     // 判断角色是否可以分配任务（魔王或已陷落/上位状态）
 Game.prototype._weightedRandom = function(items) {
