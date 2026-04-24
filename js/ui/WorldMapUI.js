@@ -1,4 +1,4 @@
-﻿// ========== World Map UI Module ==========
+// ========== World Map UI Module ==========
 window.WorldMapUI = {
     render: function(game) {
         const ui = window.UI;

@@ -4541,6 +4541,20 @@ const UI = {
     },
 
     renderWorldMap(game) {
-        WorldMapUI.render(game);
+        try {
+            this.hideTrainStatus();
+            this.clearText();
+            if (this.textArea) this.textArea.style.display = 'block';
+            this.appendText('【世界地图】\n', 'accent');
+            this.appendText('地图加载中...');
+            this.setButtons('<button class="back-btn-top" onclick="G.setState(\'SHOP\')">← 返回</button>');
+            if (typeof WorldMapUI !== 'undefined' && WorldMapUI.render) {
+                setTimeout(function() { WorldMapUI.render(game); }, 50);
+            } else {
+                this.appendText('\n[错误] WorldMapUI 未加载，请刷新页面 (Ctrl+F5)', 'danger');
+            }
+        } catch (e) {
+            this.appendText('\n[地图错误] ' + e.message, 'danger');
+        }
     }
 };
