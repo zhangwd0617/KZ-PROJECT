@@ -11,9 +11,7 @@ window.WorldMapUI = {
         ui.appendDivider();
 
         const mapId = 'wm-cvs-' + Date.now();
-        const infoId = 'wm-info-' + Date.now();
-        ui.textArea.innerHTML += '<div style="position:relative;width:100%;height:520px;overflow:hidden;background:#0b1220;border-radius:8px;border:1px solid var(--border);" id="' + mapId + '-w"></div>';
-        ui.textArea.innerHTML += '<div id="' + infoId + '" style="margin-top:8px;padding:12px;background:var(--bg-card);border-radius:6px;font-size:0.85rem;min-height:60px;border:1px solid var(--border);"><span style="color:var(--text-dim)">点击地图上的标记查看详细信息...</span></div>';
+        ui.textArea.innerHTML += '<div style="position:relative;width:100%;height:540px;overflow:hidden;background:#0b1220;border-radius:8px;border:1px solid var(--border);" id="' + mapId + '-w"></div>';
 
         const wrap = document.getElementById(mapId + '-w');
         const cvs = document.createElement('canvas');
@@ -132,32 +130,29 @@ window.WorldMapUI = {
             return null;
         }
 
-        function showInfo(entity){
-            const box=document.getElementById(infoId);
-            if(!entity){box.innerHTML='<span style="color:var(--text-dim)">点击地图上的标记查看详细信息...</span>';return;}
+        function updateInfoBar(entity){
+            const bar=document.getElementById('wm-info-bar');
+            if(!bar)return;
+            if(!entity){bar.innerHTML='<span style="color:var(--text-dim)">点击地图上的标记查看详细信息...</span>';return;}
             const d=entity.data;
             let html='';
             if(entity.type==='city'){
                 const tn={capital:'主城',major:'副城',town:'城镇',church:'教廷圣地'};
                 const rn={human:'人类',dwarf:'矮人',elf:'精灵',orc:'兽人',church:'教廷',frontier:'边缘地带'};
-                html='<h3 style="color:var(--accent);margin:0 0 6px 0;font-size:1rem;">'+d.name+'</h3>';
-                html+='<p style="margin:2px 0"><strong>类型:</strong> '+(tn[d.type]||d.type)+' | <strong>种族:</strong> '+(rn[d.race]||d.race)+'</p>';
-                html+='<p style="margin:2px 0"><strong>人口:</strong> '+d.pop+'</p>';
-                html+='<p style="margin:2px 0;color:var(--text-dim)">'+d.feature+'</p>';
-                if(d.type==='capital'){const ft=D.forts.find(f=>f.target===d.name);if(ft)html+='<p style="margin:4px 0;color:#a29bfe"><strong>监视要塞:</strong> '+ft.name+'（'+ft.direction+'）</p>';}
+                html='<strong style="color:var(--accent)">'+d.name+'</strong> ';
+                html+='<span style="color:var(--text-dim)">|'+(tn[d.type]||d.type)+' | '+(rn[d.race]||d.race)+' | 人口:'+d.pop+'</span> ';
+                html+='<span style="color:var(--text-dim)">'+d.feature+'</span>';
+                if(d.type==='capital'){const ft=D.forts.find(f=>f.target===d.name);if(ft)html+=' <span style="color:#a29bfe">| 监视要塞: '+ft.name+'（'+ft.direction+'）</span>';}
             }else if(entity.type==='fort'){
-                html='<h3 style="color:#a29bfe;margin:0 0 6px 0;font-size:1rem;">'+d.name+'</h3>';
-                html+='<p style="margin:2px 0"><strong>镇守:</strong> '+d.king+'</p>';
-                html+='<p style="margin:2px 0"><strong>驻军:</strong> '+d.garrison+'</p>';
-                html+='<p style="margin:2px 0"><strong>监视目标:</strong> '+d.target+'（'+d.direction+'）</p>';
-                html+='<p style="margin:2px 0;color:var(--text-dim)">'+d.desc+'</p>';
+                html='<strong style="color:#a29bfe">'+d.name+'</strong> ';
+                html+='<span style="color:var(--text-dim)">| 镇守:'+d.king+' | 驻军:'+d.garrison+' | 监视目标:'+d.target+'（'+d.direction+'）</span> ';
+                html+='<span style="color:var(--text-dim)">'+d.desc+'</span>';
             }else if(entity.type==='territory'){
-                html='<h3 style="color:var(--accent);margin:0 0 6px 0;font-size:1rem;">'+d.name+'</h3>';
-                html+='<p style="margin:2px 0"><strong>主导种族:</strong> '+d.race+'</p>';
-                html+='<p style="margin:2px 0"><strong>人口:</strong> '+d.pop+'（'+d.ratio+'）</p>';
-                html+='<p style="margin:2px 0;color:var(--text-dim)">'+d.desc+'</p>';
+                html='<strong style="color:var(--accent)">'+d.name+'</strong> ';
+                html+='<span style="color:var(--text-dim)">| 主导种族:'+d.race+' | 人口:'+d.pop+'（'+d.ratio+'）</span> ';
+                html+='<span style="color:var(--text-dim)">'+d.desc+'</span>';
             }
-            box.innerHTML=html;
+            bar.innerHTML=html;
         }
 
         // Events
@@ -178,7 +173,7 @@ window.WorldMapUI = {
                 const mx=e.clientX-rect.left,my=e.clientY-rect.top;
                 if(Math.sqrt((mx-dsx)**2+(my-dsy)**2)<5){
                     const ent=getEntity(mx,my);
-                    sel=ent?ent.data:null;showInfo(ent);draw();
+                    sel=ent?ent.data:null;updateInfoBar(ent);draw();
                 }
             }drag=false;
         });
@@ -193,7 +188,7 @@ window.WorldMapUI = {
         });
 
         draw();
-        ui.setButtons('<button class="back-btn-top" onclick="G.setState(\'SHOP\')">← 返回</button>');
+        ui.setButtons('<button class="back-btn-top" onclick="G.setState(\'SHOP\')">← 返回</button><span id="wm-info-bar" style="margin-left:12px;font-size:0.85rem;vertical-align:middle;"><span style="color:var(--text-dim)">点击地图上的标记查看详细信息...</span></span>');
         } catch (err) {
             ui.appendText('\n[地图渲染错误] ' + err.name + ': ' + err.message, 'danger');
             console.error('WorldMapUI render error:', err);
