@@ -151,6 +151,7 @@ const UI = {
         html += `<button class="game-btn danger" onclick="G.shopAction('dispose')">⚔️ 奴隶处分</button>`;
         html += `<button class="game-btn" onclick="G.setState('MUSEUM')">🏛️ 收藏馆</button>`;
         html += `<button class="game-btn" onclick="UI.renderWorldWiki()">📚 世界百科</button>`;
+        html += `<button class="game-btn" onclick="window.open('worldmap.html','_blank')">🗺️ 世界地图</button>`;
         if (game._dayPhase === 1) {
             html += `<button class="game-btn primary" onclick="G.eventPhase2()">👁️ 观察勇者行动</button>`;
         } else {
@@ -3695,7 +3696,7 @@ const UI = {
         html += `<button class="game-btn" onclick="G.flag[502] = 100; UI.renderConfig(G)">100% (必触发)</button>`;
         html += `<button class="game-btn" onclick="G.flag[502] = 10; UI.renderConfig(G)">恢复默认 (10%)</button>`;
         html += '</div>';
-        this.setButtons(`<button class="back-btn-top" onclick="G.setState('SHOP')">← 返回</button><button class="game-btn" style="margin-left:8px;" onclick="UI.renderTalentHelp()">📖 素质帮助</button><button class="game-btn" style="margin-left:8px;" onclick="UI.renderWorldWiki()">🌍 世界百科</button>` + html);
+        this.setButtons(`<button class="back-btn-top" onclick="G.setState('SHOP')">← 返回</button><button class="game-btn" style="margin-left:8px;" onclick="UI.renderTalentHelp()">📖 素质帮助</button><button class="game-btn" style="margin-left:8px;" onclick="UI.renderWorldWiki()">🌍 世界百科</button><button class="game-btn" style="margin-left:8px;" onclick="window.open('worldmap.html','_blank')">🗺️ 世界地图</button>` + html);
     },
 
     // ========== 弹窗 ==========
