@@ -4558,3 +4558,4 @@ const UI = {
         }
     }
 };
+window.UI = UI;
