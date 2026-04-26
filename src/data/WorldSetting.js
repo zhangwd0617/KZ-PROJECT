@@ -341,12 +341,13 @@ window.HERO_PARTY_ROLES = {
   }
 };
 
+// V8.0: 勇者稀有度改为动态系统（基于魔王天数生成 + 个人声望晋升）
 window.HERO_RARITY_DEFS = {
-  N:  { name: "N",  label: "普通",     prob: 60, desc: "普通冒险者，基础属性" },
-  R:  { name: "R",  label: "精英",     prob: 25, desc: "精英，某属性突出" },
-  SR: { name: "SR", label: "英雄",     prob: 10, desc: "英雄，特殊技能" },
-  SSR:{ name: "SSR",label: "传说",     prob: 4,  desc: "高全属性" },
-  UR: { name: "UR", label: "唯一",     prob: 1,  desc: "专属剧情角色" }
+  N:   { name: "N",   label: "普通", bonus: 1.0, desc: "基础属性" },
+  R:   { name: "R",   label: "精英", bonus: 1.1, desc: "全属性+10%" },
+  SR:  { name: "SR",  label: "英雄", bonus: 1.2, desc: "全属性+20%" },
+  SSR: { name: "SSR", label: "传说", bonus: 1.35, desc: "全属性+35%" },
+  UR:  { name: "UR",  label: "唯一", bonus: 1.5, desc: "全属性+50%" }
 };
 
 window.HERO_RACE_SOURCES = {

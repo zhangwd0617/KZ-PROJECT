@@ -29,3 +29,5 @@ _scanWindowModules();
 
 // Also scan after a short delay to catch any late-loaded scripts
 setTimeout(_scanWindowModules, 0);
+
+window.DIALOGUE_REGISTRY = DIALOGUE_REGISTRY;

@@ -81,3 +81,5 @@ const DialogueLoader = {
         return bucket[Math.floor(Math.random() * bucket.length)];
     }
 };
+
+window.DialogueLoader = DialogueLoader;

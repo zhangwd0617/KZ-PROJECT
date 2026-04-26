@@ -31,7 +31,7 @@ Game.prototype.refreshSlaveMarket = function() {
     // ========== 肉体改造==========
 Game.prototype._calcGearPrice = function(gear) {
         if (!gear) return 0;
-        const basePrices = [10, 100, 1000, 10000, 100000, 1000000];
+        const basePrices = [0, 100, 1000, 10000, 150000, 300000];
         const base = basePrices[gear.rarity] || 10;
         const levelMult = 1 + (gear.level || 1) * 0.02;
         let price = Math.floor(base * levelMult);

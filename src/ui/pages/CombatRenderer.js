@@ -41,6 +41,7 @@ Object.assign(UI, {
                         <div style="font-size:1.3rem;font-weight:bold;align-self:center;color:var(--accent);">VS</div>
                         <div id="combat-right" style="flex:1;background:var(--bg);border-radius:8px;padding:10px;text-align:center;"></div>
                     </div>
+                    <div id="combat-reason" style="display:none;margin-bottom:10px;padding:8px 12px;background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.3);border-radius:6px;font-size:0.82rem;color:var(--accent);text-align:center;"></div>
                     <div id="combat-log" style="flex:1;overflow-y:auto;max-height:260px;background:var(--bg);border-radius:8px;padding:10px;font-size:0.82rem;line-height:1.7;border:1px solid var(--border);"></div>
                     <div style="display:flex;gap:10px;margin-top:12px;justify-content:center;flex-shrink:0;">
                         <button id="combat-auto-btn" class="game-btn" onclick="UI.toggleCombatAuto()">⏸️ 暂停</button>
@@ -67,16 +68,25 @@ Object.assign(UI, {
         const modal = document.getElementById('combat-modal');
         modal.style.display = 'flex';
 
-        // 更新标题
+        // V10.0: 生成战斗原因，优先用于标题
+        const reasonText = this._generateCombatReason(battle);
         const title = document.getElementById('combat-title');
-        let heroName = battle.hero ? battle.hero.name : '勇者';
-        let monName = battle.monster ? battle.monster.name : '怪物';
-        if (battle.leftTeam && battle.leftTeam.length > 1) heroName = (battle.heroName || '勇者') + '小队';
-        if (battle.rightTeam && battle.rightTeam.length > 1) monName = '怪物小队';
-        title.textContent = `⚔️ ${heroName} vs ${monName}`;
+        if (reasonText) {
+            title.textContent = `⚔️ ${reasonText}`;
+        } else {
+            let heroName = battle.hero ? battle.hero.name : '勇者';
+            let monName = battle.monster ? battle.monster.name : '怪物';
+            if (battle.leftTeam && battle.leftTeam.length > 1) heroName = (battle.heroName || '勇者') + '小队';
+            if (battle.rightTeam && battle.rightTeam.length > 1) monName = '怪物小队';
+            title.textContent = `⚔️ ${heroName} vs ${monName}`;
+        }
 
         // 渲染双方信息
         this._renderCombatSides(battle);
+
+        // 隐藏独立的战斗原因条（已合并到标题）
+        const reasonEl = document.getElementById('combat-reason');
+        if (reasonEl) reasonEl.style.display = 'none';
 
         // 清空日志
         const logEl = document.getElementById('combat-log');
@@ -123,14 +133,31 @@ Object.assign(UI, {
             const isSpy = u.isSpy || (u.entity && u.entity.talent && u.entity.cflag[912]);
             const isLeader = u.entity && u.entity.cflag && u.entity.cflag[CFLAGS.SQUAD_LEADER] === 1;
             const leaderLabel = isLeader ? '★' : '';
-            const spyLabel = isSpy ? ' <span style="color:var(--danger);font-size:0.65rem;">(伪装)</span>' : '';
-            const initHp = u.initialHp !== undefined ? u.initialHp : (parsed.initialHeroHp !== null && i === 0 ? parsed.initialHeroHp : u.hp);
-            const initMp = u.initialMp !== undefined ? u.initialMp : u.mp;
+            const spyLabel = isSpy ? ' <span style="color:var(--danger);font-size:0.65rem;">💀叛</span>' : '';
+            const reinfLabel = (u.entity && u.entity._isReinforcement) ? '<span style="color:var(--warning);font-size:0.65rem;">🆘援</span> ' : '';
+            // V7.2: 位置标记
+            const posMap = {front:'前排',middle:'中排',back:'后排'};
+            let posLabel = '';
+            if (u.position && posMap[u.position]) {
+                posLabel = ` <span style="color:var(--info);font-size:0.6rem;">[${posMap[u.position]}]</span>`;
+            } else if (u.entity && !u.isMonster) {
+                const role = window.CLASS_DEFS && window.CLASS_DEFS[u.entity.cflag && u.entity.cflag[CFLAGS.HERO_CLASS]] && window.CLASS_DEFS[u.entity.cflag[CFLAGS.HERO_CLASS]].role;
+                const pos = role && (role === 'tank' || role === 'front_dps' || role === 'front_burst' || role === 'brawler' || role === 'combo_burst' || role === 'holy_tank' || role === 'mounted_pierce') ? 'front' :
+                            (role === 'magic_dps' || role === 'magic_aoe' || role === 'healer' || role === 'healer_core' || role === 'healer_buff' || role === 'healer_dot' || role === 'extreme_heal' || role === 'holy_seal') ? 'back' : 'middle';
+                if (posMap[pos]) posLabel = ` <span style="color:var(--info);font-size:0.6rem;">[${posMap[pos]}]</span>`;
+            }
+            const initHp = u.hp !== undefined ? u.hp : (parsed.initialHeroHp !== null && i === 0 ? parsed.initialHeroHp : 0);
+            const initMp = u.initialMp !== undefined ? u.initialMp : (u.mp !== undefined ? u.mp : (u.entity ? u.entity.mp : 0));
+            const maxMp = u.maxMp !== undefined ? u.maxMp : (u.entity ? u.entity.maxMp : 1);
             const hpPct = u.maxHp > 0 ? Math.floor(initHp / u.maxHp * 100) : 0;
-            const mpPct = u.maxMp > 0 ? Math.floor(initMp / u.maxMp * 100) : 0;
-            leftHtml += `<div style="font-size:0.75rem;margin:2px 0;">${leaderLabel}${u.name} Lv.${u.level}${spyLabel}</div>`;
+            const mpPct = maxMp > 0 ? Math.floor(initMp / maxMp * 100) : 0;
+            const hpBarColor = 'background:linear-gradient(90deg,var(--success),#8bc34a);';
+            const elIcons = this._getUnitElementIcons(u.entity);
+            leftHtml += `<div style="font-size:0.75rem;margin:2px 0;">${leaderLabel}${reinfLabel}${u.name} Lv.${u.level}${posLabel}${spyLabel}${elIcons}</div>`;
             leftHtml += `<div style="display:flex;justify-content:space-between;font-size:0.7rem;margin-bottom:2px;"><span>HP</span><span id="combat-left-hp-text-${i}">${initHp}/${u.maxHp}</span></div>`;
-            leftHtml += `<div style="height:6px;background:var(--hp-bg);border-radius:3px;overflow:hidden;margin-bottom:4px;"><div id="combat-left-hp-bar-${i}" style="height:100%;width:${hpPct}%;background:linear-gradient(90deg,var(--success),#8bc34a);border-radius:3px;transition:width 0.3s;"></div></div>`;
+            leftHtml += `<div style="height:6px;background:var(--hp-bg);border-radius:3px;overflow:hidden;margin-bottom:2px;"><div id="combat-left-hp-bar-${i}" style="height:100%;width:${hpPct}%;${hpBarColor}border-radius:3px;transition:width 0.3s;"></div></div>`;
+            leftHtml += `<div style="display:flex;justify-content:space-between;font-size:0.65rem;margin-bottom:2px;color:var(--info);"><span>MP</span><span id="combat-left-mp-text-${i}">${initMp}/${maxMp}</span></div>`;
+            leftHtml += `<div style="height:4px;background:var(--mp-bg);border-radius:2px;overflow:hidden;margin-bottom:4px;"><div id="combat-left-mp-bar-${i}" style="height:100%;width:${mpPct}%;background:var(--mp-fill);border-radius:2px;transition:width 0.3s;"></div></div>`;
         }
         left.innerHTML = leftHtml || '<div style="color:var(--text-dim);font-size:0.8rem;">无参战单位</div>';
 
@@ -160,12 +187,31 @@ Object.assign(UI, {
             if (isExHero) icon = '🛡️';
             else if (isHero) icon = '🗡️';
             else if (u.entity && u.entity.icon) icon = u.entity.icon;
+            // V7.2: 援军/背叛标记（怪物方的勇者）
+            const reinfLabel = (u.entity && u.entity._isReinforcement) ? '<span style="color:var(--warning);font-size:0.65rem;">🆘援</span> ' : '';
+            const betrayLabel = (u.entity && u.entity.cflag && u.entity.cflag[912]) ? '<span style="color:var(--danger);font-size:0.65rem;">💀叛</span> ' : '';
+            const posMap = {front:'前排',middle:'中排',back:'后排'};
+            let posLabel = '';
+            if (u.position && posMap[u.position]) {
+                posLabel = ` <span style="color:var(--info);font-size:0.6rem;">[${posMap[u.position]}]</span>`;
+            } else if (u.entity && isHero) {
+                const role = window.CLASS_DEFS && window.CLASS_DEFS[u.entity.cflag && u.entity.cflag[CFLAGS.HERO_CLASS]] && window.CLASS_DEFS[u.entity.cflag[CFLAGS.HERO_CLASS]].role;
+                const pos = role && (role === 'tank' || role === 'front_dps' || role === 'front_burst' || role === 'brawler' || role === 'combo_burst' || role === 'holy_tank' || role === 'mounted_pierce') ? 'front' :
+                            (role === 'magic_dps' || role === 'magic_aoe' || role === 'healer' || role === 'healer_core' || role === 'healer_buff' || role === 'healer_dot' || role === 'extreme_heal' || role === 'holy_seal') ? 'back' : 'middle';
+                if (posMap[pos]) posLabel = ` <span style="color:var(--info);font-size:0.6rem;">[${posMap[pos]}]</span>`;
+            }
             const eliteLabel = u.entity && u.entity.eliteType === 'chief' ? '【首领】' : (u.entity && u.entity.eliteType === 'overlord' ? '【霸主】' : '');
-            const initHp = u.initialHp !== undefined ? u.initialHp : (parsed.initialMonHp !== null && i === 0 ? parsed.initialMonHp : u.hp);
+            const initHp = u.hp !== undefined ? u.hp : (parsed.initialMonHp !== null && i === 0 ? parsed.initialMonHp : 0);
+            const initMp = u.initialMp !== undefined ? u.initialMp : (u.mp !== undefined ? u.mp : (u.entity ? u.entity.mp : 0));
+            const maxMp = u.maxMp !== undefined ? u.maxMp : (u.entity ? u.entity.maxMp : 1);
             const hpPct = u.maxHp > 0 ? Math.floor(initHp / u.maxHp * 100) : 0;
-            rightHtml += `<div style="font-size:0.75rem;margin:2px 0;">${leaderLabel}${icon} ${u.name} Lv.${u.level} <span style="color:var(--text-dim);font-size:0.65rem;">${eliteLabel}</span></div>`;
+            const mpPct = maxMp > 0 ? Math.floor(initMp / maxMp * 100) : 0;
+            const elIcons = this._getUnitElementIcons(u.entity);
+            rightHtml += `<div style="font-size:0.75rem;margin:2px 0;">${leaderLabel}${reinfLabel}${betrayLabel}${icon} ${u.name} Lv.${u.level}${posLabel} <span style="color:var(--text-dim);font-size:0.65rem;">${eliteLabel}</span>${elIcons}</div>`;
             rightHtml += `<div style="display:flex;justify-content:space-between;font-size:0.7rem;margin-bottom:2px;"><span>HP</span><span id="combat-right-hp-text-${i}">${initHp}/${u.maxHp}</span></div>`;
-            rightHtml += `<div style="height:6px;background:var(--hp-bg);border-radius:3px;overflow:hidden;margin-bottom:4px;"><div id="combat-right-hp-bar-${i}" style="height:100%;width:${hpPct}%;background:linear-gradient(90deg,var(--danger),#ff7043);border-radius:3px;transition:width 0.3s;"></div></div>`;
+            rightHtml += `<div style="height:6px;background:var(--hp-bg);border-radius:3px;overflow:hidden;margin-bottom:2px;"><div id="combat-right-hp-bar-${i}" style="height:100%;width:${hpPct}%;background:linear-gradient(90deg,var(--danger),#ff7043);border-radius:3px;transition:width 0.3s;"></div></div>`;
+            rightHtml += `<div style="display:flex;justify-content:space-between;font-size:0.65rem;margin-bottom:2px;color:var(--info);"><span>MP</span><span id="combat-right-mp-text-${i}">${initMp}/${maxMp}</span></div>`;
+            rightHtml += `<div style="height:4px;background:var(--mp-bg);border-radius:2px;overflow:hidden;margin-bottom:4px;"><div id="combat-right-mp-bar-${i}" style="height:100%;width:${mpPct}%;background:var(--mp-fill);border-radius:2px;transition:width 0.3s;"></div></div>`;
         }
         right.innerHTML = rightHtml || '<div style="color:var(--text-dim);font-size:0.8rem;">无参战单位</div>';
     },
@@ -176,6 +222,93 @@ Object.assign(UI, {
         if (window.CLASS_DEFS && window.CLASS_DEFS[clsId]) return window.CLASS_DEFS[clsId].name;
         if (!clsId || !HERO_CLASS_DEFS || !HERO_CLASS_DEFS[clsId]) return '';
         return HERO_CLASS_DEFS[clsId].name;
+    },
+
+    // V10.0: 获取单位元素图标（战斗界面缩写显示）
+    _getUnitElementIcons(entity) {
+        if (!entity) return '';
+        // 优先从职业获取元素
+        const clsId = entity.cflag ? (entity.cflag[CFLAGS.CLASS_ID] || entity.cflag[CFLAGS.HERO_CLASS]) : 0;
+        const clsDef = clsId && window.CLASS_DEFS ? window.CLASS_DEFS[clsId] : null;
+        let elements = clsDef && clsDef.element ? clsDef.element : [];
+        // 如果职业没有元素，尝试从种族获取
+        if (elements.length === 0 || (elements.length === 1 && elements[0] === 'none')) {
+            const raceId = entity.cflag ? entity.cflag[CFLAGS.FALLEN_RACE_ID] : 0;
+            const raceId2 = entity.talent ? entity.talent[314] : 0;
+            const rt = window.RACE_TRAITS ? (window.RACE_TRAITS[raceId] || window.RACE_TRAITS[raceId2]) : null;
+            if (rt && rt.element) elements = rt.element;
+        }
+        if (!elements || elements.length === 0 || (elements.length === 1 && elements[0] === 'none')) return '';
+        const icons = elements.map(e => window.ELEMENT_ICONS ? (window.ELEMENT_ICONS[e] || '') : '').filter(Boolean);
+        if (icons.length === 0) return '';
+        return `<span style="margin-left:3px;font-size:0.7rem;opacity:0.85;">${icons.join('')}</span>`;
+    },
+
+    // V10.0: 生成战斗原因描述
+    _generateCombatReason(battle) {
+        const log = battle.combatLog || [];
+        const leftTeam = battle.leftTeam || [];
+        const rightTeam = battle.rightTeam || [];
+
+        // 1. 背叛/叛变检测
+        const hasBetrayal = battle.betrayed || log.some(l => l.includes('叛变') || l.includes('叛变了'));
+        if (hasBetrayal) {
+            const spyNames = [];
+            for (const l of log) {
+                const m = l.match(/(.+?)叛变了/);
+                if (m) spyNames.push(m[1].replace(/[,，]/g, ''));
+            }
+            if (spyNames.length > 0) {
+                return `💀 ${spyNames.join('、')} 在战斗中背叛了同伴！`;
+            }
+            return '💀 队伍中出现背叛者，内战爆发！';
+        }
+
+        // 2. 判断是否为勇者内战（双方都是勇者）
+        const leftHeroes = leftTeam.filter(u => u.entity && u.entity.talent && !u.entity.talent[200] && !u.isMonster);
+        const rightHeroes = rightTeam.filter(u => u.entity && u.entity.talent && !u.entity.talent[200] && !u.isMonster);
+        const isCivilWar = leftHeroes.length > 0 && rightHeroes.length > 0;
+
+        if (isCivilWar) {
+            const a = leftHeroes[0].entity;
+            const b = rightHeroes[0].entity;
+            const game = (typeof G !== 'undefined') ? G : null;
+            let relationReason = '';
+            if (game && game._getHeroRelation) {
+                const rel = game._getHeroRelation(a, b);
+                const relLabels = ['不死不休', '敌视', '点头之交', '好感', '莫逆之交'];
+                const relLabel = relLabels[rel.level] || '点头之交';
+                if (rel.level <= 0) relationReason = '两人关系已降至「不死不休」，誓要分出胜负';
+                else if (rel.level === 1) relationReason = '双方互相敌视，见面便拔刀相向';
+                else if (rel.level >= 4) relationReason = '昔日莫逆之交因理念分歧而反目';
+                else relationReason = `双方关系为「${relLabel}」，一言不合便动起手来`;
+            }
+            // 检查是否有情敌/竞争等具体原因
+            if (!relationReason) relationReason = '勇者之间因理念不合爆发冲突';
+            return `⚔️ 勇者内战 — ${relationReason}`;
+        }
+
+        // 3. 怪物战斗：判断怪物类型
+        const monsters = rightTeam.filter(u => u.isMonster || (u.entity && !u.entity.talent));
+        if (monsters.length > 0) {
+            const mon = monsters[0].entity || monsters[0];
+            if (mon.eliteType === 'chief') return '👑 遭遇首领怪物！一场恶战在所难免';
+            if (mon.eliteType === 'overlord') return '💀 霸主级怪物现身！生死存亡之战';
+            if (log.some(l => l.includes('伏击'))) return '🌑 遭到怪物伏击！';
+            if (log.some(l => l.includes('遭遇'))) return '👹 地下城遭遇战';
+            return '👹 遭遇地下城怪物';
+        }
+
+        // 4. 奴隶/魔王 vs 勇者
+        const leftSlaves = leftTeam.filter(u => u.entity && u.entity.talent && u.entity.talent[200]);
+        const leftMaster = leftTeam.filter(u => u.entity && G && G.getMaster && G.getMaster() === u.entity);
+        if (leftMaster.length > 0) return '👑 魔王亲自出马迎战入侵者！';
+        if (leftSlaves.length > 0) return `⛓️ ${leftSlaves[0].entity.name}奉命伏击勇者`;
+
+        // 5. 其他情况
+        if (log.some(l => l.includes('偷袭'))) return '🗡️ 偷袭战';
+        if (log.some(l => l.includes('遭遇'))) return '⚔️ 遭遇战';
+        return '';
     },
 
     // 解析 combatLog 为回合数据
@@ -235,10 +368,17 @@ Object.assign(UI, {
                     // 解析 name:hp/maxHp
                     const parseUnits = (str) => {
                         const units = [];
-                        const regex = /([^:]+):(\d+)\/(\d+)/g;
+                        // V10.0: 解析HP和MP，格式: name:hp/maxHp(MPmp/maxMp)
+                        const regex = /([^:]+):(\d+)\/(\d+)(?:\(MP(\d+)\/(\d+)\))?/g;
                         let m;
                         while ((m = regex.exec(str)) !== null) {
-                            units.push({ name: m[1].trim(), hp: parseInt(m[2]), maxHp: parseInt(m[3]) });
+                            units.push({ 
+                                name: m[1].trim(), 
+                                hp: parseInt(m[2]), 
+                                maxHp: parseInt(m[3]),
+                                mp: m[4] ? parseInt(m[4]) : undefined,
+                                maxMp: m[5] ? parseInt(m[5]) : undefined
+                            });
                         }
                         return units;
                     };
@@ -291,11 +431,11 @@ Object.assign(UI, {
         }
     },
 
-    // 更新战斗双方HP条（支持多单位）
+    // 更新战斗双方HP/MP条（支持多单位）
     _updateCombatHpBars(snapshot) {
         if (!snapshot) return;
 
-        // 更新左侧单位HP（使用回合快照）
+        // 更新左侧单位HP/MP
         for (let i = 0; i < snapshot.left.length; i++) {
             const u = snapshot.left[i];
             const hpBar = document.getElementById(`combat-left-hp-bar-${i}`);
@@ -305,9 +445,16 @@ Object.assign(UI, {
                 hpBar.style.width = hpPct + '%';
                 hpText.textContent = `${u.hp}/${u.maxHp}`;
             }
+            const mpBar = document.getElementById(`combat-left-mp-bar-${i}`);
+            const mpText = document.getElementById(`combat-left-mp-text-${i}`);
+            if (mpBar && mpText && u.maxMp !== undefined && u.maxMp > 0) {
+                const mpPct = Math.floor((u.mp || 0) / u.maxMp * 100);
+                mpBar.style.width = mpPct + '%';
+                mpText.textContent = `${u.mp || 0}/${u.maxMp}`;
+            }
         }
 
-        // 更新右侧单位HP（使用回合快照）
+        // 更新右侧单位HP/MP
         for (let i = 0; i < snapshot.right.length; i++) {
             const u = snapshot.right[i];
             const hpBar = document.getElementById(`combat-right-hp-bar-${i}`);
@@ -316,6 +463,13 @@ Object.assign(UI, {
                 const hpPct = Math.floor(u.hp / u.maxHp * 100);
                 hpBar.style.width = hpPct + '%';
                 hpText.textContent = `${u.hp}/${u.maxHp}`;
+            }
+            const mpBar = document.getElementById(`combat-right-mp-bar-${i}`);
+            const mpText = document.getElementById(`combat-right-mp-text-${i}`);
+            if (mpBar && mpText && u.maxMp !== undefined && u.maxMp > 0) {
+                const mpPct = Math.floor((u.mp || 0) / u.maxMp * 100);
+                mpBar.style.width = mpPct + '%';
+                mpText.textContent = `${u.mp || 0}/${u.maxMp}`;
             }
         }
     },
@@ -382,7 +536,15 @@ Object.assign(UI, {
             else if (text.includes('🌿') || text.includes('✨')) div.style.color = 'var(--success)';
             else if (text.includes('🔮') || text.includes('💪')) div.style.color = '#64b5f6';
         }
-        div.textContent = text;
+        // 必杀技高亮：技能名「...」用高亮样式包裹
+        if (text.includes('【必杀技】')) {
+            div.style.color = 'var(--danger)';
+            div.style.fontWeight = 'bold';
+            div.style.textShadow = '0 0 4px rgba(255,0,0,0.3)';
+        }
+        // 将「技能名」替换为高亮span
+        const html = text.replace(/「([^」]+)」/g, '<span style="color:#ff4444;font-weight:bold;text-shadow:0 0 3px rgba(255,68,68,0.4);">「$1」</span>');
+        div.innerHTML = html;
         logEl.appendChild(div);
     },
 

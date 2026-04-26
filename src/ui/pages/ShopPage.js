@@ -7,10 +7,52 @@ Object.assign(UI, {
         this.clearButtons();
         this._shopSelected = null;
 
-        const html = `
+        let html = `
         <div style="margin-bottom:8px;">
-            <span style="color:var(--accent);font-weight:bold;font-size:1.05rem;">【商店】</span>
+            <span style="color:var(--accent);font-weight:bold;font-size:1.05rem;">🔮 神秘升级</span>
             <span style="color:var(--text-dim);font-size:0.85rem;">持有金钱: ${game.money}G</span>
+        </div>
+        <div class="btn-grid" style="margin-bottom:12px;">`;
+
+        // 设施升级（监狱已移除，保留肉体改造室和魔力研究室）
+        for (const fid of [3, 8]) {
+            const def = FACILITY_DEFS[fid];
+            if (!def) continue;
+            const curLv = game.getFacilityLevel(fid);
+            const maxed = curLv >= def.maxLv;
+            const check = game.canBuildFacility(fid);
+            html += `<button class="game-btn ${maxed?'':(check.ok?'accent':'')}" onclick="${maxed?'':`if(G.buildFacility(${fid})){UI.renderMergedShop(G);}`}" style="text-align:left;">`;
+            html += `<div style="font-weight:bold;">${def.icon} ${def.name} Lv.${curLv}/${def.maxLv}</div>`;
+            if (!maxed) {
+                html += `<div style="font-size:0.72rem;color:var(--text-dim);">${def.description}</div>`;
+                html += `<div style="font-size:0.72rem;">升级费用: ${check.cost || def.cost[curLv]}G | 下一级: ${def.effects[curLv] || '---'}</div>`;
+                if (!check.ok) html += `<div style="font-size:0.7rem;color:var(--danger);">${check.reason}</div>`;
+            } else {
+                html += `<div style="font-size:0.72rem;color:var(--success);">已满级 ✓</div>`;
+            }
+            html += `</button>`;
+        }
+
+        // 已解锁的功能入口
+        const bodyLv = game.getFacilityLevel(3);
+        const magicLv = game.getFacilityLevel(8);
+        if (bodyLv >= 1) {
+            html += `<button class="game-btn" onclick="UI.renderBodyModification(G)" style="text-align:left;">`;
+            html += `<div style="font-weight:bold;">🔬 肉体改造</div>`;
+            html += `<div style="font-size:0.72rem;color:var(--text-dim);">对奴隶进行肉体改造，解锁特殊Play</div>`;
+            html += `</button>`;
+        }
+        if (magicLv >= 1) {
+            html += `<button class="game-btn" onclick="UI.renderMagicResearch(G)" style="text-align:left;">`;
+            html += `<div style="font-weight:bold;">🔮 魔法研究</div>`;
+            html += `<div style="font-size:0.72rem;color:var(--text-dim);">查看已解锁的御敌策略与魔法</div>`;
+            html += `</button>`;
+        }
+        html += `</div>`;
+
+        html += `
+        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
+            <div style="color:var(--accent);font-weight:bold;font-size:1rem;margin-bottom:8px;">🛒 商店</div>
         </div>
         <div class="shop-split">
             <div class="shop-list-col" id="shop-list">
@@ -37,10 +79,12 @@ Object.assign(UI, {
             const item = ITEM_DEFS[itemId];
             if (!item) continue;
             const owned = game.item[itemId] || 0;
+            // V7.1: 已拥有的道具从商店隐藏
+            if (owned > 0) continue;
             const afford = game.money >= item.price;
             html += `<button class="shop-item-btn ${afford?'':'danger'}" data-type="item" data-id="${itemId}" onclick="UI.showMergedShopDetail(G,'item',${itemId})">`;
             html += `<div style="font-weight:bold;">${item.name}</div>`;
-            html += `<div style="font-size:0.72rem;color:var(--text-dim);">${item.price}G | 持有${owned}</div>`;
+            html += `<div style="font-size:0.72rem;color:var(--text-dim);">${item.price}G</div>`;
             html += `</button>`;
         }
         return html;
@@ -90,9 +134,11 @@ Object.assign(UI, {
             html += `<div class="shop-detail-title">${item.name}</div>`;
             html += `<div class="shop-detail-row">类型: ${item.type || '道具'}</div>`;
             html += `<div class="shop-detail-row">价格: ${item.price}G</div>`;
-            html += `<div class="shop-detail-row">当前持有: ${owned}</div>`;
+            html += `<div class="shop-detail-row">状态: ${owned > 0 ? '✅ 已拥有（无限使用）' : '未拥有'}</div>`;
             html += `<div class="shop-detail-desc">${this._getItemDesc(item)}</div>`;
-            if (afford) {
+            if (owned > 0) {
+                html += `<button class="game-btn" disabled style="width:100%;margin-top:8px;">✅ 已拥有</button>`;
+            } else if (afford) {
                 html += `<button class="game-btn accent" style="width:100%;margin-top:8px;" onclick="G.shopSystem.buy(${id}); UI.refreshMergedShop(G)">💰 购买</button>`;
             } else {
                 html += `<button class="game-btn danger" disabled style="width:100%;margin-top:8px;">金钱不足 (${item.price}G)</button>`;
@@ -149,10 +195,12 @@ Object.assign(UI, {
             const item = ITEM_DEFS[itemId];
             if (!item) continue;
             const owned = game.item[itemId] || 0;
+            // V7.1: 已拥有的道具从商店隐藏
+            if (owned > 0) continue;
             const afford = game.money >= item.price;
             html += `<button class="game-btn ${afford?'':'danger'}" onclick="UI.showItemDetail(G,${itemId})" style="text-align:left;">`;
             html += `<div style="font-weight:bold;">${item.name}</div>`;
-            html += `<div style="font-size:0.75rem;">${item.price}G | 持有${owned}</div>`;
+            html += `<div style="font-size:0.75rem;">${item.price}G</div>`;
             html += `</button>`;
         }
 
@@ -171,7 +219,7 @@ Object.assign(UI, {
         this.appendText(`${item.name}`, "accent");
         this.appendText(`类型: ${item.type || '道具'}`);
         this.appendText(`价格: ${item.price}G`);
-        this.appendText(`当前持有: ${owned}`);
+        this.appendText(`状态: ${owned > 0 ? '✅ 已拥有（无限使用）' : '未拥有'}`);
         this.appendDivider();
         this.appendText(`效果说明:`);
         this.appendText(this._getItemDesc(item));
@@ -179,7 +227,9 @@ Object.assign(UI, {
 
         this.clearButtons();
         let html = '<div class="btn-grid">';
-        if (afford) {
+        if (owned > 0) {
+            html += `<button class="game-btn" disabled>✅ 已拥有</button>`;
+        } else if (afford) {
             html += `<button class="game-btn accent" onclick="G.shopSystem.buy(${itemId}); UI.renderItemShop(G)">💰 购买</button>`;
         } else {
             html += `<button class="game-btn danger" disabled>金钱不足 (${item.price}G)</button>`;

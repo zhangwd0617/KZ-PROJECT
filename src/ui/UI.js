@@ -33,10 +33,14 @@ const UI = {
     },
     clearButtons() { this.buttonArea.innerHTML = ''; },
 
-    appendText(text, type = "") {
+    appendText(text, type = "", isHtml = false) {
         const div = document.createElement('div');
         div.className = 'line' + (type ? ' line-' + type : '');
-        div.textContent = text;
+        if (isHtml) {
+            div.innerHTML = text;
+        } else {
+            div.textContent = text;
+        }
         const trainContainer = document.getElementById('train-text-main');
         if (trainContainer && G && G.state === 'TRAIN') {
             trainContainer.appendChild(div);
@@ -72,9 +76,10 @@ const UI = {
     },
 
     updateTopBar(game) {
-        const times = ["朝", "昼", "夕", "夜"];
+        // V12.0: 显示阶段名称（调教/冒险）
+        const phaseNames = { train: '调教阶段', adventure: '冒险阶段' };
         document.getElementById('day-display').textContent = `第 ${game.day} 天`;
-        document.getElementById('time-display').textContent = times[game.time] || "朝";
+        document.getElementById('time-display').textContent = phaseNames[game.phase] || '调教阶段';
         document.getElementById('money-display').textContent = `💰 ${game.money}G`;
         const masterRankEl = document.getElementById('master-rank-display');
         if (masterRankEl && game) {
@@ -90,7 +95,9 @@ const UI = {
         if (fameEl && game) {
             const fame = game.flag[503] || 0;
             const fameLv = game.getMasterFameLevel ? game.getMasterFameLevel() : Math.floor(fame / 100);
-            fameEl.textContent = `🏆 地下城声望 ${fame} (+${fameLv}级)`;
+            // V4.1: Dungeon fame is now displayed as a currency
+            fameEl.textContent = `🏆 ${fame} (+${fameLv}级)`;
+            fameEl.title = `地下城声望：魔王专用货币\n当前：${fame}\n等级：${fameLv}\n来源：地下城探索、奴隶Stage5技艺、设施升级`;
         }
     },
 
@@ -143,17 +150,19 @@ const UI = {
         html += `<button class="game-btn accent" onclick="UI.showTargetSelect()">选择调教目标</button>`;
         html += `<button class="game-btn" onclick="UI.showAssiSelect()">选择助手</button>`;
         html += `<button class="game-btn" onclick="G.shopAction('chara_info')">角色信息</button>`;
-        html += `<button class="game-btn" onclick="G.shopAction('merged_shop')">🛒 商店</button>`;
+        html += `<button class="game-btn" onclick="G.shopAction('merged_shop')">🛒 商店 & 升级</button>`;
         html += `<button class="game-btn accent" onclick="G.shopAction('slave_market')">🏛️ 奴隶市场</button>`;
-        html += `<button class="game-btn" onclick="G.shopAction('mystery_upgrade')">🔮 神秘升级</button>`;
         html += `<button class="game-btn accent" onclick="UI.renderSlaveTaskAssignmentList(G)">📋 任务分配</button>`;
         html += `<button class="game-btn" onclick="UI.renderPrison(G)">⛓️ 俘虏管理</button>`;
         html += `<button class="game-btn danger" onclick="G.shopAction('dispose')">⚔️ 奴隶处分</button>`;
         html += `<button class="game-btn" onclick="G.setState('MUSEUM')">🏛️ 收藏馆</button>`;
+        html += `<button class="game-btn" onclick="UI.renderAlchemy(G)">⚗️ 炼金工房</button>`;
         html += `<button class="game-btn" onclick="UI.renderWorldWiki()">📚 世界百科</button>`;
         html += `<button class="game-btn" onclick="G.setState('MAP')">🗺️ 世界地图</button>`;
-        if (game._dayPhase === 1) {
-            html += `<button class="game-btn primary" onclick="G.eventPhase2()">👁️ 观察勇者行动</button>`;
+        html += `<button class="game-btn" onclick="UI.renderTown(G)">🏘️ 铁砧镇</button>`;
+        // V12.0: 根据阶段显示不同按钮
+        if (game.phase === 'adventure') {
+            html += `<button class="game-btn primary" onclick="G.eventPhase2()">👁️ 观察勇者活动</button>`;
         } else {
             html += `<button class="game-btn" onclick="G.shopAction('rest')">💤 结束一天</button>`;
         }
@@ -205,7 +214,7 @@ const UI = {
         this.clearText();
         this.appendText(`【选择助手】\n`, "accent");
         this.appendDivider();
-        this.appendText(`<div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:8px;">⚠️ 只有完全陷落（服从刻印Lv3+）的奴隶才会愿意担任助手</div>`);
+        this.appendText(`<div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:8px;">⚠️ 只有完全陷落（服从刻印Lv3+）的奴隶才会愿意担任助手</div>`, '', true);
 
         const target = game.getTarget();
         const assi = game.getAssi();
@@ -331,11 +340,11 @@ const UI = {
 
     _formatEffectText(key, val) {
         const map = {
-            mark0: `服从度`, mark1: `快乐刻印`, mark2: `屈服刻印`, mark3: `反抗刻印`, mark4: `恐怖刻印`, mark5: `淫乱刻印`, mark6: `反发刻印`, mark7: `哀伤刻印`,
+            mark0: `屈服刻印`, mark1: `快乐刻印`, mark2: `侍奉刻印`, mark3: `反抗刻印`, mark4: `猎奇刻印`, mark5: `淫乱刻印`, mark6: `征服刻印`, mark7: `悲恋刻印`,
             abl0: `阴蒂感觉`, abl1: `胸部感觉`, abl2: `阴道感觉`, abl3: `肛门感觉`, abl4: `口腔感觉`,
             abl10: `顺从`, abl11: `欲望`, abl12: `技巧`, abl13: `侍奉技术`, abl14: `性交技术`, abl15: `话术`, abl16: `侍奉精神`, abl17: `露出癖`,
             abl20: `抖S气质`, abl21: `抖M气质`, abl22: `百合气质`, abl23: `搞基气质`,
-            abl30: `性交中毒`, abl31: `自慰中毒`, abl32: `精液中毒`, abl33: `百合中毒`, abl34: `卖春中毒`, abl35: `兽奸中毒`, abl36: `露出中毒`, abl37: `BL中毒`,
+            abl30: `性交成瘾`, abl31: `自慰成瘾`, abl32: `精液成瘾`, abl33: `百合成瘾`, abl34: `卖春成瘾`, abl35: `兽奸成瘾`, abl36: `露出成瘾`, abl37: `同性成淫`,
             abl100: `学习能力`, abl101: `运动能力`, abl102: `战斗能力`, abl103: `感受性`,
             hp: `HP`, mp: `气力`, maxHp: `最大HP`, maxMp: `最大气力`, exp: `调教经验`, money: `金钱`, progress: `进度`, buff: `增益`
         };
@@ -409,6 +418,82 @@ const UI = {
         setTimeout(() => div.remove(), 2000);
     },
 
+    // V10.1: 炼金工房 — 独立页面展示
+    renderAlchemy(game) {
+        this.showTopBar(true);
+        this.updateTopBar(game);
+        this.hideTrainStatus();
+        this.clearText();
+        if (this.textArea) this.textArea.style.display = 'block';
+        if (this.dungeonProgress) this.dungeonProgress.style.display = 'none';
+        if (this.heroEventLog) this.heroEventLog.style.display = 'none';
+        this.clearButtons();
+
+        const fs = game.fluidStorage || { milk: 0, semen: 0, loveJuice: 0, saliva: 0 };
+        const potions = game.potionStorage || { hp: 0, mp: 0, cure: 0 };
+        const totalFluid = fs.milk + fs.loveJuice + fs.saliva + fs.semen * 100;
+
+        this.appendText('【炼金工房】\n', 'accent');
+        this.appendText('利用调教中收集的体液，炼制各种药水和进行魔力升级。');
+        this.appendDivider();
+
+        // 体液库存面板
+        this.appendText('📦 体液库存', 'accent');
+        let fluidHtml = '<div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px;margin:8px 0 16px;">';
+        fluidHtml += `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">`;
+        fluidHtml += `<div style="font-size:1.3rem;">🥛</div><div style="font-size:0.75rem;color:var(--text-dim);">乳汁</div><div style="font-weight:bold;">${fs.milk}ml</div></div>`;
+        fluidHtml += `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">`;
+        fluidHtml += `<div style="font-size:1.3rem;">💧</div><div style="font-size:0.75rem;color:var(--text-dim);">精液</div><div style="font-weight:bold;">${fs.semen}份</div></div>`;
+        fluidHtml += `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">`;
+        fluidHtml += `<div style="font-size:1.3rem;">💦</div><div style="font-size:0.75rem;color:var(--text-dim);">爱液</div><div style="font-weight:bold;">${fs.loveJuice}ml</div></div>`;
+        fluidHtml += `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">`;
+        fluidHtml += `<div style="font-size:1.3rem;">👅</div><div style="font-size:0.75rem;color:var(--text-dim);">唾液</div><div style="font-weight:bold;">${fs.saliva}ml</div></div>`;
+        fluidHtml += '</div>';
+        this.textArea.innerHTML += fluidHtml;
+        this.appendDivider();
+
+        // 药水库存面板
+        this.appendText('🧪 药水库存', 'accent');
+        let potionHtml = '<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin:8px 0 16px;">';
+        potionHtml += `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">`;
+        potionHtml += `<div style="font-size:1.3rem;">❤️</div><div style="font-size:0.75rem;color:var(--text-dim);">HP回复药水</div><div style="font-weight:bold;color:#ff6b6b;">${potions.hp}瓶</div></div>`;
+        potionHtml += `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">`;
+        potionHtml += `<div style="font-size:1.3rem;">💙</div><div style="font-size:0.75rem;color:var(--text-dim);">MP回复药水</div><div style="font-weight:bold;color:#4dabf7;">${potions.mp}瓶</div></div>`;
+        potionHtml += `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">`;
+        potionHtml += `<div style="font-size:1.3rem;">💚</div><div style="font-size:0.75rem;color:var(--text-dim);">异常回复药水</div><div style="font-weight:bold;color:#51cf66;">${potions.cure}瓶</div></div>`;
+        potionHtml += '</div>';
+        this.textArea.innerHTML += potionHtml;
+        this.appendDivider();
+
+        // 加工药水
+        this.appendText('🔬 加工药水', 'accent');
+        this.appendText('将体液炼制成可用的药水:', 'dim');
+        let craftHtml = '<div style="display:grid;grid-template-columns:repeat(1, 1fr);gap:6px;margin:8px 0 16px;">';
+        craftHtml += `<button class="game-btn" style="text-align:left;" ${fs.milk >= 200 ? '' : 'disabled'} onclick="G._craftPotion('hp', 'milk'); UI.renderAlchemy(G);">`;
+        craftHtml += `<span style="font-size:1.1rem;">🥛→❤️</span> <strong>HP回复药水</strong> <span style="color:var(--text-dim);font-size:0.75rem;">消耗乳汁200ml</span></button>`;
+        craftHtml += `<button class="game-btn" style="text-align:left;" ${fs.loveJuice >= 100 ? '' : 'disabled'} onclick="G._craftPotion('hp', 'loveJuice'); UI.renderAlchemy(G);">`;
+        craftHtml += `<span style="font-size:1.1rem;">💦→❤️</span> <strong>HP回复药水</strong> <span style="color:var(--text-dim);font-size:0.75rem;">消耗爱液100ml</span></button>`;
+        craftHtml += `<button class="game-btn" style="text-align:left;" ${fs.semen >= 1 ? '' : 'disabled'} onclick="G._craftPotion('mp', 'semen'); UI.renderAlchemy(G);">`;
+        craftHtml += `<span style="font-size:1.1rem;">💧→💙</span> <strong>MP回复药水</strong> <span style="color:var(--text-dim);font-size:0.75rem;">消耗精液1份</span></button>`;
+        craftHtml += `<button class="game-btn" style="text-align:left;" ${fs.saliva >= 150 ? '' : 'disabled'} onclick="G._craftPotion('mp', 'saliva'); UI.renderAlchemy(G);">`;
+        craftHtml += `<span style="font-size:1.1rem;">👅→💙</span> <strong>MP回复药水</strong> <span style="color:var(--text-dim);font-size:0.75rem;">消耗唾液150ml</span></button>`;
+        craftHtml += `<button class="game-btn" style="text-align:left;" ${(fs.milk >= 100 && fs.loveJuice >= 100) || (fs.saliva >= 100 && fs.semen >= 1) ? '' : 'disabled'} onclick="G._craftPotion('cure', 'mixed'); UI.renderAlchemy(G);">`;
+        craftHtml += `<span style="font-size:1.1rem;">💚</span> <strong>异常回复药水</strong> <span style="color:var(--text-dim);font-size:0.75rem;">任意两种体液各100</span></button>`;
+        craftHtml += '</div>';
+        this.textArea.innerHTML += craftHtml;
+        this.appendDivider();
+
+        // 魔力升级
+        this.appendText('🔮 魔力升级', 'accent');
+        this.appendText(`当前可用体液总量: ${totalFluid}ml (精液按100ml/份折算)`);
+        this.appendText('消耗任意体液500ml，10%概率提升物品等级。', 'dim');
+        let upgradeHtml = '<div style="margin:8px 0 16px;">';
+        upgradeHtml += `<button class="game-btn accent" style="width:100%;" ${totalFluid >= 500 ? '' : 'disabled'} onclick="G._upgradeItem(); UI.renderAlchemy(G);">🔮 尝试魔力升级</button>`;
+        upgradeHtml += '</div>';
+        this.textArea.innerHTML += upgradeHtml;
+
+        this.setButtons(`<button class="back-btn-top" onclick="G.setState('SHOP')">← 返回</button>`);
+    },
 
 // 训练状态栏已迁移到 #train-status-bar，底部覆盖代码已移除
 // UI._renderTrainStatus 现在直接在对象方法中操作 DOM

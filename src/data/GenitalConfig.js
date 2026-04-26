@@ -14,9 +14,11 @@ const PENIS_TEMPLATE = {
     id: 0,
     name: "\u8089\u68d2",
     ejaculationGauge: 0,
-    maxEjaculationGauge: 100,
+    maxEjaculationGauge: 1000,
     sensitivity: 1.0,
     linkedParts: ["V", "A", "O"],
+    ejaculationCount: 0,
+    lastEjaculation: 0,
     length: 15,
     girth: 3
 };
@@ -47,7 +49,9 @@ function addPenis(chara, options = {}) {
         id: id,
         name: options.name || `\u7b2c${id+1}\u6839`,
         ejaculationGauge: 0,
-        maxEjaculationGauge: options.maxGauge || 100,
+        maxEjaculationGauge: options.maxGauge || 1000,
+        ejaculationCount: 0,
+        lastEjaculation: 0,
         sensitivity: options.sensitivity || 1.0,
         linkedParts: options.linkedParts || ["V", "A", "O"],
         length: options.length || 15,

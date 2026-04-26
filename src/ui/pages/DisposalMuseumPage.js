@@ -207,6 +207,59 @@ Object.assign(UI, {
         UI.renderCharaDetail(game, index, page, ctype);
     },
 
+    // V8.0: 鉴定装备
+    identifyGear(game, index, slot, windex) {
+        const c = game.getChara(index);
+        if (!c || !c.gear) return;
+        let gear = null;
+        if (slot === 'weapon' && c.gear.weapons && c.gear.weapons[windex]) {
+            gear = c.gear.weapons[windex];
+        } else if (c.gear[slot]) {
+            gear = c.gear[slot];
+        }
+        if (!gear) { UI.showToast('装备不存在', 'warning'); return; }
+        const r = GearSystem.identifyGear(gear);
+        if (r.success) {
+            let toastMsg = r.msg;
+            if (r.wasCursed) toastMsg += ' ⚠️ 发现诅咒！';
+            UI.showToast(toastMsg, r.wasCursed ? 'danger' : 'success');
+        } else {
+            UI.showToast(r.msg, 'warning');
+        }
+        const page = UI._charaDetailPage || 0;
+        const ctype = UI._charaDetailType || 'chara';
+        UI.renderCharaDetail(game, index, page, ctype);
+    },
+
+    // V8.0: 解诅咒（魔王支付金币）
+    uncurseGear(game, index, slot, windex) {
+        const c = game.getChara(index);
+        if (!c || !c.gear) return;
+        let gear = null;
+        if (slot === 'weapon' && c.gear.weapons && c.gear.weapons[windex]) {
+            gear = c.gear.weapons[windex];
+        } else if (c.gear[slot]) {
+            gear = c.gear[slot];
+        }
+        if (!gear) { UI.showToast('装备不存在', 'warning'); return; }
+        const cost = GearSystem.getUncurseCost(gear.rarity);
+        // V8.0: 魔王支付解诅咒费用
+        if (game.money < cost) {
+            UI.showToast(`魔王金币不足，需要${cost}G`, 'danger');
+            return;
+        }
+        const r = GearSystem.uncurseGear(gear);
+        if (r.success) {
+            game.money -= cost;
+            UI.showToast(`${r.msg}（魔王花费${cost}G）`, 'success');
+        } else {
+            UI.showToast(r.msg, 'warning');
+        }
+        const page = UI._charaDetailPage || 0;
+        const ctype = UI._charaDetailType || 'chara';
+        UI.renderCharaDetail(game, index, page, ctype);
+    },
+
     // 前勇者上缴金币给魔王
     submitGoldToMaster(game, index) {
         const c = game.getChara(index);
@@ -283,9 +336,12 @@ Object.assign(UI, {
             newHero.talent = [...c.talent];
             newHero.talent[200] = 0;
             newHero.cflag[912] = 0;
+            newHero.cflag[CFLAGS.HERO_RARITY] = c.cflag[CFLAGS.HERO_RARITY] || 'N'; // 继承原角色稀有度
             newHero.talent[202] = 1; // 记忆清除
             newHero.abl = [...c.abl];
             newHero.exp = [...c.exp];
+            newHero.hp = c.hp;
+            newHero.mp = c.mp;
             game.invaders.push(newHero);
             game.delChara(index);
             UI.showToast(`${c.name} 被洗去记忆后释放了，她将成为新的勇者`, 'warning');

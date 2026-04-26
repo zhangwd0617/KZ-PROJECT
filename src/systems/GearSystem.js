@@ -2,15 +2,15 @@
  * GearSystem - 装备/武器/道具系统（含诅咒）
  */
 class GearSystem {
-    static RARITY_NAMES = ["垃圾", "普通", "精品", "大师", "传说", "神话"];
-    static RARITY_COLORS = ["#888888", "#ffffff", "#44ff44", "#4444ff", "#aa44ff", "#ff8800"];
+    static RARITY_NAMES = ["", "普通", "精品", "大师", "传说", "神话"];
+    static RARITY_COLORS = ["#888888", "#ffffff", "#44ff44", "#6688ff", "#cc66ff", "#ff8800"];
     static RARITY_MIN = [0, 0.01, 0.05, 0.08, 0.10, 0.20];
     static RARITY_MAX = [0, 0.05, 0.08, 0.10, 0.15, 0.20];
     static CURSE_CHANCE = 0.20;
 
     // V6.0: 装备品质百分比加成（基于角色基础属性）
     static GEAR_QUALITY_PCT = {
-        0: { name: "破旧", atkPct: 0.00, defPct: 0.00, hpPct: 0.00, mpPct: 0.00 },
+        0: { name: "", atkPct: 0.00, defPct: 0.00, hpPct: 0.00, mpPct: 0.00 },
         1: { name: "普通", atkPct: 0.05, defPct: 0.05, hpPct: 0.05, mpPct: 0.05 },
         2: { name: "精良", atkPct: 0.15, defPct: 0.15, hpPct: 0.15, mpPct: 0.15 },
         3: { name: "稀有", atkPct: 0.30, defPct: 0.30, hpPct: 0.30, mpPct: 0.30 },
@@ -25,7 +25,6 @@ class GearSystem {
 
     static GEAR_NAMES = {
         head: {
-            0: ["破布帽", "烂皮盔", "碎铁片"],
             1: ["皮帽", "布兜帽", "木盔"],
             2: ["钢盔", "魔纹帽", "精灵头环"],
             3: ["秘银头盔", "龙鳞盔", "暗影面甲"],
@@ -33,7 +32,6 @@ class GearSystem {
             5: ["诸神黄昏", "创世之光", "永恒王冠"]
         },
         body: {
-            0: ["破布衫", "烂皮甲", "朽木盾"],
             1: ["皮甲", "布袍", "链甲"],
             2: ["钢甲", "魔纹袍", "精灵轻甲"],
             3: ["秘银铠甲", "龙鳞甲", "暗影斗篷"],
@@ -41,7 +39,6 @@ class GearSystem {
             5: ["诸神黄昏", "创世之铠", "永恒圣衣"]
         },
         legs: {
-            0: ["破布裤", "烂皮裙", "草绳绑腿"],
             1: ["皮裤", "布裙", "链甲裙"],
             2: ["钢腿甲", "魔纹裤", "精灵轻裤"],
             3: ["秘银腿甲", "龙鳞裤", "暗影绑腿"],
@@ -49,7 +46,6 @@ class GearSystem {
             5: ["诸神黄昏", "创世之裤", "永恒护腿"]
         },
         hands: {
-            0: ["破布手套", "烂皮护手", "草绳缠手"],
             1: ["皮手套", "布护手", "链甲手套"],
             2: ["钢护手", "魔纹手套", "精灵轻手套"],
             3: ["秘银护手", "龙鳞手套", "暗影指套"],
@@ -57,7 +53,6 @@ class GearSystem {
             5: ["诸神黄昏", "创世之手", "永恒护爪"]
         },
         neck: {
-            0: ["麻绳", "烂皮带", "朽木珠"],
             1: ["皮绳", "铜项链", "木珠"],
             2: ["银链", "魔纹坠", "精灵泪"],
             3: ["秘银项链", "龙牙坠", "暗影符文"],
@@ -65,7 +60,6 @@ class GearSystem {
             5: ["诸神黄昏", "创世之链", "永恒羁绊"]
         },
         ring: {
-            0: ["铁丝", "烂皮圈", "草绳"],
             1: ["铜戒", "铁环", "木戒"],
             2: ["银戒", "魔纹戒", "精灵誓约"],
             3: ["秘银戒指", "龙眼戒", "暗影契约"],
@@ -73,7 +67,6 @@ class GearSystem {
             5: ["诸神黄昏", "创世之戒", "永恒誓约"]
         },
         weapon: {
-            0: ["断剑", "锈刀", "朽木棒"],
             1: ["铁剑", "短刀", "木杖", "匕首", "单手剑"],
             2: ["钢剑", "魔纹刀", "精灵弓", "战斧", "长枪"],
             3: ["秘银剑", "龙牙刃", "暗影弓", "雷霆锤", "冰霜矛"],
@@ -84,7 +77,6 @@ class GearSystem {
 
     static ITEM_NAMES = {
         heal: {
-            0: ["浑浊的药水", "发霉的面包"],
             1: ["小型治疗药水", "绷带"],
             2: ["中型治疗药水", "恢复药膏"],
             3: ["大型治疗药水", "生命精华"],
@@ -92,27 +84,25 @@ class GearSystem {
             5: ["神之恩赐", "永恒生命"]
         },
         mana: {
-            0: ["浑浊的魔液", "漏气的水晶"],
             1: ["小型魔力药水", "魔力碎片"],
             2: ["中型魔力药水", "法力精华"],
             3: ["大型魔力药水", "奥术水晶"],
             4: ["星辰魔液", "月华精华"],
             5: ["神之智慧", "永恒魔力"]
         },
-        buff: {
-            0: ["破损的卷轴", "空白的纸片"],
-            1: ["力量卷轴", "守护卷轴"],
-            2: ["狂暴卷轴", "铁壁卷轴"],
-            3: ["龙之卷轴", "圣盾卷轴"],
-            4: ["泰坦之力", "凤凰祝福"],
-            5: ["神之裁决", "创世祝福"]
-        },
         cleanse: {
-            1: ["净化卷轴"],
-            2: ["圣水"],
-            3: ["驱魔卷轴"],
-            4: ["神圣净化"],
+            1: ["解毒草"],
+            2: ["清醒药剂"],
+            3: ["万能药"],
+            4: ["圣水"],
             5: ["神之宽恕"]
+        },
+        town_portal: {
+            1: ["粗糙的回城卷轴"],
+            2: ["普通的回城卷轴"],
+            3: ["精良的回城卷轴"],
+            4: ["稀有的回城卷轴"],
+            5: ["传说回城卷轴"]
         }
     };
 
@@ -120,7 +110,7 @@ class GearSystem {
     static WEAPON_HANDS = { sword: 1, axe: 1, spear: 2, bow: 2, staff: 2, dagger: 1 };
 
     static generateGear(slot, level, rarity) {
-        if (rarity == null || rarity < 0) rarity = this._rollRarity();
+        if (rarity == null || rarity < 1) rarity = this._rollRarity();
         const names = this.GEAR_NAMES[slot] && this.GEAR_NAMES[slot][rarity];
         const name = names ? names[RAND(names.length)] : "未知装备";
         const isCursed = Math.random() < this.CURSE_CHANCE;
@@ -146,12 +136,12 @@ class GearSystem {
     }
 
     static generateItem(itemType, level, rarity) {
-        if (rarity == null || rarity < 0) rarity = this._rollRarity();
+        if (rarity == null || rarity < 1) rarity = this._rollRarity();
         const names = this.ITEM_NAMES[itemType] && this.ITEM_NAMES[itemType][rarity];
         const name = names ? names[RAND(names.length)] : "未知道具";
         const isCursed = Math.random() < this.CURSE_CHANCE;
         const stats = this._generateItemStats(itemType, rarity, level);
-        return {
+        const item = {
             id: Date.now() + RAND(100000),
             name: name,
             type: "item",
@@ -162,37 +152,26 @@ class GearSystem {
             identified: false,
             stats: stats
         };
+        // V8.0: 回城卷轴根据品质增加使用次数，其他药水固定3次
+        if (itemType === "town_portal") {
+            item.charges = rarity; // 品质1~5 = 使用次数1~5
+        } else {
+            item.charges = 3; // 治疗/法力/异常恢复药水固定3次
+        }
+        return item;
     }
 
+    // V8.0: 特殊物品已整合进常规装备/道具系统，此处保留向后兼容的空壳
     static generateSpecialItem(specialType, level, noCurse) {
-        if (specialType === "cleanse_potion") {
+        if (specialType === "supreme_ring") {
             const isCursed = noCurse ? false : (Math.random() < this.CURSE_CHANCE);
-            return {
-                id: Date.now() + RAND(100000),
-                name: isCursed ? "诅咒净化药水" : "净化药水",
-                type: "item",
-                itemType: "cleanse_potion",
-                rarity: isCursed ? 4 : 3,
-                level: level,
-                cursed: isCursed,
-                identified: false,
-                stats: { cleanse: true, special: true }
-            };
-        } else if (specialType === "supreme_ring") {
-            const isCursed = noCurse ? false : (Math.random() < this.CURSE_CHANCE);
-            const rarity = isCursed ? 4 : 4; // 诅咒版也显示传说
-            return {
-                id: Date.now() + RAND(100000),
-                name: isCursed ? "诅咒至尊戒指" : "至尊戒指",
-                slot: "ring",
-                type: "armor",
-                rarity: rarity,
-                level: level,
-                cursed: isCursed,
-                identified: false,
-                stats: { atk: Math.floor(level * 3), def: Math.floor(level * 2), hp: Math.floor(level * 5), mp: Math.floor(level * 2) },
-                special: "supreme_ring"
-            };
+            const rarity = 4;
+            const gear = this.generateGear("ring", level, rarity);
+            gear.name = isCursed ? "诅咒至尊戒指" : "至尊戒指";
+            gear.cursed = isCursed;
+            gear.stats = { atk: Math.floor(level * 3), def: Math.floor(level * 2), hp: Math.floor(level * 5), mp: Math.floor(level * 2) };
+            gear.special = "supreme_ring";
+            return gear;
         }
         return null;
     }
@@ -260,12 +239,10 @@ class GearSystem {
         const stats = {};
         if (itemType === "heal") stats.hp = power * 5;
         else if (itemType === "mana") stats.mp = power * 5;
-        else if (itemType === "buff") {
-            stats.atk = Math.floor(power * 0.5);
-            stats.def = Math.floor(power * 0.5);
-            stats.duration = 3 + rarity;
-        } else if (itemType === "cleanse") {
+        else if (itemType === "cleanse") {
             stats.cleanse = true;
+        } else if (itemType === "town_portal") {
+            stats.town_portal = true;
         }
         return stats;
     }
@@ -327,6 +304,25 @@ class GearSystem {
         return `<span style="color:${rColor};font-weight:bold;">${gear.name}</span>`;
     }
 
+    // V8.0: 获取装备实际生效属性（考虑未鉴定状态）
+    static _getEffectiveStats(gear) {
+        if (!gear) return {};
+        // 诅咒装备或已鉴定装备：使用实际stats
+        if (gear.cursed || gear.identified) return gear.stats || {};
+        // 未鉴定非诅咒装备：百分比属性降为普通级(5%)
+        const result = {};
+        for (const k in gear.stats || {}) {
+            if (k.endsWith('Pct')) {
+                result[k] = 0.05; // 普通级固定5%
+            } else {
+                result[k] = gear.stats[k];
+            }
+        }
+        return result;
+    }
+
+    // V12.0: 诅咒装备惩罚改为固定百分比（通过getTotalGearBonusPct在_recalcBaseStats中应用）
+    // 本方法只返回非诅咒装备的绝对值加成
     static applyGearBonus(c, immuneToCurse) {
         if (!c.gear) return { atk: 0, def: 0, hp: 0, mp: 0 };
         const bonus = { atk: 0, def: 0, hp: 0, mp: 0 };
@@ -334,47 +330,106 @@ class GearSystem {
         for (const s of slots) {
             const g = c.gear[s];
             if (!g) continue;
-            if (g.cursed && immuneToCurse) continue; // 魔王手下免疫诅咒
-            const mult = (g.cursed && g.identified && !immuneToCurse) ? -1 : 1;
-            for (const k in g.stats || {}) {
-                if (bonus[k] != null) bonus[k] += (g.stats[k] || 0) * mult;
+            // V12.0: 诅咒装备跳过绝对值加成（其惩罚通过百分比实现）
+            if (g.cursed && !immuneToCurse) continue;
+            if (g.cursed && immuneToCurse) continue;
+            const effStats = this._getEffectiveStats(g);
+            for (const k in effStats) {
+                if (bonus[k] != null) bonus[k] += (effStats[k] || 0);
             }
         }
         if (c.gear.weapons) {
             for (const w of c.gear.weapons) {
                 if (!w) continue;
+                // V12.0: 诅咒武器跳过绝对值加成（其惩罚通过百分比实现）
+                if (w.cursed && !immuneToCurse) continue;
                 if (w.cursed && immuneToCurse) continue;
-                const mult = (w.cursed && w.identified && !immuneToCurse) ? -1 : 1;
-                for (const k in w.stats || {}) {
-                    if (bonus[k] != null) bonus[k] += (w.stats[k] || 0) * mult;
+                const effStats = this._getEffectiveStats(w);
+                for (const k in effStats) {
+                    if (bonus[k] != null) bonus[k] += (effStats[k] || 0);
                 }
             }
         }
         return bonus;
     }
 
-    // V6.0: 计算装备百分比总加成
+    // V12.0: 判断角色是否免疫诅咒效果（魔王军、俘虏、前勇者、洗脑角色）
+    static _isImmuneToCurse(entity) {
+        if (!entity) return false;
+        // 魔军标记
+        if (entity.cflag && entity.cflag[CFLAGS.IS_DEMON_ARMY]) return true;
+        // 俘虏（在魔王城，诅咒无效）
+        if (entity.cflag && entity.cflag[CFLAGS.CAPTURE_STATUS] === 1) return true;
+        // 前勇者（已加入魔王军）
+        if (entity.talent && entity.talent[200]) return true;
+        // 洗脑角色
+        if (entity.talent && entity.talent[296]) return true;
+        return false;
+    }
+
+    // V12.0: 统计角色身上诅咒装备+武器的数量（不含道具）
+    // 对魔王军免疫诅咒的角色返回0，多件叠加惩罚不生效
+    static countCursedGear(entity) {
+        if (!entity || !entity.gear) return 0;
+        // 魔王军免疫诅咒，多件叠加惩罚不生效
+        if (this._isImmuneToCurse(entity)) return 0;
+        let count = 0;
+        const slots = ['head', 'body', 'legs', 'hands', 'neck', 'ring'];
+        for (const s of slots) {
+            const g = entity.gear[s];
+            if (g && g.cursed) count++;
+        }
+        for (const w of (entity.gear.weapons || [])) {
+            if (w && w.cursed) count++;
+        }
+        return count;
+    }
+
+    // V6.0/V12.0: 计算装备百分比总加成（含诅咒惩罚）
+    // 魔王军免疫诅咒：诅咒装备既不提供加成也不施加惩罚
     static getTotalGearBonusPct(entity) {
         if (!entity || !entity.gear) return { atkPct: 0, defPct: 0, hpPct: 0, mpPct: 0 };
+        const immune = this._isImmuneToCurse(entity);
         const result = { atkPct: 0, defPct: 0, hpPct: 0, mpPct: 0 };
         const slots = ['head', 'body', 'legs', 'hands', 'neck', 'ring'];
         for (const slot of slots) {
             const gear = entity.gear[slot];
-            if (gear && gear.stats) {
-                for (const k in gear.stats) {
-                    if (k.endsWith('Pct') && typeof gear.stats[k] === 'number') {
-                        result[k] = (result[k] || 0) + gear.stats[k];
+            // V12.0: 魔王军免疫诅咒，诅咒装备百分比属性也不生效
+            if (gear && gear.cursed && immune) continue;
+            const effStats = this._getEffectiveStats(gear);
+            if (effStats) {
+                for (const k in effStats) {
+                    if (k.endsWith('Pct') && typeof effStats[k] === 'number') {
+                        result[k] = (result[k] || 0) + effStats[k];
                     }
                 }
             }
+            // V12.0: 诅咒装备固定全属性-5%（只对非免疫角色）
+            if (gear && gear.cursed && !immune) {
+                result.atkPct = (result.atkPct || 0) - 0.05;
+                result.defPct = (result.defPct || 0) - 0.05;
+                result.hpPct = (result.hpPct || 0) - 0.05;
+                result.mpPct = (result.mpPct || 0) - 0.05;
+            }
         }
         for (const weapon of (entity.gear.weapons || [])) {
-            if (weapon && weapon.stats) {
-                for (const k in weapon.stats) {
-                    if (k.endsWith('Pct') && typeof weapon.stats[k] === 'number') {
-                        result[k] = (result[k] || 0) + weapon.stats[k];
+            // V12.0: 魔王军免疫诅咒，诅咒武器百分比属性也不生效
+            if (weapon && weapon.cursed && immune) continue;
+            const effStats = this._getEffectiveStats(weapon);
+            if (effStats) {
+                for (const k in effStats) {
+                    if (k.endsWith('Pct') && typeof effStats[k] === 'number') {
+                        result[k] = (result[k] || 0) + effStats[k];
                     }
                 }
+            }
+            // V12.0: 诅咒武器：单手-5%，双手-10%（只对非免疫角色）
+            if (weapon && weapon.cursed && !immune) {
+                const penalty = weapon.hands === 2 ? 0.10 : 0.05;
+                result.atkPct = (result.atkPct || 0) - penalty;
+                result.defPct = (result.defPct || 0) - penalty;
+                result.hpPct = (result.hpPct || 0) - penalty;
+                result.mpPct = (result.mpPct || 0) - penalty;
             }
         }
         return result;
@@ -391,22 +446,34 @@ class GearSystem {
             const handCount = c.gear.weapons.reduce((s, w) => s + (w ? w.hands : 0), 0);
             if (handCount + gear.hands > 2) return { success: false, msg: "武器槽位不足" };
             c.gear.weapons.push(gear);
-            if (!gear.identified) gear.identified = true;
+            // V8.0: 装备时不再自动鉴定
             return { success: true, msg: "装备武器: " + this.getGearDescPlain(gear), curseTriggered: gear.cursed };
         }
         const slot = gear.slot;
         if (!slot || !c.gear.hasOwnProperty(slot)) return { success: false, msg: "无效装备槽" };
         const old = c.gear[slot];
-        if (old && old.cursed && old.identified && !forced) return { success: false, msg: old.name + " 被诅咒，无法脱下" };
+        if (old && old.cursed && !forced) return { success: false, msg: old.name + " 被诅咒，无法脱下" };
         c.gear[slot] = gear;
-        if (!gear.identified) gear.identified = true;
-        // 诅咒至尊戒指效果
+        // V8.0: 装备时不再自动鉴定
+        // 诅咒至尊戒指效果（触发条件改为已装备即可，因为诅咒立即生效）
         let brainwashed = false;
-        if (gear.special === "supreme_ring" && gear.cursed && gear.identified) {
+        if (gear.special === "supreme_ring" && gear.cursed) {
             c.talent[247] = (c.talent[247] || 0) + 1; // 洗脑特质
             if (!c.mark) c.mark = new Array(20).fill(0);
             c.mark[0] = 3; // 服从度max
             brainwashed = true;
+        }
+        // 诅咒装备日志
+        if (gear.cursed && typeof G !== 'undefined' && G._addAdventureLog) {
+            G._addAdventureLog(c, 'curse_equip', `佩戴了诅咒装备「${gear.name || this.getGearDescPlain(gear)}」，遭到诅咒`);
+            // V12.0: 心声——佩戴诅咒装备
+            const curseEquipVoices = [
+                `这件${gear.name}...感觉不太对劲。戴上后身体开始发热...`,
+                '糟了，是诅咒装备！但现在脱不下来了...',
+                '力量在涌入...但同时有什么邪恶的东西也一起进入了身体...',
+                `「${gear.name}」在对我低语...它在说什么？`
+            ];
+            G._addAdventureLog(c, 'voice', curseEquipVoices[RAND(curseEquipVoices.length)]);
         }
         return { success: true, msg: "装备" + this.SLOT_NAMES[slot] + ": " + this.getGearDescPlain(gear), curseTriggered: gear.cursed, brainwashed: brainwashed };
     }
@@ -416,72 +483,122 @@ class GearSystem {
         if (slot === "weapon") {
             const w = c.gear.weapons[index];
             if (!w) return { success: false, msg: "该位置无武器" };
-            if (w.cursed && w.identified && !forced) return { success: false, msg: w.name + " 被诅咒，无法卸下" };
+            if (w.cursed && !forced) return { success: false, msg: w.name + " 被诅咒，无法卸下" };
             const wasSupreme = w.special === "supreme_ring" && w.cursed;
             c.gear.weapons.splice(index, 1);
             return { success: true, gear: w, wasSupreme: wasSupreme };
         }
         const g = c.gear[slot];
         if (!g) return { success: false, msg: "该位置无装备" };
-        if (g.cursed && g.identified && !forced) return { success: false, msg: g.name + " 被诅咒，无法脱下" };
+        if (g.cursed && !forced) return { success: false, msg: g.name + " 被诅咒，无法脱下" };
         const wasSupreme = g.special === "supreme_ring" && g.cursed;
         c.gear[slot] = null;
         return { success: true, gear: g, wasSupreme: wasSupreme };
     }
 
-    static useItem(c, itemIndex) {
+    static useItem(c, itemIndex, options = {}) {
         if (!c.gear || !c.gear.items || itemIndex >= c.gear.items.length) return { success: false, msg: "道具不存在" };
         const item = c.gear.items[itemIndex];
         if (!item) return { success: false, msg: "道具不存在" };
         if (!item.identified) item.identified = true;
-        const mult = (item.cursed && item.identified) ? -1 : 1;
+        // V8.0: 道具诅咒效果不受鉴定状态影响
+        const mult = item.cursed ? -1 : 1;
         let msg = "";
+        let used = true;
         if (item.itemType === "heal") {
-            const val = (item.stats.hp || 0) * mult;
-            c.hp = Math.min(c.maxHp, c.hp + val);
-            msg = "恢复 " + val + " HP";
-        } else if (item.itemType === "mana") {
-            const val = (item.stats.mp || 0) * mult;
-            c.mp = Math.min(c.maxMp, c.mp + val);
-            msg = "恢复 " + val + " MP";
-        } else if (item.itemType === "buff") {
-            const atkVal = (item.stats.atk || 0) * mult;
-            const defVal = (item.stats.def || 0) * mult;
-            c.cflag[CFLAGS.SPY_SENT] = (c.cflag[CFLAGS.SPY_SENT] || 0) + atkVal;
-            c.cflag[CFLAGS.SPY_TARGET] = (c.cflag[CFLAGS.SPY_TARGET] || 0) + defVal;
-            msg = "攻击+" + atkVal + " 防御+" + defVal + " (持续" + item.stats.duration + "回合)";
-        } else if (item.itemType === "cleanse") {
-            let count = 0;
-            const allGear = [c.gear.head, c.gear.body, c.gear.legs, c.gear.hands, c.gear.neck, c.gear.ring, ...c.gear.weapons];
-            for (const g of allGear) {
-                if (g && g.cursed) { g.cursed = false; count++; }
-            }
-            msg = "净化了 " + count + " 件诅咒装备";
-        } else if (item.itemType === "cleanse_potion") {
+            const val = Math.abs(item.stats.hp || 0);
             if (item.cursed) {
-                // 诅咒净化药水
-                if (c.talent[200]) {
-                    // 前勇者：等级+10
-                    c.level = Math.min(200, c.level + 10);
-                    c.cflag[CFLAGS.BASE_HP] = c.level;
-                    msg = "等级提升了10级！但身体感到异常...";
+                // V8.0: 诅咒治疗药水造成伤害
+                c.hp = Math.max(1, c.hp - val);
+                msg = `诅咒！受到 ${val} 伤害`;
+            } else {
+                c.hp = Math.min(c.maxHp, c.hp + val);
+                msg = "恢复 " + val + " HP";
+            }
+        } else if (item.itemType === "mana") {
+            const val = Math.abs(item.stats.mp || 0);
+            if (item.cursed) {
+                // V8.0: 诅咒MP药水造成伤害
+                c.hp = Math.max(1, c.hp - val);
+                msg = `诅咒！MP药水腐蚀了身体，受到 ${val} 伤害`;
+            } else {
+                c.mp = Math.min(c.maxMp, c.mp + val);
+                msg = "恢复 " + val + " MP";
+            }
+        } else if (item.itemType === "cleanse") {
+            if (item.cursed) {
+                // V8.0: 诅咒异常恢复药水造成重伤
+                if (typeof G !== 'undefined' && G._addStatusAilment) {
+                    G._addStatusAilment(c, "severe_injury", 9999);
+                    msg = "诅咒！身体遭到严重侵蚀，陷入重伤状态！";
                 } else {
-                    // 普通勇者：服从度+1
-                    if (!c.mark) c.mark = new Array(20).fill(0);
-                    c.mark[0] = Math.min(3, (c.mark[0] || 0) + 1);
-                    msg = "服从度上升了...但感觉不太对劲...";
+                    msg = "诅咒！身体遭到严重侵蚀！";
                 }
             } else {
-                // 正常净化药水：清除所有负面效果
-                c.cflag[CFLAGS.SPY_SENT] = 0;
-                c.cflag[CFLAGS.SPY_TARGET] = 0;
-                c.hp = Math.min(c.maxHp, c.hp + Math.floor(c.maxHp * 0.3));
-                c.mp = Math.min(c.maxMp, c.mp + Math.floor(c.maxMp * 0.3));
-                msg = "所有负面效果被清除，HP/MP大幅恢复";
+                // V8.0: 异常状态恢复药水
+                if (typeof G !== 'undefined' && G._tryCureStatusAilment) {
+                    const cured = G._tryCureStatusAilment(c, "item_cleanse");
+                    msg = cured.length > 0 ? "解除了异常状态: " + cured.join(", ") : "没有异常状态需要解除";
+                } else {
+                    msg = "解除了异常状态";
+                }
+            }
+        } else if (item.itemType === "town_portal") {
+            // V8.0: 回城卷轴（战斗外使用）
+            if (options.inCombat) {
+                return { success: false, msg: "战斗中无法使用回城卷轴", consumed: false };
+            }
+            if (item.cursed) {
+                // V8.0: 诅咒回城卷轴传送到第5层竞技场
+                if (typeof G !== 'undefined') {
+                    c.cflag[CFLAGS.HERO_FLOOR] = 5;
+                    c.cflag[CFLAGS.HERO_PROGRESS] = 70; // 竞技场位置
+                    msg = "诅咒！卷轴将勇者传送到了未知的危险之地（第5层竞技场）！";
+                    if (G._addAdventureLog) {
+                        G._addAdventureLog(c, 'curse_portal', '使用了诅咒回城卷轴，被传送到了第5层竞技场');
+                    }
+                } else {
+                    msg = "诅咒！卷轴发出不祥的光芒...";
+                }
+            } else {
+                if (typeof G !== 'undefined' && G._startReturnToTown) {
+                    // V8.0: 回城卷轴小队共享效果
+                    const squadId = c.cflag && c.cflag[CFLAGS.SQUAD_ID];
+                    if (squadId && G.invaders) {
+                        const squad = G.invaders.filter(h => h.cflag && h.cflag[CFLAGS.SQUAD_ID] === squadId);
+                        for (const member of squad) {
+                            G._startReturnToTown(member, '队友使用回城卷轴，全队返回城镇');
+                        }
+                        msg = squad.length > 1 
+                            ? `使用回城卷轴，全队${squad.length}人准备返回城镇` 
+                            : "使用回城卷轴，准备返回城镇";
+                    } else {
+                        G._startReturnToTown(c, '使用回城卷轴返回城镇');
+                        msg = "使用回城卷轴，准备返回城镇";
+                    }
+                } else {
+                    msg = "回城卷轴发出微光...";
+                }
+            }
+            // 回城卷轴消耗次数而非直接删除
+            item.charges = (item.charges || 1) - 1;
+            if (item.charges > 0) {
+                used = false; // 还有剩余次数，不移除
+                msg += ` (剩余${item.charges}次)`;
+            }
+        } else {
+            msg = "使用了未知道具";
+        }
+        // V8.0: 消耗次数，用完才移除
+        if (used) {
+            item.charges = (item.charges || 1) - 1;
+            if (item.charges <= 0) {
+                c.gear.items.splice(itemIndex, 1);
+            } else {
+                msg += ` (剩余${item.charges}次)`;
             }
         }
-        c.gear.items.splice(itemIndex, 1);
-        return { success: true, msg: msg, cursed: item.cursed };
+        return { success: true, msg: msg, cursed: item.cursed, consumed: used };
     }
 
     static hasCursedGear(c) {
@@ -494,6 +611,171 @@ class GearSystem {
         if (!c.gear) return 0;
         const all = [c.gear.head, c.gear.body, c.gear.legs, c.gear.hands, c.gear.neck, c.gear.ring, ...c.gear.weapons];
         return all.filter(g => g && g.cursed).length;
+    }
+
+    // V8.0: 鉴定装备（揭示真实属性）
+    static identifyGear(gear) {
+        if (!gear) return { success: false, msg: "无装备" };
+        if (gear.identified) return { success: false, msg: "已鉴定" };
+        gear.identified = true;
+        return { success: true, msg: `鉴定了 ${gear.name}，真实属性 revealed！`, wasCursed: gear.cursed };
+    }
+
+    // V12.0: 自动鉴定角色身上所有未鉴定装备（回到魔王城时触发）
+    static identifyAllGear(entity) {
+        if (!entity || !entity.gear) return 0;
+        let count = 0;
+        const slots = ['head', 'body', 'legs', 'hands', 'neck', 'ring'];
+        for (const s of slots) {
+            const g = entity.gear[s];
+            if (g && !g.identified) {
+                g.identified = true;
+                count++;
+            }
+        }
+        for (const w of (entity.gear.weapons || [])) {
+            if (w && !w.identified) {
+                w.identified = true;
+                count++;
+            }
+        }
+        for (const item of (entity.gear.items || [])) {
+            if (item && !item.identified) {
+                item.identified = true;
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // V8.0: 获取解诅咒费用
+    static getUncurseCost(rarity) {
+        // 普通10g，每升一级+5g
+        return 10 + (Math.max(1, rarity) - 1) * 5;
+    }
+
+    // V8.0: 解除诅咒
+    static uncurseGear(gear) {
+        if (!gear) return { success: false, msg: "无装备" };
+        if (!gear.cursed) return { success: false, msg: "未受诅咒" };
+        if (!gear.identified) return { success: false, msg: "需先鉴定" };
+        gear.cursed = false;
+        return { success: true, msg: `净化了 ${gear.name} 的诅咒`, cost: this.getUncurseCost(gear.rarity) };
+    }
+
+    // V12.0: 批量解除角色身上所有诅咒装备（城镇净化神殿）
+    static uncurseAllGear(entity) {
+        if (!entity || !entity.gear) return { count: 0, cost: 0, logs: [] };
+        let count = 0;
+        let totalCost = 0;
+        const logs = [];
+        const slots = ['head', 'body', 'legs', 'hands', 'neck', 'ring'];
+        for (const s of slots) {
+            const g = entity.gear[s];
+            if (g && g.cursed && g.identified) {
+                const cost = this.getUncurseCost(g.rarity);
+                g.cursed = false;
+                count++;
+                totalCost += cost;
+                logs.push(`净化了 ${g.name}`);
+            }
+        }
+        for (const w of (entity.gear.weapons || [])) {
+            if (w && w.cursed && w.identified) {
+                const cost = this.getUncurseCost(w.rarity);
+                w.cursed = false;
+                count++;
+                totalCost += cost;
+                logs.push(`净化了 ${w.name}`);
+            }
+        }
+        return { count, cost: totalCost, logs };
+    }
+
+    // V8.0: 评估装备评分（用于AI自动装备比较）
+    static evaluateGearScore(gear, slot, hero) {
+        if (!gear) return 0;
+        let score = gear.rarity * 20; // 基础稀有度分
+
+        // 主属性契合度加成
+        const cls = hero.cflag && (hero.cflag[CFLAGS.HERO_CLASS] || hero.cflag[CFLAGS.CLASS_ID]);
+        const role = (window.CLASS_DEFS && CLASS_DEFS[cls] && CLASS_DEFS[cls].role) ||
+                     (window.HERO_CLASS_DEFS && HERO_CLASS_DEFS[cls] && HERO_CLASS_DEFS[cls].role) || '';
+
+        const stats = this._getEffectiveStats(gear);
+        if (role === 'tank' || role === 'holy_tank') {
+            // 坦克：偏好HP、DEF
+            score += (stats.hpPct || 0) * 200;
+            score += (stats.defPct || 0) * 150;
+            score += (stats.atkPct || 0) * 50;
+        } else if (role === 'assassin' || role === 'ninja') {
+            // 刺客：偏好ATK、SPD
+            score += (stats.atkPct || 0) * 200;
+            score += (stats.hpPct || 0) * 50;
+        } else if (role === 'mage' || role === 'healer') {
+            // 法师/治疗：偏好MP
+            score += (stats.mpPct || 0) * 200;
+            score += (stats.hpPct || 0) * 100;
+        } else {
+            // 其他（战士等）：平衡偏好ATK、HP
+            score += (stats.atkPct || 0) * 150;
+            score += (stats.hpPct || 0) * 100;
+            score += (stats.defPct || 0) * 100;
+        }
+
+        // 诅咒装备大幅扣分（除非已装备也是诅咒）
+        if (gear.cursed) score -= 50;
+
+        // 固定值属性额外加分（至尊戒指等）
+        if (stats.atk) score += stats.atk * 2;
+        if (stats.def) score += stats.def * 2;
+        if (stats.hp) score += stats.hp * 1;
+        if (stats.mp) score += stats.mp * 1;
+
+        return Math.max(0, Math.round(score));
+    }
+
+    // V8.0: 智能装备（比较后决定是否装备）
+    static shouldEquip(newGear, slot, hero) {
+        if (!hero.gear) hero.gear = { head: null, body: null, legs: null, hands: null, neck: null, ring: null, weapons: [], items: [] };
+
+        let current = null;
+        if (slot === 'weapon') {
+            // 武器槽：找评分最低的已装备武器，或空槽
+            const weapons = hero.gear.weapons || [];
+            const handCount = weapons.reduce((s, w) => s + (w ? w.hands : 0), 0);
+            if (handCount + (newGear.hands || 1) > 2) {
+                // 槽位不足：比较是否比当前最差的武器好
+                if (weapons.length === 0) return { should: false, reason: "武器槽位不足" };
+                current = weapons.reduce((min, w) => {
+                    if (!min) return w;
+                    return this.evaluateGearScore(w, 'weapon', hero) < this.evaluateGearScore(min, 'weapon', hero) ? w : min;
+                }, null);
+            } else {
+                // 有空位
+                return { should: true, reason: "武器槽位充足" };
+            }
+        } else {
+            current = hero.gear[slot];
+            if (!current) return { should: true, reason: "槽位为空" };
+        }
+
+        const newScore = this.evaluateGearScore(newGear, slot, hero);
+        const curScore = this.evaluateGearScore(current, slot, hero);
+
+        // 新装备是诅咒且当前非诅咒：需评分优势≥2个稀有度等级（约40分）
+        if (newGear.cursed && !current.cursed) {
+            if (newScore < curScore + 40) {
+                return { should: false, reason: "诅咒装备需明显优于当前装备才替换", newScore, curScore };
+            }
+        }
+
+        // 新装备评分 > 当前装备评分 × 1.1 时才替换
+        if (newScore > curScore * 1.1) {
+            return { should: true, reason: `评分 ${newScore} > ${Math.round(curScore * 1.1)}`, newScore, curScore };
+        }
+
+        return { should: false, reason: `评分 ${newScore} <= ${Math.round(curScore * 1.1)}（当前 ${curScore}）`, newScore, curScore };
     }
 
     // 随机升级身上一件装备的品质（最高橙色）

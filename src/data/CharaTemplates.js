@@ -367,6 +367,8 @@ CharaTemplates.create = function(templateId) {
     for (const [k,v] of Object.entries(t.mark||{})) c.mark[parseInt(k)]=v;
     c.maxHp = c.base[0]||800; c.hp=c.maxHp;
     c.maxMp = c.base[1]||500; c.mp=c.maxMp;
+    // 确保体力有默认值
+    if (!c.base[2]) { c.base[2] = 100; c.maxbase[2] = 100; }
     c.level = c.cflag[CFLAGS.BASE_HP]||1;
     // Default stamina/energy if template didn't specify
     if (!c.maxbase[2]) { c.maxbase[2] = 100; c.base[2] = 100; }
@@ -384,6 +386,9 @@ CharaTemplates.create = function(templateId) {
         penises: isMale || isFuta ? [{ id: 0, name: "\u8089\u68d2", ejaculationGauge: 0, sensitivity: 1.0, linkedParts: ["V", "A", "O"] }] : [],
         orgasmSystem: "standard"
     };
+    c.talent[200] = 1; // 标记为奴隶/前勇者
+    c.cflag[CFLAGS.HERO_RARITY] = 'N'; // 稀有度默认为N
+    if (typeof Game !== 'undefined' && Game.initSexualRecords) Game.initSexualRecords(c);
     return c;
 };
 
@@ -397,41 +402,19 @@ CharaTemplates.FANTASY_FIRST_NAMES = [
     "索菲亚","薇薇安","莫妮卡","莉泽萝特","卡珊德拉","帕特里夏","奥利维亚","艾丝蒂尔","珍妮弗","温蒂妮"
 ];
 CharaTemplates.FANTASY_FAMILY_NAMES = [
-    "雷恩哈特","布莱克伍德","埃德尔斯坦","蒙特福特","瓦伦丁","圣克莱尔","海因里希",
-    "沃尔夫冈","费尔南德斯","阿尔芒","洛伦茨","杜兰德","施密特","贝尔纳","韦伯",
-    "莫罗","霍夫曼","勒鲁瓦","科赫","富歇","迈耶","佩兰","绍尔","加尼耶",
-    "里希特","博内","克鲁格","马雷夏尔","维兰德","斯特林"
+    "雷恩哈特","布莱克伍德","斯特林","瓦伦丁","圣克莱尔","费尔南德斯","杜兰德","韦伯",
+    "莫罗","勒鲁瓦","加尼耶","里希特","维兰德","埃德尔斯坦","蒙特福特","洛伦茨",
+    "贝尔纳","佩兰","克鲁格","马雷夏尔","科尔","格雷","怀特","布莱克","弗林特",
+    "斯诺","里弗斯","福雷斯特","斯通","希尔","布鲁克","格林","埃姆斯","佩恩",
+    "蔡斯","马什","索恩","戴克","沃尔什","纳什"
+];
+CharaTemplates.NOBLE_FAMILY_NAMES = [
+    "哈布斯堡","温莎","雷明顿","索尔兹伯里","埃斯特","法布里修斯","高蒂埃","卢瓦尔",
+    "莫里亚克","奥尔良","普罗斯特","坦普尔","乌尔苏斯","泽维尔","伊普西兰蒂","祖尔",
+    "容克","凯因","霍恩海姆","拉克鲁瓦"
 ];
 
-CharaTemplates.WAFUU_FAMILY_NAMES = [
-    "佐藤","铃木","高桥","田中","渡边","伊藤","山本","中村","小林","加藤",
-    "吉田","山田","佐佐木","山口","松本","井上","木村","林","斋藤","清水",
-    "山崎","森","池田","桥本","阿部","石川","前田","藤田","后藤","冈田",
-    "长谷川","近藤","石井","坂本","青木","村上","太田","金子","藤井","福田",
-    "西村","三浦","竹内","中岛","原田","冈本","小野","田村","中山","川口"
-];
-CharaTemplates.WAFUU_FIRST_NAMES = [
-    "雪乃","樱","凛","美月","葵","茜","琴音","真白","胡桃","绫音",
-    "结衣","明日香","遥","七海","阳菜","千鹤","花音","彩芽","柚希","琥珀",
-    "咲良","恋","芽衣","铃鹿","茜里","雫","美羽","优子","雏菊","琉璃",
-    "诗音","初音","春奈","夏织","秋穗","冬华","星罗","月咏","风音","雷乃",
-    "海未","空","阳向","凪","澪","梓","茉莉","枫","萤","莲"
-];
-
-CharaTemplates.CHINESE_FAMILY_NAMES = [
-    "李","王","张","刘","陈","杨","赵","黄","周","吴",
-    "徐","孙","胡","朱","高","林","何","郭","马","罗",
-    "梁","宋","郑","谢","韩","唐","冯","于","董","萧",
-    "程","曹","袁","邓","许","傅","沈","曾","彭","吕",
-    "苏","卢","蒋","蔡","贾","丁","魏","薛","叶","阎"
-];
-CharaTemplates.CHINESE_FIRST_NAMES = [
-    "婉清","若曦","雨桐","梦瑶","芷若","紫萱","倾城","琉璃","红袖","清妍",
-    "念慈","舒窈","瑾瑜","怀柔","凝香","慕雪","怜星","惜月","映雪","含烟",
-    "云裳","凤歌","凌霜","梦蝶","惜花","听雪","弄玉","怜卿","疏影","暗香",
-    "若水","惊鸿","舞雩","采薇","鹿鸣","子衿","蒹葭","桃夭","锦瑟","伊人",
-    "青鸾","玄女","素问","灵枢","茯苓","半夏","当归","紫苏","白芷","豆蔻"
-];
+// 注：中文/日式姓名池已移除，随机角色仅生成西幻风格名字
 
 CharaTemplates.JOB_TABLE = [
     { id: 200, skill: 240, name: "战士",     hp: [2000,2800], mp: [800,1200] },
@@ -461,7 +444,7 @@ CharaTemplates.PHYSIQUE_POOL   = [99, 100];
 CharaTemplates.SENSE_POOLS     = [[101,102], [103,104], [105,106], [107,108]];
 CharaTemplates.TECH_POOL       = [[50,51], [52], [53,54,55]];
 CharaTemplates.DEVOTION_POOL   = [[60], [61,62], [63], [64]];
-CharaTemplates.HONESTY_POOL    = [[69], [70,71], [72], [73], [80], [81,82], [83], [84], [85,86,87], [88], [89]];
+CharaTemplates.HONESTY_POOL    = [[69], [70,71], [72], [73], [80], [81,82], [83], [84], [87], [88], [89]];
 CharaTemplates.FAMILY_POOL     = [140, 141, 142, 143];
 
 /**
@@ -473,25 +456,20 @@ CharaTemplates.FAMILY_POOL     = [140, 141, 142, 143];
 CharaTemplates.createRandomSlave = function(levelMin = 1, levelMax = 10) {
     const c = new Character(-1);
 
-    // 1. 随机名字（分风格，分姓/名）
-    const style = RAND(3); // 0=西幻, 1=和风, 2=中式
+    // 1. 随机名字（日式西幻动漫风格：简洁音译，5%贵族有独姓，45%平民有姓，50%只有名）
     let firstName = '', familyName = '';
-    if (style === 0) {
-        firstName = this.FANTASY_FIRST_NAMES[RAND(this.FANTASY_FIRST_NAMES.length)];
-        if (RAND(5) === 0) { // 20% 贵族有家族姓
-            familyName = this.FANTASY_FAMILY_NAMES[RAND(this.FANTASY_FAMILY_NAMES.length)];
-            c.name = firstName + '\u00b7' + familyName;
-        } else {
-            c.name = firstName;
-        }
-    } else if (style === 1) {
-        familyName = this.WAFUU_FAMILY_NAMES[RAND(this.WAFUU_FAMILY_NAMES.length)];
-        firstName = this.WAFUU_FIRST_NAMES[RAND(this.WAFUU_FIRST_NAMES.length)];
-        c.name = familyName + firstName;
+    firstName = this.FANTASY_FIRST_NAMES[RAND(this.FANTASY_FIRST_NAMES.length)];
+    const isNoble = RAND(100) < 5;
+    const hasSurname = isNoble || RAND(100) < 45;
+    if (isNoble) {
+        familyName = this.NOBLE_FAMILY_NAMES[RAND(this.NOBLE_FAMILY_NAMES.length)];
+        c.talent[295] = 1; // 贵族特质
+        c.name = firstName + '\u00b7' + familyName;
+    } else if (hasSurname) {
+        familyName = this.FANTASY_FAMILY_NAMES[RAND(this.FANTASY_FAMILY_NAMES.length)];
+        c.name = firstName + '\u00b7' + familyName;
     } else {
-        familyName = this.CHINESE_FAMILY_NAMES[RAND(this.CHINESE_FAMILY_NAMES.length)];
-        firstName = this.CHINESE_FIRST_NAMES[RAND(this.CHINESE_FIRST_NAMES.length)];
-        c.name = familyName + firstName;
+        c.name = firstName;
     }
     c.callname = firstName;
 
@@ -544,6 +522,7 @@ CharaTemplates.createRandomSlave = function(levelMin = 1, levelMax = 10) {
         G._recalcBaseStats(c);
         c.base[0] = c.maxbase[0];
         c.base[1] = c.maxbase[1];
+        c.base[2] = c.maxbase[2];
         c.hp = c.maxHp;
         c.mp = c.maxMp;
     } else {
@@ -556,6 +535,7 @@ CharaTemplates.createRandomSlave = function(levelMin = 1, levelMax = 10) {
         }
         c.base[0] = hp; c.maxbase[0] = hp;
         c.base[1] = mp; c.maxbase[1] = mp;
+        c.base[2] = 100 + level * 5; c.maxbase[2] = c.base[2];
         c.hp = hp; c.mp = mp;
         c.cflag[CFLAGS.ATK] = 10 + level * 5 + RAND(20);
         c.cflag[CFLAGS.DEF] = 10 + level * 5 + RAND(20);
@@ -585,7 +565,7 @@ CharaTemplates.createRandomSlave = function(levelMin = 1, levelMax = 10) {
     for (const group of this.TECH_POOL) {
         if (RAND(4) === 0) c.talent[group[RAND(group.length)]] = 1;
     }
-    if (RAND(50) === 0) c.talent[57] = 1; // ©
+    // 57抄袭者已移除（无实际效果）
 
     // === 新增：忠诚/献身系 ===
     for (const group of this.DEVOTION_POOL) {
@@ -602,18 +582,10 @@ CharaTemplates.createRandomSlave = function(levelMin = 1, levelMax = 10) {
     if (RAND(12) === 0) c.talent[48] = 1;
     // 79男人婆
     if (RAND(20) === 0) c.talent[79] = 1;
-    // 140-143亲族关系
-    if (RAND(25) === 0) c.talent[this.FAMILY_POOL[RAND(this.FAMILY_POOL.length)]] = 1;
+    // 140-143亲族关系已移除（无实际效果）
     // 152洁癖
     if (RAND(30) === 0) c.talent[152] = 1;
-    // 290妖怪 (容易被要挟时概率更高)
-    if (c.talent[37] && RAND(4) === 0) c.talent[290] = 1;
-    else if (RAND(12) === 0) c.talent[290] = 1;
-    // 275-279元素能力 (极低概率)
-    if (RAND(20) === 0) {
-        const elements = [275, 276, 277, 278, 279];
-        c.talent[elements[RAND(elements.length)]] = 1;
-    }
+    // 290妖怪、275-279元素能力已移除（无实际效果）
 
     // 13. 随机额外特质 (兜底补充)
     const extras = [50, 51, 52, 60, 61, 62, 63, 64, 69, 70, 71, 72, 73, 80, 81, 82, 83, 84, 87, 88, 91, 92, 93];
@@ -629,7 +601,7 @@ CharaTemplates.createRandomSlave = function(levelMin = 1, levelMax = 10) {
     // 15. 生成外观描述文本
     CharaTemplates.generateAppearanceDesc(c);
 
-    c.cflag[CFLAGS.CAPTURE_STATUS] = 1; // 俘虏状态
+    // CAPTURE_STATUS 由调用方决定：初始奴隶/战斗俘虏设为1，市场购买/任务奖励设为0
     // P1+: init personality & genital config
     if (typeof generatePersonality === 'function') {
         c.personality = generatePersonality(c);
@@ -642,6 +614,8 @@ CharaTemplates.createRandomSlave = function(levelMin = 1, levelMax = 10) {
         penises: isMale2 || isFuta2 ? [{ id: 0, name: "\u8089\u68d2", ejaculationGauge: 0, sensitivity: 1.0, linkedParts: ["V", "A", "O"] }] : [],
         orgasmSystem: "standard"
     };
+    if (typeof Game !== 'undefined' && Game.initSexualRecords) Game.initSexualRecords(c);
+    c.cflag[CFLAGS.HERO_RARITY] = 'N'; // 稀有度默认为N
     return c;
 };
 

@@ -1,6 +1,17 @@
 /**
  * DungeonExplorer — extracted from Game.js
  */
+
+// V12.0: 应用诅咒恢复惩罚（3件诅咒恢复-50%）
+function _applyCurseHeal(entity, amount) {
+    if (!entity || !amount) return amount;
+    if (typeof GearSystem !== 'undefined' && GearSystem.countCursedGear) {
+        if (GearSystem.countCursedGear(entity) >= 3) {
+            return Math.floor(amount * 0.5);
+        }
+    }
+    return amount;
+}
 Game.prototype.getFloorLevel = function(floorId) {
         // floorLevel存储在flag中 flag[200 + floorId] = level
         return this.flag[200 + floorId] || 0;
@@ -51,11 +62,56 @@ Game.prototype.getHeroProgress = function(hero) {
         return hero.cflag[CFLAGS.HERO_PROGRESS] || 0;
     }
 
+    // V7.2: 统一回城入口
+Game.prototype._startReturnToTown = function(hero, reason) {
+        // V12.0: 委托完成后回城，保留完成标记以便结算奖励
+        const wasCompleted = (hero.cflag[CFLAGS.HERO_TASK_STATUS] || 0) === 1;
+        hero.cflag[CFLAGS.HERO_TASK_TYPE] = 3;
+        hero.cflag[CFLAGS.HERO_REASON] = 0;
+        hero.cflag[CFLAGS.HERO_ORIGIN] = 0;
+        hero.cflag[CFLAGS.HERO_FAMILY] = 0;
+        hero.cflag[CFLAGS.HERO_TASK_STATUS] = wasCompleted ? 1 : 0;
+        hero.cstr[CSTRS.TASK_DESC] = reason || '返回城镇';
+        // V10.1: 回城时立即大幅回退进度（-30%），确保进度条有明显变化
+        const currentProgress = hero.cflag[CFLAGS.HERO_PROGRESS] || 0;
+        const currentFloor = hero.cflag[CFLAGS.HERO_FLOOR] || 1;
+        const newProgress = currentProgress - 30;
+        if (newProgress <= 0) {
+            if (currentFloor > 1) {
+                hero.cflag[CFLAGS.HERO_FLOOR] = currentFloor - 1;
+                hero.cflag[CFLAGS.HERO_PROGRESS] = Math.max(0, 100 + newProgress);
+            } else {
+                hero.cflag[CFLAGS.HERO_PROGRESS] = 0;
+            }
+        } else {
+            hero.cflag[CFLAGS.HERO_PROGRESS] = newProgress;
+        }
+    };
+
+    // V7.2: 获取勇者/小队的HP比率（用于谨慎模式判定）
+Game.prototype._getHeroHpRatio = function(hero) {
+        const squadId = hero.cflag[CFLAGS.SQUAD_ID];
+        if (squadId) {
+            const squad = this.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === squadId);
+            const totalHp = squad.reduce((s, h) => s + Math.max(0, h.hp), 0);
+            const totalMaxHp = squad.reduce((s, h) => s + h.maxHp, 0);
+            return totalMaxHp > 0 ? totalHp / totalMaxHp : 1;
+        }
+        return hero.maxHp > 0 ? hero.hp / hero.maxHp : 1;
+    };
+
     // 计算策略对勇者速度的影响
 Game.prototype.moveHeroDaily = function(hero) {
         const floorId = this.getHeroFloor(hero);
         if (floorId > 10) {
             return { action: 'reach_throne', hero, message: '勇者到达魔王宫殿！' };
+        }
+
+        // V7.3: 小队成员由队长统一处理移动和事件；队员跳过独立探索
+        const squadId = hero.cflag[CFLAGS.SQUAD_ID] || 0;
+        const isLeader = hero.cflag[CFLAGS.SQUAD_LEADER] === 1;
+        if (squadId > 0 && squadId < 100 && !isLeader) {
+            return { action: 'squad_member', hero };
         }
 
         let progress = this.getHeroProgress(hero);
@@ -79,6 +135,21 @@ Game.prototype.moveHeroDaily = function(hero) {
             moveSpeed -= (floorId - 5); // 6层1%, 7层2%, 8层3%, 9层4%, 10层5%
         }
 
+        // V12.0: 勇者态度影响推进速度
+        // 中立型优先寻宝/任务，不主动推进深层；倾向魔王型更谨慎
+        const attitude = hero.cflag[CFLAGS.HERO_ATTITUDE] || 1;
+        if (attitude === 2) {
+            moveSpeed = Math.floor(moveSpeed * 0.75); // 中立型推进-25%
+        } else if (attitude === 3) {
+            moveSpeed = Math.floor(moveSpeed * 0.85); // 倾向魔王型推进-15%
+        }
+
+        // V12.0: 谣言恐慌效果——魔王军散播谣言后勇者行动力下降
+        const panicDay = hero.cflag[CFLAGS.PANIC_DAY] || 0;
+        if (panicDay > 0 && (this.day || 1) <= panicDay) {
+            moveSpeed = Math.floor(moveSpeed * 0.7); // 恐慌-30%移动力
+        }
+
         // === 任务状态检查 ===
         const taskType = hero.cflag[CFLAGS.HERO_TASK_TYPE] || 0;
         const taskTargetFloor = hero.cflag[CFLAGS.HERO_REASON] || 0;
@@ -86,12 +157,20 @@ Game.prototype.moveHeroDaily = function(hero) {
 
         // 回城恢复：HP<30%时自动触发
         if (hpPct < 0.3 && taskType !== 3) {
-            hero.cflag[CFLAGS.HERO_TASK_TYPE] = 3;
-            hero.cflag[CFLAGS.HERO_REASON] = 0;
-            hero.cflag[CFLAGS.HERO_ORIGIN] = 0;
-            hero.cflag[CFLAGS.HERO_FAMILY] = 0;
-            hero.cflag[CFLAGS.HERO_TASK_STATUS] = 0;
-            hero.cstr[CSTRS.TASK_DESC] = '受到重创，紧急返回城镇恢复伤势';
+            const isLeader = hero.cflag[CFLAGS.SQUAD_LEADER] === 1;
+            const squadId = hero.cflag[CFLAGS.SQUAD_ID];
+            if (squadId && !isLeader) {
+                // 队员请求回城，由队长决策
+                this._handleSquadRetreatRequest(hero, '受到重创，紧急返回城镇恢复伤势');
+            } else if (squadId && isLeader) {
+                // 队长直接决定全队回城
+                const squad = this.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === squadId);
+                for (const m of squad) {
+                    this._startReturnToTown(m, '受到重创，紧急返回城镇恢复伤势');
+                }
+            } else {
+                this._startReturnToTown(hero, '受到重创，紧急返回城镇恢复伤势');
+            }
         }
 
         if (taskType === 3) {
@@ -99,8 +178,13 @@ Game.prototype.moveHeroDaily = function(hero) {
             moveSpeed = -Math.max(5, Math.floor(hero.level / 5));
             // 如果已在第1层且进度接近起点，直接回城
             if (floorId <= 1 && progress <= Math.abs(moveSpeed)) {
-                hero.hp = Math.min(hero.maxHp, hero.hp + Math.floor(hero.maxHp * 0.5));
-                hero.mp = Math.min(hero.maxMp, hero.mp + Math.floor(hero.maxMp * 0.3));
+                hero.hp = Math.min(hero.maxHp, hero.hp + _applyCurseHeal(hero, Math.floor(hero.maxHp * 0.5)));
+                hero.mp = Math.min(hero.maxMp, hero.mp + _applyCurseHeal(hero, Math.floor(hero.maxMp * 0.3)));
+                const hadSevere = this._hasStatusAilment(hero, 'severe_injury');
+                this._removeStatusAilment(hero, 'severe_injury');
+                if (hadSevere) {
+                    this._addAdventureLog(hero, 'injury_healed', '在城镇休息，重伤得到缓解');
+                }
                 this.clearHeroTask(hero);
                 this._markDailyEventTriggered(hero);
                 return { action: 'retreat_to_town', hero, results: { events: [{ type: 'event', name: '回城恢复', description: '受到重创后成功返回城镇恢复', icon: '🏥' }] }, moveSpeed, taskComplete: true };
@@ -130,6 +214,12 @@ Game.prototype.moveHeroDaily = function(hero) {
             hero.mp = Math.max(0, hero.mp - explore.mpDmg);
         }
 
+        // V7.2: 低HP谨慎模式，移动力减半
+        const cautiousHpRatio = this._getHeroHpRatio(hero);
+        if (cautiousHpRatio < 0.3) {
+            moveSpeed = Math.floor(moveSpeed * 0.5);
+        }
+
         // === 守关Boss战判定 ===
         const oldProgress = this.getHeroProgress(hero);
         if (!explore.results._defeated && oldProgress < 100 && oldProgress + moveSpeed >= 100) {
@@ -138,15 +228,9 @@ Game.prototype.moveHeroDaily = function(hero) {
             const squadId = hero.cflag[CFLAGS.SQUAD_ID];
             if (squadId && hero.cflag[CFLAGS.SQUAD_LEADER] === 1) {
                 const squad = this.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === squadId);
-                const reinforcements = this._findReinforcements(squad, floorId, oldProgress, 'hero');
-                if (reinforcements.length > 0) {
-                    for (const r of reinforcements) squad.push(r);
-                }
                 bossCombat = this._doTeamCombat(squad, [bossMonster]);
             } else if (!squadId) {
-                const reinforcements = this._findReinforcements([hero], floorId, oldProgress, 'hero');
-                const leftTeam = [hero, ...reinforcements];
-                bossCombat = this._doTeamCombat(leftTeam, [bossMonster]);
+                bossCombat = this._doTeamCombat([hero], [bossMonster]);
             }
             if (bossCombat) {
                 explore.results.leftTeam = bossCombat.leftTeam;
@@ -171,6 +255,16 @@ Game.prototype.moveHeroDaily = function(hero) {
                     const bossFame = 10 + floorId * 5;
                     hero.fame += bossFame;
 
+                    // V7.0: Boss击杀履历
+                    const bossSurvivors = (bossCombat.leftTeam || []).filter(u => u.hp > 0 && !u.isSpy && !u.isMonster && !u.isMaster).map(u => u.entity);
+                    for (const s of bossSurvivors) {
+                        if (s) {
+                            this._incrementTitleStat(s, 'bossKills');
+                            this._addAdventureLog(s, 'boss_kill', `击败守关Boss${bossMonster.name}（第${floorId + 1}层）`);
+                            this._checkTitle(s);
+                        }
+                    }
+
                     // === V6.0: 守关Boss宝箱掉落 ===
                     const badgeEvents = this._generateBossChestLoot(bossCombat, floorId);
                     if (badgeEvents.length > 0) {
@@ -181,6 +275,16 @@ Game.prototype.moveHeroDaily = function(hero) {
                     hero.cflag[CFLAGS.HERO_FLOOR] = floorId + 1;
                     hero.cflag[CFLAGS.HERO_PROGRESS] = 0;
                     hero.cflag[503] = 0;
+                    // V7.3: 通关楼层日志
+                    this._addAdventureLog(hero, 'floor_clear', `突破第${floorId}层，进入第${floorId + 1}层`);
+                    // V12.0: 心声——击败Boss
+                    const winVoices = [
+                        `击败了第${floorId}层的Boss！我还活着！`,
+                        `终于...突破这层了。但前方还有更多危险。`,
+                        `胜利了！但付出的代价也不小...`,
+                        `这就是守关Boss的实力吗...勉强赢了。`
+                    ];
+                    if (this._addAdventureLog) this._addAdventureLog(hero, 'voice', winVoices[RAND(winVoices.length)]);
                     return { action: 'boss_victory', hero, floor: floorId + 1, results: explore.results, moveSpeed };
                 } else {
                     // Boss战败或撤退：标记为 defeated
@@ -198,27 +302,56 @@ Game.prototype.moveHeroDaily = function(hero) {
             const captureResult = this._processCapture(hero, explore.results._monster);
 
             if (captureResult.type === 'escape') {
-                // 逃跑成功：侵略度-50%，不足则回上一层0%
-                if (progress >= 50) {
-                    hero.cflag[CFLAGS.HERO_PROGRESS] = progress - 50;
-                    // 恢复少量状态以便继续入侵                    hero.hp = Math.max(1, Math.floor(hero.maxHp * 0.15));
+                // V7.2: 战败逃脱后进度-20%
+                // V10.0: 小队战败逃脱是整体行为，队长同步所有成员
+                const isLeader = hero.cflag[CFLAGS.SQUAD_LEADER] === 1;
+                const squadId = hero.cflag[CFLAGS.SQUAD_ID];
+                const squad = squadId ? this.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === squadId) : [];
+                const newProgress = progress - 20;
+                if (newProgress > 0) {
+                    hero.cflag[CFLAGS.HERO_PROGRESS] = newProgress;
+                    hero.hp = Math.max(1, Math.floor(hero.maxHp * 0.15));
                     hero.mp = Math.max(1, Math.floor(hero.maxMp * 0.1));
-                    hero.cflag[CFLAGS.SPY_TARGET] = 1; // 被击败后保持低调
+                    if (isLeader && squad.length > 1) {
+                        for (const m of squad) {
+                            m.cflag[CFLAGS.HERO_PROGRESS] = newProgress;
+                            m.hp = Math.max(1, Math.floor(m.maxHp * 0.15));
+                            m.mp = Math.max(1, Math.floor(m.maxMp * 0.1));
+                        }
+                    }
+                    hero.cflag[CFLAGS.SPY_TARGET] = 1;
                     this._markDailyEventTriggered(hero);
-                    return { action: 'defeat_escape', hero, results: explore.results, captureResult, moveSpeed: -50 };
+                    return { action: 'defeat_escape', hero, results: explore.results, captureResult, moveSpeed: -20 };
                 } else if (floorId > 1) {
                     hero.cflag[CFLAGS.HERO_FLOOR] = floorId - 1;
                     hero.cflag[CFLAGS.HERO_PROGRESS] = 50;
                     hero.hp = Math.max(1, Math.floor(hero.maxHp * 0.15));
                     hero.mp = Math.max(1, Math.floor(hero.maxMp * 0.1));
-                    hero.cflag[CFLAGS.SPY_TARGET] = 1; // 被击败后保持低调
+                    if (isLeader && squad.length > 1) {
+                        for (const m of squad) {
+                            m.cflag[CFLAGS.HERO_FLOOR] = floorId - 1;
+                            m.cflag[CFLAGS.HERO_PROGRESS] = 50;
+                            m.hp = Math.max(1, Math.floor(m.maxHp * 0.15));
+                            m.mp = Math.max(1, Math.floor(m.maxMp * 0.1));
+                        }
+                    }
+                    hero.cflag[CFLAGS.SPY_TARGET] = 1;
                     this._markDailyEventTriggered(hero);
-                    return { action: 'defeat_escape', hero, floor: floorId - 1, results: explore.results, captureResult, moveSpeed: -100 };
+                    return { action: 'defeat_escape', hero, floor: floorId - 1, results: explore.results, captureResult, moveSpeed: -20 };
                 } else {
-                    // 第一层且进度<50%，只能回小镇
-                    hero.cflag[CFLAGS.SPY_TARGET] = 1; // 被击败后保持低调
+                    // 第一层且进度耗尽，触发回城
+                    if (squadId && !isLeader) {
+                        this._handleSquadRetreatRequest(hero, '战斗失利，返回城镇恢复');
+                    } else if (squadId && isLeader) {
+                        for (const m of squad) {
+                            this._startReturnToTown(m, '战斗失利，返回城镇恢复');
+                        }
+                    } else {
+                        this._startReturnToTown(hero, '战斗失利，返回城镇恢复');
+                    }
+                    hero.cflag[CFLAGS.SPY_TARGET] = 1;
                     this._markDailyEventTriggered(hero);
-                    return { action: 'retreat_to_town', hero, results: explore.results, captureResult, moveSpeed: -100 };
+                    return { action: 'retreat_to_town', hero, results: explore.results, captureResult, moveSpeed: -20 };
                 }
             }
 
@@ -227,9 +360,60 @@ Game.prototype.moveHeroDaily = function(hero) {
             return { action: 'captured', hero, monster: explore.results._monster, captureResult, results: explore.results, moveSpeed: -100 };
         }
 
+        // V7.2: 战斗逃跑/超时惩罚：进度-20%
+        // V10.0: 小队逃跑是整体行为，队长同步所有成员
+        if (explore.results._escaped) {
+            const isLeader = hero.cflag[CFLAGS.SQUAD_LEADER] === 1;
+            const squadId = hero.cflag[CFLAGS.SQUAD_ID];
+            const squad = squadId ? this.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === squadId) : [];
+            const newProgress = progress - 20;
+            if (newProgress > 0) {
+                hero.cflag[CFLAGS.HERO_PROGRESS] = newProgress;
+                if (isLeader && squad.length > 1) {
+                    for (const m of squad) {
+                        m.cflag[CFLAGS.HERO_PROGRESS] = newProgress;
+                    }
+                }
+                return { action: 'combat_escape', hero, progress: newProgress, results: explore.results, moveSpeed: -20 };
+            } else if (floorId > 1) {
+                hero.cflag[CFLAGS.HERO_FLOOR] = floorId - 1;
+                hero.cflag[CFLAGS.HERO_PROGRESS] = 50;
+                if (isLeader && squad.length > 1) {
+                    for (const m of squad) {
+                        m.cflag[CFLAGS.HERO_FLOOR] = floorId - 1;
+                        m.cflag[CFLAGS.HERO_PROGRESS] = 50;
+                    }
+                }
+                return { action: 'combat_escape', hero, floor: floorId - 1, results: explore.results, moveSpeed: -20 };
+            } else {
+                if (squadId && !isLeader) {
+                    this._handleSquadRetreatRequest(hero, '战斗中撤退，返回城镇恢复');
+                } else if (squadId && isLeader) {
+                    for (const m of squad) {
+                        this._startReturnToTown(m, '战斗中撤退，返回城镇恢复');
+                    }
+                } else {
+                    this._startReturnToTown(hero, '战斗中撤退，返回城镇恢复');
+                }
+                return { action: 'retreat_to_town', hero, results: explore.results, moveSpeed: -20 };
+            }
+        }
+
         const retreatChance = this._calcRetreatChance(hero, hpPct, mpPct);
         if (retreatChance > 0 && RAND(100) < retreatChance) {
             moveSpeed = -5; // 主动往回走
+            const isLeader = hero.cflag[CFLAGS.SQUAD_LEADER] === 1;
+            const squadId = hero.cflag[CFLAGS.SQUAD_ID];
+            if (squadId && !isLeader) {
+                this._handleSquadRetreatRequest(hero, '主动撤退回城镇');
+            } else if (squadId && isLeader) {
+                const squad = this.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === squadId);
+                for (const m of squad) {
+                    this._startReturnToTown(m, '主动撤退回城镇');
+                }
+            } else {
+                this._startReturnToTown(hero, '主动撤退回城镇');
+            }
         }
 
         // 检查楼层设施
@@ -252,23 +436,31 @@ Game.prototype.moveHeroDaily = function(hero) {
         progress += moveSpeed;
 
         // 处理边界情况
+        let result;
         if (progress >= 100) {
             hero.cflag[CFLAGS.HERO_FLOOR] = floorId + 1;
             hero.cflag[CFLAGS.HERO_PROGRESS] = 0;
             hero.cflag[503] = 0; // 重置新楼层宝箱标记
-            return { action: 'next_floor', hero, floor: floorId + 1, results: explore.results, moveSpeed };
+            result = { action: 'next_floor', hero, floor: floorId + 1, results: explore.results, moveSpeed };
         } else if (progress <= 0) {
             if (floorId <= 1) {
-                return { action: 'retreat_to_town', hero, results: explore.results, moveSpeed };
+                this._startReturnToTown(hero, '返回城镇');
+                result = { action: 'retreat_to_town', hero, results: explore.results, moveSpeed };
             } else {
                 hero.cflag[CFLAGS.HERO_FLOOR] = floorId - 1;
-                hero.cflag[CFLAGS.HERO_PROGRESS] = 80;
-                return { action: 'prev_floor', hero, floor: floorId - 1, results: explore.results, moveSpeed };
+                hero.cflag[CFLAGS.HERO_PROGRESS] = 50;
+                result = { action: 'prev_floor', hero, floor: floorId - 1, results: explore.results, moveSpeed };
             }
         } else {
             hero.cflag[CFLAGS.HERO_PROGRESS] = progress;
-            return { action: 'move', hero, progress, results: explore.results, moveSpeed };
+            result = { action: 'move', hero, progress, results: explore.results, moveSpeed };
         }
+
+        // 队长同步位置/任务给所有队员
+        if (hero.cflag[CFLAGS.SQUAD_LEADER] === 1) {
+            this._syncSquadPosition(hero, result);
+        }
+        return result;
     }
 
     // 检查进度宝箱：25%/50%/75%高级宝箱，100%传说宝箱
@@ -310,7 +502,20 @@ Game.prototype.exploreFloor = function(hero) {
         if (canTriggerEvent) {
             const roll = RAND(100);
             // 被击败后保持低调：遇敌概率最高10%
-            const encounterChance = hero.cflag[CFLAGS.SPY_TARGET] ? 10 : 65;
+            let encounterChance = hero.cflag[CFLAGS.SPY_TARGET] ? 10 : 65;
+            // V12.0: 勇者态度影响遇敌概率
+            // 中立型优先寻宝/任务，降低遇敌；倾向魔王型谨慎行事
+            const attitude = hero.cflag[CFLAGS.HERO_ATTITUDE] || 1;
+            if (attitude === 2) {
+                encounterChance = Math.floor(encounterChance * 0.7); // 中立型遇敌-30%
+            } else if (attitude === 3) {
+                encounterChance = Math.floor(encounterChance * 0.8); // 倾向魔王型遇敌-20%
+            }
+            // V7.2: 低HP谨慎模式，遇敌概率减半
+            const hpRatio = this._getHeroHpRatio(hero);
+            if (hpRatio < 0.3) {
+                encounterChance = Math.floor(encounterChance * 0.5);
+            }
             if (roll < encounterChance) {
                 // 遇敌战斗：90%普通怪物，10%首领级精英
                 let monster;
@@ -324,11 +529,6 @@ Game.prototype.exploreFloor = function(hero) {
                     if (squadId && isLeader) {
                     // 队长：触发小队战斗
                     const squad = this.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === squadId);
-                    const heroProgress = this.getHeroProgress(hero);
-                    const reinforcements = this._findReinforcements(squad, floorId, heroProgress, 'hero');
-                    if (reinforcements.length > 0) {
-                        for (const r of reinforcements) squad.push(r);
-                    }
                     const combat = this._doTeamCombat(squad, [monster]);
                     results.push({
                         type: "scombat",
@@ -350,8 +550,8 @@ Game.prototype.exploreFloor = function(hero) {
                         speedMod -= 1;
                         for (const member of squad) {
                             if (member.hp > 0) {
-                                member.hp = Math.min(member.maxHp, member.hp + Math.floor(member.maxHp * 0.03));
-                                member.mp = Math.min(member.maxMp, member.mp + Math.floor(member.maxMp * 0.03));
+                                member.hp = Math.min(member.maxHp, member.hp + _applyCurseHeal(member, Math.floor(member.maxHp * 0.03)));
+                                member.mp = Math.min(member.maxMp, member.mp + _applyCurseHeal(member, Math.floor(member.maxMp * 0.03)));
                             }
                         }
                         // 击败魔物获得声望
@@ -365,6 +565,14 @@ Game.prototype.exploreFloor = function(hero) {
                                     if (rel.level < 4 && RAND(100) < 40) {
                                         this._setHeroRelation(squad[si], squad[sj], 1, 'defeat_elite');
                                     }
+                                }
+                            }
+                            // V7.0: 精英击杀履历
+                            for (const member of squad) {
+                                if (member.hp > 0) {
+                                    this._incrementTitleStat(member, 'eliteKills');
+                                    this._addAdventureLog(member, 'elite_kill', `击败精英${monster.name}（第${floorId + 1}层）`);
+                                    this._checkTitle(member);
                                 }
                             }
                         }
@@ -387,67 +595,22 @@ Game.prototype.exploreFloor = function(hero) {
                         results._defeated = true;
                         results._monster = monster;
                     } else {
+                        // 战斗逃跑/超时
                         speedMod -= 2;
-                        hpDmg += Math.floor(monster.atk * 0.3);
-                        mpDmg += Math.floor(monster.atk * 0.2);
+                        const dmgHp = Math.floor(monster.atk * 0.3);
+                        const dmgMp = Math.floor(monster.atk * 0.2);
+                        hpDmg += dmgHp;
+                        mpDmg += dmgMp;
+                        // V10.0: 小队逃跑是整体行为，所有成员承受逃跑伤害
+                        for (const member of squad) {
+                            member.hp = Math.max(1, member.hp - dmgHp);
+                            member.mp = Math.max(0, member.mp - dmgMp);
+                        }
+                        results._escaped = true;
                     }
                 } else {
-                    // 单人战斗 —— 检查是否有关系好的勇者拔刀相助
-                    let helpers = [];
-                    const otherHeroes = this.invaders.filter(h => h !== hero && h.hp > 0 && this.getHeroFloor(h) === floorId && !h.cflag[912]);
-                    for (const other of otherHeroes) {
-                        const rel = this._getHeroRelation(hero, other);
-                        if (rel.level >= 3 && RAND(100) < (rel.level >= 4 ? 50 : 30)) {
-                            helpers.push(other);
-                            this._setHeroRelation(hero, other, 1, 'help_combat');
-                        }
-                    }
-                    if (helpers.length > 0) {
-                        // 拔刀相助：关系好的勇者加入战斗
-                        const squad = [hero, ...helpers];
-                        const combat = this._doTeamCombat(squad, [monster]);
-                        const helperNames = helpers.map(h => h.name).join(',');
-                        results.push({
-                            type: "scombat",
-                            name: `拔刀相助：遭遇${monster.name}`,
-                            description: `${hero.name}遇险，${helperNames}前来相助！${monster.icon} ${monster.description}`,
-                            icon: "🤝",
-                            combatLog: combat.combatLog,
-                            victory: combat.victory,
-                            defeated: combat.defeated,
-                            monster: monster,
-                            leftTeam: combat.leftTeam,
-                            rightTeam: combat.rightTeam,
-                            isSquad: true,
-                            heroName: hero.name,
-                            squad: squad
-                        });
-                        if (combat.victory) {
-                            speedMod -= 1;
-                            for (const member of squad) {
-                                if (member.hp > 0) {
-                                    member.hp = Math.min(member.maxHp, member.hp + Math.floor(member.maxHp * 0.03));
-                                    member.mp = Math.min(member.maxMp, member.mp + Math.floor(member.maxMp * 0.03));
-                                }
-                            }
-                            this._checkCommissionComplete(hero, 'combat', { floorId, monster });
-                        } else if (combat.defeated) {
-                            speedMod = -20;
-                            for (const member of squad) {
-                                member.hp = Math.max(1, member.hp);
-                            }
-                            results._defeated = true;
-                            results._monster = monster;
-                        } else {
-                            speedMod -= 2;
-                            hpDmg += Math.floor(monster.atk * 0.3);
-                            mpDmg += Math.floor(monster.atk * 0.2);
-                        }
-                    } else {
-                        // 真正的单人战斗
-                        const reinforcements = this._findReinforcements([hero], floorId, this.getHeroProgress(hero), 'hero');
-                        const leftTeam = [hero, ...reinforcements];
-                        const combat = this._doTeamCombat(leftTeam, [monster]);
+                    // 单人战斗
+                    const combat = this._doTeamCombat([hero], [monster]);
                         results.push({
                             type: "combat",
                             name: `遭遇${monster.name}`,
@@ -462,10 +625,16 @@ Game.prototype.exploreFloor = function(hero) {
                         });
                         if (combat.victory) {
                             speedMod -= 1;
-                            hero.hp = Math.min(hero.maxHp, hero.hp + Math.floor(hero.maxHp * 0.03));
-                            hero.mp = Math.min(hero.maxMp, hero.mp + Math.floor(hero.maxMp * 0.03));
+                            hero.hp = Math.min(hero.maxHp, hero.hp + _applyCurseHeal(hero, Math.floor(hero.maxHp * 0.03)));
+                            hero.mp = Math.min(hero.maxMp, hero.mp + _applyCurseHeal(hero, Math.floor(hero.maxMp * 0.03)));
                             // 击败魔物获得声望
                             hero.fame += Math.max(1, Math.floor((monster.level || 1) / 2));
+                            // V7.0: 精英击杀履历（单人）
+                            if (monster && (monster.eliteType === 'chief' || monster.eliteType === 'overlord')) {
+                                this._incrementTitleStat(hero, 'eliteKills');
+                                this._addAdventureLog(hero, 'elite_kill', `击败精英${monster.name}（第${floorId + 1}层）`);
+                                this._checkTitle(hero);
+                            }
                             // 检查委托：击败精英
                             this._checkCommissionComplete(hero, 'combat', { floorId, monster });
                         } else if (combat.defeated) {
@@ -473,12 +642,20 @@ Game.prototype.exploreFloor = function(hero) {
                             hero.hp = 1;
                             results._defeated = true;
                             results._monster = monster;
+                            // V12.0: 心声——战败
+                            const defeatVoices = [
+                                '好痛...我不甘心...',
+                                '太强了...这就是地下城的真正恐怖吗...',
+                                '不能死在这里...我还有任务要完成...'
+                            ];
+                            if (this._addAdventureLog) this._addAdventureLog(hero, 'voice', defeatVoices[RAND(defeatVoices.length)]);
                         } else {
+                            // 战斗逃跑/超时
                             speedMod -= 2;
                             hpDmg += Math.floor(monster.atk * 0.3);
                             mpDmg += Math.floor(monster.atk * 0.2);
+                            results._escaped = true;
                         }
-                    }
                 }
             }
         } else {
@@ -493,17 +670,24 @@ Game.prototype.exploreFloor = function(hero) {
                     speedMod -= 2;
                 } else if (event.type === 'heal') {
                     speedMod += 1;
-                    hero.hp = Math.min(hero.maxHp, hero.hp + (event.value || 50));
+                    hero.hp = Math.min(hero.maxHp, hero.hp + _applyCurseHeal(hero, (event.value || 50)));
                 } else if (event.type === 'healer') {
                     speedMod += 1;
                     const healAmt = Math.floor(hero.maxHp * (event.value || 30) / 100);
-                    hero.hp = Math.min(hero.maxHp, hero.hp + healAmt);
+                    hero.hp = Math.min(hero.maxHp, hero.hp + _applyCurseHeal(hero, healAmt));
                     const cured = this._tryCureStatusAilment(hero, "healer_event");
                     results.push({ type: "healer", name: "治疗师的帮助", description: `恢复${healAmt}HP` + (cured.length > 0 ? `，解除：${cured.join(',')}` : ''), icon: "💊" });
                 } else if (event.type === 'curse') {
                     speedMod -= 2;
                     this._addStatusAilment(hero, "curse", 5);
                     results.push({ type: "curse", name: "诅咒之泉", description: "勇者被诅咒了！", icon: "🌑" });
+                    // V12.0: 心声——被诅咒
+                    const curseVoices = [
+                        '身体被诅咒侵蚀了...这种感觉...好恶心。',
+                        '该死，中了诅咒。必须尽快找到净化之法。',
+                        '为什么偏偏是我...这诅咒会让我的任务更难完成。'
+                    ];
+                    if (this._addAdventureLog) this._addAdventureLog(hero, 'voice', curseVoices[RAND(curseVoices.length)]);
                 } else if (event.type === 'aphrodisiac') {
                     speedMod -= 1;
                     this._addStatusAilment(hero, "aphrodisiac", 4);
@@ -543,6 +727,9 @@ Game.prototype.exploreFloor = function(hero) {
 
         // === 委托完成检查（探索类）===
         this._checkCommissionComplete(hero, 'explore', { floorId });
+
+        // V12.0: 寻找真相任务完成判定
+        this._checkTruthComplete(hero, floorId);
 
         return { results, speedMod, hpDmg, mpDmg };
     }
@@ -604,8 +791,22 @@ Game.prototype._checkProgressChests = function(hero, oldProgress, newProgress, f
                 }
             }
             if (item) {
-                const r = GearSystem.equipItem(hero, item);
+                // V8.0: 智能装备比较
+                const slot = item.slot || 'weapon';
+                const check = GearSystem.shouldEquip(item, slot, hero);
+                let r;
+                if (check.should) {
+                    r = GearSystem.equipItem(hero, item);
+                } else {
+                    r = { success: false, msg: `获得了${item.name}，但${check.reason}，未装备` };
+                }
                 equipResult = r;
+                // V7.0: 珍贵物品履历
+                const rarityNames = ['', '普通', '精良', '稀有', '史诗', '传说'];
+                const rarityName = rarityNames[item.rarity || 0] || '珍贵';
+                if ((item.rarity || 0) >= 3) {
+                    this._addAdventureLog(hero, 'rare_item', `获得${rarityName}装备「${item.name || GearSystem.getGearDesc(item)}」`);
+                }
                 events.push({
                     type: t.type,
                     threshold: t.pct,
@@ -729,7 +930,20 @@ Game.prototype._checkProgressChests = function(hero, oldProgress, newProgress, f
             const rarity = Math.min(maxRarity, 2 + RAND(4)); // 至少精良
             const gear = GearSystem.generateGear(slot, lockLevel, rarity);
             const lucky3 = survivors[RAND(survivors.length)];
-            const r = GearSystem.equipItem(lucky3, gear);
+            // V8.0: 智能装备比较
+            const check = GearSystem.shouldEquip(gear, slot, lucky3);
+            let r;
+            if (check.should) {
+                r = GearSystem.equipItem(lucky3, gear);
+            } else {
+                r = { success: false, msg: `获得了${gear.name}，但${check.reason}，未装备` };
+            }
+            // V7.0: Boss战利品履历
+            const rarityNames = ['', '普通', '精良', '稀有', '史诗', '传说'];
+            const rarityName = rarityNames[gear.rarity || 0] || '珍贵';
+            if ((gear.rarity || 0) >= 3) {
+                this._addAdventureLog(lucky3, 'rare_item', `从Boss宝箱中获得${rarityName}装备「${gear.name}」`);
+            }
             events.push({
                 type: 'boss_chest',
                 name: `🎁 ${r.msg || '获得装备'}`,
@@ -761,16 +975,18 @@ Game.prototype._generateChestLoot = function(level, chestType, hero, floorId) {
         const roll = Math.random();
         // 小概率出特殊物品
         if (roll < 0.02) {
-            return GearSystem.generateSpecialItem('cleanse_potion', level, chestType === 'legendary');
+            // V8.0: 净化药水已移除，改为生成 town_portal
+            return GearSystem.generateItem('town_portal', level, 3);
         }
         if (roll < 0.03) {
+            // V8.0: supreme_ring 改为直接生成戒指装备
             return GearSystem.generateSpecialItem('supreme_ring', level, chestType === 'legendary');
         }
         // 普通物品
         if (chestType === 'legendary') {
             // 传说宝箱：无诅咒，品质由楼层决定
             const slotTypes = ['head', 'body', 'legs', 'hands', 'neck', 'ring', 'weapon'];
-            const itypes = ['heal', 'mana', 'buff'];
+            const itypes = ['heal', 'mana', 'cleanse', 'town_portal'];
             const kind = Math.random() < 0.5 ? 'gear' : 'item';
             if (kind === 'gear') {
                 const slot = slotTypes[RAND(slotTypes.length)];
@@ -781,7 +997,7 @@ Game.prototype._generateChestLoot = function(level, chestType, hero, floorId) {
         } else {
             // 高级宝箱：可能诅咒，品质受楼层限制
             const slotTypes = ['head', 'body', 'legs', 'hands', 'neck', 'ring', 'weapon'];
-            const itypes = ['heal', 'mana', 'buff', 'cleanse'];
+            const itypes = ['heal', 'mana', 'cleanse', 'town_portal'];
             const kind = Math.random() < 0.6 ? 'gear' : 'item';
             if (kind === 'gear') {
                 const slot = slotTypes[RAND(slotTypes.length)];
@@ -830,20 +1046,37 @@ Game.prototype._checkFloorFacilities = function(hero, oldProgress, newProgress, 
             }
         }
 
-        // 回复泉水：1-9层，80%处，每次经过都触发
+        // V10.0: 回复泉水 — 100%HP/50%MP恢复，5天冷却
         const springDef = FLOOR_FACILITY_DEFS.spring;
         if (springDef && springDef.floors.includes(floorId)) {
             const pos = springDef.progress;
             if (oldProgress < pos && newProgress >= pos) {
-                const healAmt = Math.floor(hero.maxHp * 0.05);
-                hero.hp = Math.min(hero.maxHp, hero.hp + healAmt);
-                events.push({
-                    type: 'spring',
-                    name: '💧 回复泉水',
-                    description: `${hero.name}经过回复泉水，恢复${healAmt}HP`,
-                    icon: '💧',
-                    heal: healAmt
-                });
+                const lastUsed = hero.cflag[CFLAGS.SPRING_LAST_USED] || 0;
+                const day = this.day || 1;
+                if (day - lastUsed >= 5) {
+                    const healAmt = hero.maxHp - hero.hp;
+                    const mpHeal = Math.floor(hero.maxMp * 0.5);
+                    hero.hp = hero.maxHp;
+                    hero.mp = Math.min(hero.maxMp, hero.mp + mpHeal);
+                    hero.cflag[CFLAGS.SPRING_LAST_USED] = day;
+                    events.push({
+                        type: 'spring',
+                        name: '💧 回复泉水',
+                        description: `${hero.name}饮用回复泉水，HP完全恢复，MP恢复${mpHeal}（下次可用：${day+5}天后）`,
+                        icon: '💧',
+                        heal: healAmt,
+                        mpHeal: mpHeal
+                    });
+                } else {
+                    const cdDays = 5 - (day - lastUsed);
+                    events.push({
+                        type: 'spring',
+                        name: '💧 回复泉水（枯竭中）',
+                        description: `${hero.name}经过回复泉水，但泉水仍在恢复中（${cdDays}天后可用）`,
+                        icon: '💧',
+                        heal: 0
+                    });
+                }
             }
         }
 
@@ -890,13 +1123,32 @@ Game.prototype._checkFloorFacilities = function(hero, oldProgress, newProgress, 
         return events;
     }
 
+    // V8.0: 地下城商店鉴定服务
+Game.prototype._tryShopIdentify = function(hero, shopName) {
+        const identifyCost = 50;
+        if (!hero.gear) return null;
+        const allGear = [hero.gear.head, hero.gear.body, hero.gear.legs, hero.gear.hands, hero.gear.neck, hero.gear.ring, ...(hero.gear.weapons || [])];
+        const unidentified = allGear.filter(g => g && !g.identified);
+        if (unidentified.length === 0) return null;
+        // AI：有未鉴定装备时，50%概率选择鉴定（如果金币足够）
+        if (hero.gold >= identifyCost && Math.random() < 0.5) {
+            const target = unidentified[RAND(unidentified.length)];
+            hero.gold -= identifyCost;
+            const r = GearSystem.identifyGear(target);
+            if (r.success) {
+                return `花费${identifyCost}G鉴定了${target.name}${r.wasCursed ? '（发现诅咒！）' : ''}`;
+            }
+        }
+        return null;
+    }
+
     // 触发地下城商店
 Game.prototype._triggerFloorShop = function(hero, floorId) {
         const level = Math.max(1, floorId * 5 + RAND(5));
         const maxRarity = Math.min(5, Math.floor((floorId + 1) / 2));
         const minRarity = Math.max(0, Math.floor((floorId - 2) / 2));
         const slotTypes = ['head', 'body', 'legs', 'hands', 'neck', 'ring', 'weapon'];
-        const itemTypes = ['heal', 'mana', 'buff'];
+        const itemTypes = ['heal', 'mana', 'cleanse', 'town_portal'];
 
         const items = [];
         // 装备
@@ -915,18 +1167,26 @@ Game.prototype._triggerFloorShop = function(hero, floorId) {
         let bought = [];
         for (const entry of items) {
             if (hero.gold >= entry.price && Math.random() < 0.7) {
-                hero.gold -= entry.price;
-                const r = GearSystem.equipItem(hero, entry.item);
-                if (r.success) {
-                    bought.push(`${entry.item.name}(${entry.price}G)`);
+                // V8.0: 智能装备比较
+                const slot = entry.item.slot || (entry.item.type === 'weapon' ? 'weapon' : 'item');
+                const check = slot === 'item' ? { should: true } : GearSystem.shouldEquip(entry.item, slot, hero);
+                if (check.should) {
+                    hero.gold -= entry.price;
+                    const r = GearSystem.equipItem(hero, entry.item);
+                    if (r.success) {
+                        bought.push(`${entry.item.name}(${entry.price}G)`);
+                    }
                 }
             }
         }
 
+        // V8.0: 商店鉴定服务
+        const identifyResult = this._tryShopIdentify(hero, '地下城商店');
+
         return {
             type: 'floor_shop',
             name: '🏪 地下城商店',
-            description: `${hero.name}在地下城商店浏览，${bought.length > 0 ? '购买了：' + bought.join(',') : '没有购买任何物品'}`,
+            description: `${hero.name}在地下城商店浏览，${bought.length > 0 ? '购买了：' + bought.join(',') : '没有购买任何物品'}${identifyResult ? ' | ' + identifyResult : ''}`,
             icon: '🏪',
             bought: bought
         };
@@ -962,7 +1222,14 @@ Game.prototype._triggerArena = function(hero, floorId, squadId) {
             const slotTypes = ['head', 'body', 'legs', 'hands', 'neck', 'ring', 'weapon'];
             const slot = slotTypes[RAND(slotTypes.length)];
             const item = GearSystem.generateGear(slot, monster.level, maxRarity);
-            const r = GearSystem.equipItem(hero, item);
+            // V8.0: 智能装备比较
+            const check = GearSystem.shouldEquip(item, slot, hero);
+            let r;
+            if (check.should) {
+                r = GearSystem.equipItem(hero, item);
+            } else {
+                r = { success: false, msg: `获得了${item.name}，但${check.reason}，未装备` };
+            }
             result.itemName = item.name;
             result.itemMsg = r.msg;
 
@@ -971,9 +1238,9 @@ Game.prototype._triggerArena = function(hero, floorId, squadId) {
             hero.gold += bonusGold;
             result.gold = bonusGold;
 
-            // 恢复5%HP
-            const healAmt = Math.floor(hero.maxHp * 0.05);
-            hero.hp = Math.min(hero.maxHp, hero.hp + healAmt);
+            // 恢复20%HP
+            const healAmt = Math.floor(hero.maxHp * 0.20);
+            hero.hp = Math.min(hero.maxHp, hero.hp + _applyCurseHeal(hero, healAmt));
             result.heal = healAmt;
 
             result.description += ` | 胜利！获得${item.name}和${bonusGold}G，恢复${healAmt}HP`;
@@ -993,7 +1260,7 @@ Game.prototype._triggerHiddenShop = function(hero, floorId) {
         const maxRarity = Math.min(5, Math.floor((floorId + 1) / 2));
         const minRarity = Math.max(0, Math.floor((floorId - 2) / 2));
         const slotTypes = ['head', 'body', 'legs', 'hands', 'neck', 'ring', 'weapon'];
-        const itemTypes = ['heal', 'mana', 'buff', 'cleanse'];
+        const itemTypes = ['heal', 'mana', 'cleanse', 'town_portal'];
         const kind = Math.random() < 0.5 ? 'gear' : 'item';
         let item;
         if (kind === 'gear') {
@@ -1005,24 +1272,42 @@ Game.prototype._triggerHiddenShop = function(hero, floorId) {
             item = GearSystem.generateItem(itemTypes[RAND(itemTypes.length)], level, r);
         }
         const basePrice = this._calcGearPrice(item);
-        const shopPrice = basePrice * 10; // 隐藏商店售价为同类物品售价的10倍        // AI决定是否购买（有50%概率购买，如果金币足够）
+        const shopPrice = basePrice * 3; // V8.0: 隐藏商店溢价从10倍降至3倍        // AI决定是否购买（有50%概率购买，如果金币足够）
         if (hero.gold >= shopPrice && Math.random() < 0.5) {
-            hero.gold -= shopPrice;
-            const r = GearSystem.equipItem(hero, item);
-            return {
-                type: "shop",
-                name: "隐藏商店",
-                description: `发现隐藏商店，花${shopPrice}G购买${item.name},${r.success ? r.msg : '但无法携带'}`,
-                icon: "🏪",
-                item: item,
-                price: shopPrice,
-                bought: r.success
-            };
+            // V8.0: 智能装备比较
+            const slot = item.slot || (item.type === 'weapon' ? 'weapon' : 'item');
+            const check = slot === 'item' ? { should: true } : GearSystem.shouldEquip(item, slot, hero);
+            if (check.should) {
+                hero.gold -= shopPrice;
+                const r = GearSystem.equipItem(hero, item);
+                return {
+                    type: "shop",
+                    name: "隐藏商店",
+                    description: `发现隐藏商店，花${shopPrice}G购买${item.name},${r.success ? r.msg : '但无法携带'}`,
+                    icon: "🏪",
+                    item: item,
+                    price: shopPrice,
+                    bought: r.success
+                };
+            } else {
+                return {
+                    type: "shop",
+                    name: "隐藏商店",
+                    description: `发现隐藏商店，有${item.name}出售（${shopPrice}G），但勇者觉得不如当前装备。`,
+                    icon: "🏪",
+                    item: item,
+                    price: shopPrice,
+                    bought: false
+                };
+            }
         }
+        // V8.0: 隐藏商店鉴定服务
+        const identifyResult = this._tryShopIdentify(hero, '隐藏商店');
+
         return {
             type: "shop",
             name: "隐藏商店",
-            description: `发现隐藏商店，有${item.name}出售（${shopPrice}G），${hero.gold < shopPrice ? '金币不足' : '没有购买'}。`,
+            description: `发现隐藏商店，有${item.name}出售（${shopPrice}G），${hero.gold < shopPrice ? '金币不足' : '没有购买'}。${identifyResult ? '| ' + identifyResult : ''}`,
             icon: "🏪",
             item: item,
             price: shopPrice,
@@ -1036,7 +1321,7 @@ Game.prototype._triggerSwindler = function(hero, floorId) {
         const level = Math.max(1, floorId * 5 + RAND(5) + 5); // 高一级= 等级+5
         const maxRarity = Math.min(5, Math.floor((floorId + 2) / 2));
         const slotTypes = ['head', 'body', 'legs', 'hands', 'neck', 'ring', 'weapon'];
-        const itemTypes = ['heal', 'mana', 'buff'];
+        const itemTypes = ['heal', 'mana', 'cleanse'];
         const kind = Math.random() < 0.5 ? 'gear' : 'item';
         let item;
         if (kind === 'gear') {
@@ -1052,10 +1337,17 @@ Game.prototype._triggerSwindler = function(hero, floorId) {
         // AI购买判定【0%概率购买
         let bought = false;
         if (hero.gold >= buyPrice && Math.random() < 0.3) {
-            hero.gold -= buyPrice;
-            const r = GearSystem.equipItem(hero, item);
-            bought = r.success;
-            resultDesc += `花费${buyPrice}G购买了它【${r.msg}`;
+            // V8.0: 智能装备比较（奸商品虽诅咒但稀有度高，仍可能购买）
+            const slot = item.slot || (item.type === 'weapon' ? 'weapon' : 'item');
+            const check = slot === 'item' ? { should: true } : GearSystem.shouldEquip(item, slot, hero);
+            if (check.should) {
+                hero.gold -= buyPrice;
+                const r = GearSystem.equipItem(hero, item);
+                bought = r.success;
+                resultDesc += `花费${buyPrice}G购买了它【${r.msg}`;
+            } else {
+                resultDesc += `觉得不如当前装备，没有购买。`;
+            }
         } else {
             resultDesc += `没有购买。`;
         }
@@ -1081,6 +1373,10 @@ Game.prototype._triggerSwindler = function(hero, floorId) {
                 }
             }
         }
+        // V8.0: 奸商鉴定服务
+        const identifyResult = this._tryShopIdentify(hero, '奸商');
+        if (identifyResult) resultDesc += ` ${identifyResult}`;
+
         return {
             type: "swindler",
             name: "奸商",
@@ -1154,6 +1450,9 @@ Game.prototype._shouldCamp = function(hero) {
         if (hero.talent[164]) chance += 15; // 冷静：理性判断
         if (hero.talent[165]) chance -= 10; // 叛逆：更激进
         if (hero.talent[170]) chance += 5;  // 孤独者：独自休息
+        // V12.0: 勇者态度修正——中立型更倾向安营休息
+        const attitude = hero.cflag[CFLAGS.HERO_ATTITUDE] || 1;
+        if (attitude === 2) chance += 15; // 中立型：更倾向安营
         chance = Math.max(5, Math.min(90, chance));
         return RAND(100) < chance;
     }
@@ -1161,14 +1460,10 @@ Game.prototype._shouldCamp = function(hero) {
 Game.prototype._doCamp = function(hero, moveSpeed) {
         if (!hero) return null;
         hero.cflag[CFLAGS.SPY_TARGET] = 0; // 安营扎寨后解除低调状态
-        const hpPct = hero.maxHp > 0 ? hero.hp / hero.maxHp : 1;
-        const hasAilment = (hero.cflag[CFLAGS.HERO_PREVIOUS] || 0) !== 0;
-        // 恢复HP：侵略度转化为HP恢复
-        const healPct = Math.max(moveSpeed, 5) / 100;
-        const healAmt = Math.floor(hero.maxHp * healPct);
-        hero.hp = Math.min(hero.maxHp, hero.hp + healAmt);
-        // 恢复少量MP
-        const mpHeal = Math.floor(hero.maxMp * 0.03);
+        // V10.0: 安营恢复50%HP/25%MP
+        const healAmt = Math.floor(hero.maxHp * 0.5);
+        const mpHeal = Math.floor(hero.maxMp * 0.25);
+        hero.hp = Math.min(hero.maxHp, hero.hp + _applyCurseHeal(hero, healAmt));
         hero.mp = Math.min(hero.maxMp, hero.mp + mpHeal);
         // 尝试解除非诅咒异常状态
         const cureLogs = this._tryCureStatusAilment(hero, "camp_rest");

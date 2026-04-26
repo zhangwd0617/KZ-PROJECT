@@ -13,13 +13,18 @@ class ShopSystem {
     buy(itemId) {
         const item = ITEM_DEFS[itemId];
         if (!item) return false;
+        // V7.1: 道具一次购买无限使用，已拥有则不可重复购买
+        if ((this.game.item[itemId] || 0) > 0) {
+            UI.showToast(`已拥有 ${item.name}，无需重复购买`, "warning");
+            return false;
+        }
         if (this.game.money < item.price) {
             UI.showToast("金钱不足！", "danger");
             return false;
         }
         this.game.money -= item.price;
-        this.game.item[itemId]++;
-        UI.showToast(`购买了 ${item.name}`);
+        this.game.item[itemId] = 1;
+        UI.showToast(`购买了 ${item.name}（永久拥有）`);
         return true;
     }
 
@@ -59,11 +64,35 @@ class DayEndSystem {
         for (const c of g.characters) {
             c.recoverHp(0.5);
             c.recoverMp(0.8);
+            // V7.3: 每日额外恢复5点气力
+            if (c.energy !== undefined) {
+                c.energy = Math.min(c._maxEnergy || 100, c.energy + 5);
+            }
         }
 
         // Clear TEQUIP
         for (const c of g.characters) {
             c.tequip.fill(0);
+        }
+
+        // === V4.1: Stage 5 talent daily fame income ===
+        let stage5Count = 0;
+        for (const c of g.characters) {
+            if (!c.talent) continue;
+            // Check all Stage 5 talent IDs (505, 515, 525, 535, 545)
+            for (const tid of [505, 515, 525, 535, 545]) {
+                if (c.talent[tid] > 0) stage5Count++;
+            }
+        }
+        if (stage5Count > 0) {
+            const fameGain = stage5Count * 10;
+            g.addFame(fameGain);
+            dailyEvents.push({
+                type: 'daily',
+                title: `🏆 魔王威名远播`,
+                text: `共有 ${stage5Count} 位奴隶掌握了至高技艺，地下城声望 +${fameGain}（每位Stage5每天+10）`,
+                icon: '🏆'
+            });
         }
 
         // === 怀孕推进与分娩 ===
@@ -135,22 +164,119 @@ class DayEndSystem {
         // 每日声望增长
         g.addFame(1);
 
+        // V11.0: 势力系统每日更新
+        if (g._updateFactionDaily) g._updateFactionDaily();
+        // 每10天恢复城市防御耐久度
+        if ((g.day || 1) % 10 === 0) {
+            if (g._healAllCityDefenses) g._healAllCityDefenses();
+        }
+        // 四大天王击败后的持续效果：奴隶/前勇者个人声望每天+击败数
+        if (g.kingTerritoryStates) {
+            const defeatedKings = Object.values(g.kingTerritoryStates).filter(k => k.defeated).length;
+            if (defeatedKings > 0) {
+                for (const c of g.characters) {
+                    if (c !== g.getMaster() && (c.talent[200] || c.talent[296])) {
+                        c.fame = (c.fame || 0) + defeatedKings;
+                    }
+                }
+            }
+        }
+        // 教廷攻破后的持续效果：每日声望+50
+        if (g.churchState && g.churchState.defeated) {
+            g.addFame(50);
+        }
+
+        // V10.0: 重伤长期效果 — 获得重伤>10天后，每天等级-1（最低5级）
+        const _processSevereInjuryDecay = (entityList) => {
+            for (const c of entityList) {
+                if (!c || !c.cflag) continue;
+                if (!g._hasStatusAilment(c, 'severe_injury')) continue;
+                const injuryDay = c.cflag[CFLAGS.SEVERE_INJURY_DAY] || g.day;
+                const daysSince = (g.day || 1) - injuryDay;
+                if (daysSince > 10 && c.level > 5) {
+                    c.level = Math.max(5, c.level - 1);
+                    // 同步等级相关的cflag
+                    c.cflag[CFLAGS.BASE_HP] = c.level;
+                    // 重新计算属性
+                    if (g._recalcBaseStats) g._recalcBaseStats(c);
+                    // 恢复满HP/MP（防止属性重算后HP溢出）
+                    c.hp = c.maxHp;
+                    c.mp = c.maxMp;
+                    if (g._addAdventureLog) {
+                        g._addAdventureLog(c, 'severe_injury_decay', `因重伤长期未愈，等级下降至 Lv.${c.level}`);
+                    }
+                }
+            }
+        };
+        _processSevereInjuryDecay(g.characters);
+        _processSevereInjuryDecay(g.invaders);
+
+        // V10.0: 小队领袖每5天+1个人声望；高声望勇者每日为魔王带来额外声望
+        let squadLeaderBonus = 0;
+        let highFameBonus = 0;
+        const day = g.day || 1;
+        for (const hero of g.invaders) {
+            if (!hero) continue;
+            // 小队领袖：每5天+1个人声望
+            if (hero.cflag[CFLAGS.SQUAD_LEADER] === 1 && day % 5 === 0) {
+                hero.fame = (hero.fame || 0) + 1;
+                squadLeaderBonus++;
+            }
+            // 高声望勇者：个人声望≥300 +5/天，≥500 +10/天（取最高值）
+            const hf = hero.fame || 0;
+            if (hf >= 500) {
+                highFameBonus = Math.max(highFameBonus, 10);
+            } else if (hf >= 300) {
+                highFameBonus = Math.max(highFameBonus, 5);
+            }
+        }
+        if (squadLeaderBonus > 0) {
+            dailyEvents.push({
+                type: 'daily',
+                title: `👑 小队领袖声望`,
+                text: `${squadLeaderBonus} 位小队领袖获得领袖威望，个人声望 +1`,
+                icon: '👑'
+            });
+        }
+        if (highFameBonus > 0) {
+            g.addFame(highFameBonus);
+            dailyEvents.push({
+                type: 'daily',
+                title: `🏆 勇者威名`,
+                text: `入侵者中有人声名显赫，魔王声望 +${highFameBonus}`,
+                icon: '🏆'
+            });
+        }
+
         // 勇者入侵判定（新版：批量刷新）
+        let invasionEvent = null;
         const newcomers = g.refreshHeroInvaders();
         if (newcomers.length > 0) {
             g.flag[100] = 1; // 标记有入侵
-            // 批量入侵事件加入日常事件队列
             let invaderNames = newcomers.map(h => `${h.name} Lv.${h.level}`).join(',');
             const goalInfo = newcomers.length === 1 ? `
 攻略目标：${HERO_GOAL_DEFS[newcomers[0].cflag[CFLAGS.HERO_LEVEL]]?.name || '讨伐魔王'}` : '';
-            dailyEvents.push({
-                type: 'daily',
+            invasionEvent = {
+                type: 'invasion',
                 title: `⚔️ ${newcomers.length}名勇者入侵！`,
                 text: `今日有${newcomers.length}名勇者踏入了地下城！
 ${invaderNames}${goalInfo}
 
 当前地下城勇者：${g.invaders.length}/${g.getHeroTargetCount()}人`
-            });
+            };
+        }
+
+        // V10.0: 未归属堕落种族勇者每日腐化收益
+        for (const hero of g.invaders) {
+            if (hero.cflag[CFLAGS.FALLEN_RACE_ID] && !hero.cflag[CFLAGS.IS_DEMON_ARMY]) {
+                const oldYield = hero.cflag[CFLAGS.CORRUPTION_YIELD] || 0;
+                const newYield = oldYield + 10;
+                hero.cflag[CFLAGS.CORRUPTION_YIELD] = newYield;
+                if (newYield >= 100 && oldYield < 100) {
+                    // 达到叛逃阈值，标记为即将叛逃
+                    hero._willBetray = true;
+                }
+            }
         }
 
         // 每天刷新奴隶市场
@@ -159,40 +285,56 @@ ${invaderNames}${goalInfo}
         // 天数推进
         g.day++;
 
-        // ===== 事件系统 =====
-        if (g.eventSystem) {
-            const evtResults = g.eventSystem.processDayEnd();
-            // 分离日常事件与地下城事件
-            const sysDaily = evtResults.filter(e => e.type === 'daily');
-            let dungeonEvents = evtResults.filter(e => e.type === 'dungeon');
-            // 保存地下城事件供Phase2合并
-            g._pendingDungeonEvents = dungeonEvents;
-            // 合并系统日常事件
-            dailyEvents.push(...sysDaily);
-
-            // 地下城事件先存入日志（不含战斗事件，Phase2会更新）
-            if (dungeonEvents.length > 0) {
-                if (!g._dayEventLog) g._dayEventLog = [];
-                g._dayEventLog.unshift({ day: g.day, events: dungeonEvents });
-                if (g._dayEventLog.length > 30) g._dayEventLog.pop();
+        // V12.0: 4件诅咒装备/武器——角色直接投降加入魔王军
+        if (typeof GearSystem !== 'undefined' && GearSystem.countCursedGear) {
+            for (let i = g.invaders.length - 1; i >= 0; i--) {
+                const hero = g.invaders[i];
+                if (GearSystem.countCursedGear(hero) >= 4) {
+                    g.invaders.splice(i, 1);
+                    g.prisoners.push(hero);
+                    dailyEvents.push({
+                        type: 'daily',
+                        title: `🌑 ${hero.name}被诅咒吞噬了`,
+                        text: `${hero.name}身上承载了太多诅咒，精神崩溃，在地下城中跪地投降，成为了魔王的俘虏...`,
+                        icon: '🌑'
+                    });
+                }
             }
+        }
+
+        // ===== 事件系统：魔王日常事件（Phase1）=====
+        if (g.eventSystem) {
+            const evtResults = g.eventSystem.processMasterDaily();
+            dailyEvents.push(...evtResults);
             // 日常事件弹窗队列播报
             const afterDaily = () => {
                 g._dayPhase = 1;
+                g.phase = 'adventure'; // V12.0
                 if (typeof UI !== 'undefined' && G && G.state === 'SHOP') {
                     UI.renderShop(G);
                 }
             };
-            if (dailyEvents.length > 0) {
-                UI.showToast(`本日发生了 ${dailyEvents.length} 个日常事件`, 'info');
-                UI.showEventQueue(dailyEvents, () => {
+            // V10.1: 勇者入侵与日常事件分离显示
+            const showNext = () => {
+                if (dailyEvents.length > 0) {
+                    UI.showToast(`本日发生了 ${dailyEvents.length} 个日常事件`, 'info');
+                    UI.showEventQueue(dailyEvents, () => {
+                        afterDaily();
+                    });
+                } else {
                     afterDaily();
+                }
+            };
+            if (invasionEvent) {
+                UI.showEventQueue([invasionEvent], () => {
+                    showNext();
                 });
             } else {
-                afterDaily();
+                showNext();
             }
         } else {
             g._dayPhase = 1;
+            g.phase = 'adventure'; // V12.0
             if (typeof UI !== 'undefined' && G && G.state === 'SHOP') {
                 UI.renderShop(G);
             }
@@ -208,6 +350,62 @@ ${invaderNames}${goalInfo}
             // 清零每日事件标记（每个勇者/小队每天只能触发一个事件）
             for (const hero of g.invaders) {
                 hero.cflag[CFLAGS.SPY_SENT] = 0;
+            }
+
+            // V12.0: 古代遗物buff过期检查
+            const currentDay = g.day || 1;
+            for (const hero of g.invaders) {
+                try {
+                    const relicBuffs = JSON.parse(hero.cstr[CSTRS.RELIC_BUFFS] || '[]');
+                    const activeBuffs = [];
+                    for (const buff of relicBuffs) {
+                        if (buff.expire >= currentDay) {
+                            activeBuffs.push(buff);
+                        } else {
+                            // buff过期，尝试还原属性（近似）
+                            const ratio = 1 + (buff.val || 0);
+                            if (buff.stat === 'atk' && hero.atk > 0) hero.atk = Math.max(1, Math.floor(hero.atk / ratio));
+                            else if (buff.stat === 'def' && hero.def > 0) hero.def = Math.max(1, Math.floor(hero.def / ratio));
+                            else if (buff.stat === 'spd' && hero.spd > 0) hero.spd = Math.max(1, Math.floor(hero.spd / ratio));
+                            else if (buff.stat === 'mpPct' && hero.maxMp > 0) hero.maxMp = Math.max(1, Math.floor(hero.maxMp / ratio));
+                        }
+                    }
+                    if (activeBuffs.length !== relicBuffs.length) {
+                        hero.cstr[CSTRS.RELIC_BUFFS] = JSON.stringify(activeBuffs);
+                    }
+                } catch (e) { /* ignore parse error */ }
+            }
+
+            // V12.0: 冒险日常事件（勇者地下城事件+魔王军冒险事件）
+            if (g.eventSystem && g.eventSystem.processAdventureDaily) {
+                const adventureEvents = g.eventSystem.processAdventureDaily();
+                for (const evt of adventureEvents) {
+                    if (evt.type === 'dungeon') {
+                        phase2Queue.push({
+                            type: 'event', tag: '冒险', tagIcon: '🏰', tagColor: 'var(--info)',
+                            title: evt.title || '🏰 地下城事件',
+                            text: evt.text || evt.description || ''
+                        });
+                    } else if (evt.type === 'demon_army') {
+                        phase2Queue.push({
+                            type: 'event', tag: '魔军', tagIcon: '👿', tagColor: 'var(--danger)',
+                            title: evt.title || '👿 魔王军冒险',
+                            text: evt.text || ''
+                        });
+                    } else if (evt.type === 'demon_squad') {
+                        phase2Queue.push({
+                            type: 'event', tag: '魔军小队', tagIcon: '👿', tagColor: 'var(--danger)',
+                            title: evt.title || '👿 魔王军小队事件',
+                            text: evt.text || ''
+                        });
+                    } else if (evt.type === 'master_raid') {
+                        phase2Queue.push({
+                            type: 'event', tag: '魔王', tagIcon: '👑', tagColor: 'var(--accent)',
+                            title: evt.title || '👑 魔王出击',
+                            text: evt.text || ''
+                        });
+                    }
+                }
             }
 
             // 勇者之间相遇事件（伪装/破坏/内战）
@@ -235,6 +433,90 @@ ${invaderNames}${goalInfo}
             g._formHeroSquads();
             // 计算前勇者奴隶小队
             g._formSlaveSquads();
+
+            // V10.0: 堕落种族勇者叛逃处理
+            const betrayedHeroes = [];
+            for (let i = g.invaders.length - 1; i >= 0; i--) {
+                const hero = g.invaders[i];
+                if (hero._willBetray) {
+                    const squadId = hero.cflag[CFLAGS.SQUAD_ID] || 0;
+                    const floorId = g.getHeroFloor(hero);
+                    const raceName = (window.APPEARANCE_DESC_DEFS && window.APPEARANCE_DESC_DEFS.race && window.APPEARANCE_DESC_DEFS.race[hero.cflag[CFLAGS.FALLEN_RACE_ID]]) || '背教者';
+                    betrayedHeroes.push({ hero, squadId, floorId, raceName });
+                    // 从 invaders 移除
+                    g.invaders.splice(i, 1);
+                    // 清除小队标记
+                    hero.cflag[CFLAGS.SQUAD_ID] = 0;
+                    hero.cflag[CFLAGS.SQUAD_LEADER] = 0;
+                    delete hero._willBetray;
+                }
+            }
+            for (const b of betrayedHeroes) {
+                if (b.squadId > 0) {
+                    // 通知同队成员
+                    const squadMates = g.invaders.filter(h => (h.cflag[CFLAGS.SQUAD_ID] || 0) === b.squadId);
+                    const mateNames = squadMates.map(h => h.name).join('、');
+                    phase2Queue.push({
+                        type: 'event', tag: '叛逃', tagIcon: '😈', tagColor: '#8844aa',
+                        title: `😈 ${b.hero.name} 叛逃了！`,
+                        text: `${b.hero.name}（${b.raceName}）在地下城第${b.floorId}层彻底堕落，背叛了勇者小队！${mateNames ? '\n同队成员：' + mateNames + ' 受到了冲击。' : ''}`
+                    });
+                } else {
+                    phase2Queue.push({
+                        type: 'event', tag: '叛逃', tagIcon: '😈', tagColor: '#8844aa',
+                        title: `😈 ${b.hero.name} 叛逃了！`,
+                        text: `${b.hero.name}（${b.raceName}）在地下城第${b.floorId}层彻底堕落，加入了魔王的阵营...`
+                    });
+                }
+            }
+
+            // V7.0: 更新同队勇者组队天数
+            g._updateSquadRomanceTimers();
+
+            // V7.0: 勇者之间恋爱/亲密事件
+            g._processHeroRelationships(phase2Queue);
+
+            // V8.0: 每日稀有度升级检查（基于个人声望动态晋升，仅记录履历，不弹窗）
+            // 检查所有角色：勇者 + 奴隶/前勇者
+            const checkedRarity = new Set();
+            for (const hero of g.invaders) {
+                if (hero.hp <= 0) continue;
+                checkedRarity.add(hero);
+                const newRarity = g._checkHeroRarityUpgrade(hero);
+                if (newRarity) {
+                    g._addAdventureLog(hero, 'rarity_up', `稀有度晋升为【${newRarity}】`);
+                }
+            }
+            for (let i = 0; i < g.characters.length; i++) {
+                if (i === g.master) continue;
+                const c = g.characters[i];
+                if (!c || checkedRarity.has(c)) continue;
+                const newRarity = g._checkHeroRarityUpgrade(c);
+                if (newRarity) {
+                    g._addAdventureLog(c, 'rarity_up', `稀有度晋升为【${newRarity}】`);
+                }
+            }
+
+            // V9.0: 俘虏调教路线 Stage 3 自动转化
+            const autoConverted = g._checkPrisonerAutoConvert();
+            if (autoConverted.length > 0) {
+                for (const name of autoConverted) {
+                    phase2Queue.push({
+                        type: 'event', tag: '转化', tagIcon: '⛓️', tagColor: 'var(--success)',
+                        title: `⛓️ ${name} 自动转化`,
+                        text: `${name}的调教路线达到了 Stage III，已自动转化为魔王军。`
+                    });
+                }
+            }
+
+            // V7.2: 异常状态每日结算（战斗中未结束的异常在每日继续生效）
+            for (const hero of g.invaders) {
+                if (hero.hp <= 0) continue;
+                const logs = g._processStatusAilmentTurn(hero);
+                for (const log of logs) {
+                    g._addAdventureLog(hero, 'status', log);
+                }
+            }
 
             // 见死不救判定：HP<20%的勇者，同楼层关系好的其他勇者没有组队帮助
             for (const weakHero of g.invaders) {
@@ -264,10 +546,53 @@ ${invaderNames}${goalInfo}
                 }
             }
 
+            // V12.0: 修炼任务处理（在移动之前）
+            for (const hero of g.invaders) {
+                if ((hero.cflag[CFLAGS.HERO_TASK_TYPE] || 0) === 4) {
+                    const trainDays = hero.cflag[CFLAGS.HERO_REASON] || 1;
+                    const startDay = hero.cflag[CFLAGS.HERO_ORIGIN] || g.day;
+                    const elapsed = g.day - startDay;
+                    if (elapsed >= trainDays) {
+                        // 修炼完成
+                        const rewardGold = 200 + hero.level * 20;
+                        hero.gold += rewardGold;
+                        hero.fame += 3;
+                        g.addFame(2);
+                        // 等级微升
+                        if (typeof g._levelUpEntity === 'function') {
+                            g._levelUpEntity(hero, 1);
+                        } else {
+                            hero.level += 1;
+                        }
+                        g._recalcBaseStats(hero);
+                        phase2Queue.push({
+                            type: 'event', tag: '修炼', tagIcon: '🧘', tagColor: 'var(--success)',
+                            title: `🧘 ${hero.name}修炼完成`,
+                            text: `在铁砧镇修炼了${trainDays}天，等级升至Lv.${hero.level}，获得${rewardGold}G、声望+3`
+                        });
+                        g.clearHeroTask(hero);
+                        g.generateHeroTask(hero);
+                    } else {
+                        // 仍在修炼中，不移动
+                        phase2Queue.push({
+                            type: 'event', tag: '修炼', tagIcon: '🧘', tagColor: 'var(--accent)',
+                            title: `🧘 ${hero.name}修炼中`,
+                            text: `第${elapsed + 1}/${trainDays}天修炼中...EXP正在积累`
+                        });
+                        // 标记今日已触发事件，跳过移动
+                        hero.cflag[CFLAGS.SPY_SENT] = 1;
+                    }
+                }
+            }
+
             const retreatHeroes = [];
+            const processedSquadRetreats = new Set(); // 已生成回城事件的小队ID
             for (let i = g.invaders.length - 1; i >= 0; i--) {
                 const hero = g.invaders[i];
                 const result = g.moveHeroDaily(hero);
+
+                // V7.3: 小队成员完全跳过独立事件生成（由队长统一代表）
+                if (result.action === 'squad_member') continue;
 
                 // 生成勇者移动概览
                 const floorId = g.getHeroFloor(hero);
@@ -365,12 +690,10 @@ ${invaderNames}${goalInfo}
                     }
                 }
 
-                // 勇者冒险口号与目标（固定显示）
-                const motto = hero.cstr[CSTRS.NAME] || '';
+                // 勇者目标（固定显示）
                 const goalId = hero.cflag[CFLAGS.HERO_LEVEL];
                 const goalDef = goalId && HERO_GOAL_DEFS[goalId] ? HERO_GOAL_DEFS[goalId] : null;
                 const goalText = goalDef ? `【${goalDef.icon} ${goalDef.name}】` : '';
-                const mottoHtml = motto ? `<div style="margin:8px 0;padding:8px 12px;background:var(--bg-card);border-left:3px solid var(--accent);border-radius:0 4px 4px 0;font-style:italic;color:var(--accent);font-size:0.85rem;">"${motto}"</div>` : '';
 
                 // 把移动概览+探索详情合并为一个事件弹窗
                 let eventText = moveOverview;
@@ -378,10 +701,18 @@ ${invaderNames}${goalInfo}
                     eventText += '\\n\\n' + exploreDetails.join('\\n');
                 }
                 if (eventText) {
+                    // V7.3: 队长的事件弹窗以小队名义显示
+                    const squadId = hero.cflag[CFLAGS.SQUAD_ID] || 0;
+                    const squadName = hero.cstr[CSTRS.NAME_ALT] || '';
+                    const isLeader = hero.cflag[CFLAGS.SQUAD_LEADER] === 1;
+                    let displayName = hero.name;
+                    if (squadName && isLeader && squadId > 0 && squadId < 100) {
+                        displayName = `「${squadName}」小队`;
+                    }
                     phase2Queue.push({
                         type: 'event', tag: '行动', tagIcon: '🚶', tagColor: 'var(--info)',
-                        title: `${hero.name}的行动 ${goalText}`,
-                        text: mottoHtml + `<div style="white-space:pre-wrap;line-height:1.6;font-size:0.9rem;">${eventText}</div>`
+                        title: `${displayName}的行动 ${goalText}`,
+                        text: `<div style="white-space:pre-wrap;line-height:1.6;font-size:0.9rem;">${eventText}</div>`
                     });
                 }
 
@@ -392,20 +723,119 @@ ${invaderNames}${goalInfo}
                     hero.cflag[CFLAGS.SPY_TARGET] = 0; // 回城恢复后解除低调状态
                     hero.hp = Math.min(hero.maxHp, hero.hp + Math.floor(hero.maxHp * 0.3));
                     hero.mp = Math.min(hero.maxMp, hero.mp + Math.floor(hero.maxMp * 0.3));
-                    let retreatText = `${hero.name}撤退回城镇恢复。`;
-                    if (typeof g._tryCureStatusAilment === 'function') {
-                        const cured = g._tryCureStatusAilment(hero, "town_rest");
-                        if (cured && cured.length > 0) retreatText += `
-解除状态：${cured.join(',')}`;
+
+                    // V12.0: 城镇服务——旅店/净化/鉴定
+                    let townServices = [];
+
+                    // 1. 旅店：恢复HP/MP至满，费用=等级×10G
+                    const innCost = hero.level * 10;
+                    if (hero.gold >= innCost) {
+                        hero.gold -= innCost;
+                        const healHp = hero.maxHp - hero.hp;
+                        const healMp = hero.maxMp - hero.mp;
+                        hero.hp = hero.maxHp;
+                        hero.mp = hero.maxMp;
+                        townServices.push(`🏨 旅店休息（-${innCost}G）：HP/MP恢复满`);
+                    } else {
+                        // 金币不足，只进行基础恢复
+                        hero.hp = Math.min(hero.maxHp, hero.hp + Math.floor(hero.maxHp * 0.3));
+                        hero.mp = Math.min(hero.maxMp, hero.mp + Math.floor(hero.maxMp * 0.3));
+                        townServices.push(`🏨 旅店休息（金币不足）：HP/MP恢复30%`);
                     }
-                    const mask = hero.cflag[CFLAGS.HERO_PREVIOUS] || 0;
-                    if ((mask & 1) !== 0) retreatText += `
-🌑 诅咒无法通过普通休息解除...`;
-                    phase2Queue.push({
-                        type: 'event', tag: '恢复', tagIcon: '🏥', tagColor: 'var(--success)',
-                        title: '🏥 城镇恢复',
-                        text: retreatText
-                    });
+
+                    // 2. 净化神殿：解除诅咒装备，费用=诅咒件数×100G
+                    if (typeof GearSystem !== 'undefined' && GearSystem.countCursedGear) {
+                        const curseCount = GearSystem.countCursedGear(hero);
+                        if (curseCount > 0) {
+                            const templeCost = curseCount * 100;
+                            if (hero.gold >= templeCost) {
+                                hero.gold -= templeCost;
+                                const uncurseResult = GearSystem.uncurseAllGear(hero);
+                                townServices.push(`⛪ 净化神殿（-${templeCost}G）：解除${uncurseResult.count}件诅咒`);
+                            } else {
+                                townServices.push(`⛪ 净化神殿（金币不足）：身上${curseCount}件诅咒装备无法解除`);
+                            }
+                        }
+                    }
+
+                    // 3. 鉴定所：鉴定所有未鉴定物品，费用=件数×50G
+                    let identifiedCount = 0;
+                    if (hero.gear) {
+                        const allGear = [hero.gear.head, hero.gear.body, hero.gear.legs, hero.gear.hands, hero.gear.neck, hero.gear.ring, ...(hero.gear.weapons || [])];
+                        let unidentifiedCount = 0;
+                        for (const g of allGear) {
+                            if (g && !g.identified) unidentifiedCount++;
+                        }
+                        const identifyCost = unidentifiedCount * 50;
+                        if (unidentifiedCount > 0 && hero.gold >= identifyCost) {
+                            hero.gold -= identifyCost;
+                            for (const g of allGear) {
+                                if (g && !g.identified) {
+                                    GearSystem.identifyGear(g);
+                                    identifiedCount++;
+                                }
+                            }
+                            townServices.push(`🔍 鉴定所（-${identifyCost}G）：鉴定了${identifiedCount}件装备`);
+                        } else if (unidentifiedCount > 0) {
+                            townServices.push(`🔍 鉴定所（金币不足）：${unidentifiedCount}件未鉴定装备`);
+                        }
+                    }
+                    if (identifiedCount > 0 && g._addAdventureLog) {
+                        g._addAdventureLog(hero, 'identify', `回城镇后鉴定了${identifiedCount}件装备`);
+                    }
+
+                    // V7.3: 小队回城事件合并——同小队只弹一次
+                    const squadId = hero.cflag[CFLAGS.SQUAD_ID] || 0;
+                    const squadName = hero.cstr[CSTRS.NAME_ALT] || '';
+                    let skipEvent = false;
+                    if (squadId > 0 && squadId < 100) {
+                        if (processedSquadRetreats.has(squadId)) {
+                            skipEvent = true;
+                        } else {
+                            processedSquadRetreats.add(squadId);
+                        }
+                    }
+
+                    if (!skipEvent) {
+                        let retreatText;
+                        if (squadName && squadId > 0 && squadId < 100) {
+                            // 收集该小队所有回城成员的名字
+                            const retreatMembers = g.invaders.filter(h => {
+                                const sid = h.cflag[CFLAGS.SQUAD_ID] || 0;
+                                const tt = h.cflag[CFLAGS.HERO_TASK_TYPE] || 0;
+                                return sid === squadId && tt === 3;
+                            }).map(h => h.name);
+                            retreatText = `小队「${squadName}」撤退回城镇恢复。成员：${retreatMembers.join('、')}`;
+                        } else {
+                            retreatText = `${hero.name}撤退回城镇恢复。`;
+                        }
+                        // V12.0: 城镇服务详情
+                        if (townServices.length > 0) {
+                            retreatText += '\n\n【铁砧镇服务】';
+                            for (const svc of townServices) {
+                                retreatText += '\n' + svc;
+                            }
+                            retreatText += `\n💰 剩余金币：${hero.gold}G`;
+                        }
+                        if (typeof g._tryCureStatusAilment === 'function') {
+                            const cured = g._tryCureStatusAilment(hero, "town_rest");
+                            if (cured && cured.length > 0) retreatText += `
+解除状态：${cured.join(',')}`;
+                        }
+                        // V7.2: 兜底清除重伤（即使_tryCureStatusAilment未处理到）
+                        const hadSevere = typeof g._hasStatusAilment === 'function' && g._hasStatusAilment(hero, 'severe_injury');
+                        if (typeof g._removeStatusAilment === 'function') {
+                            g._removeStatusAilment(hero, 'severe_injury');
+                        }
+                        if (hadSevere) {
+                            g._addAdventureLog(hero, 'injury_healed', '在城镇休息，重伤得到缓解');
+                        }
+                        phase2Queue.push({
+                            type: 'event', tag: '恢复', tagIcon: '🏥', tagColor: 'var(--success)',
+                            title: squadName && squadId > 0 && squadId < 100 ? `🏥 ${squadName} 回城恢复` : '🏥 城镇恢复',
+                            text: retreatText
+                        });
+                    }
                 } else if (result.action === 'camp') {
                     const camp = result.campResult;
                     if (camp && camp.logs) {
@@ -427,7 +857,7 @@ ${invaderNames}${goalInfo}
                         text: capText + '\n\n🏆 魔王声望 +2（击退勇者）'
                     });
                 } else if (result.action === 'captured') {
-                    g.invaders.splice(i, 1);
+                    // _imprisonHero 已在 moveHeroDaily 中移除了该勇者，无需再次 splice
                     const cap = result.captureResult;
                     const capType = cap.type === 'surrender' ? '投降服从' : '被俘入狱';
                     g.addFame(5); // 俘虏勇者 +5 声望
@@ -458,11 +888,22 @@ ${invaderNames}${goalInfo}
                             hero.fame += comDef.rewardFame; // 个人声望
                             g.addFame(comDef.rewardFame);
                             taskRewardText = `委托"${comDef.name}"完成！获得${comDef.rewardGold}G，个人声望+${comDef.rewardFame}，魔王声望+${comDef.rewardFame}`;
+                            g._addAdventureLog(hero, 'commission_complete', `完成委托「${comDef.name}」，获得${comDef.rewardGold}G、声望+${comDef.rewardFame}`);
                         } else {
                             taskRewardText = '委托完成！';
                         }
                     } else if (taskType === 3) {
                         taskRewardText = '回城恢复完成，伤势已好转';
+                    } else if (taskType === 4) {
+                        // 修炼奖励（已在上方处理，此处仅为保险）
+                        taskRewardText = '修炼完成，实力有所提升';
+                    } else if (taskType === 5) {
+                        // 寻找真相奖励
+                        const rewardGold = 300 + hero.level * 30;
+                        hero.gold += rewardGold;
+                        hero.fame += 4;
+                        g.addFame(3);
+                        taskRewardText = `发现了关于魔王的线索！获得${rewardGold}G，个人声望+4，魔王声望+3`;
                     }
                     if (taskRewardText) {
                         phase2Queue.push({
@@ -480,11 +921,19 @@ ${invaderNames}${goalInfo}
             }
 
             // === 奴隶/魔王任务处理 ===
+            // V12.0: 收集出击小队队长，队员由队长统一处理
+            const processedDemonSquads = new Set();
             for (let i = g.characters.length - 1; i >= 0; i--) {
                 const slave = g.characters[i];
                 const isMaster = g.getMaster() === slave;
                 if (!slave.talent[200] && !isMaster) continue; // 不是前勇者奴隶也不是魔王
                 if ((slave.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0) === 0) continue; // 无任务
+                // V12.0: 出击小队队员跳过独立执行，由队长统一处理
+                const taskType = slave.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0;
+                const squadMarker = slave.cflag[998] || 0;
+                if (taskType === 1 && squadMarker > 0 && slave.cflag[CFLAGS.SQUAD_LEADER] !== 1) {
+                    continue; // 出击小队队员跳过，由队长统一处理
+                }
                 const result = g.processSlaveTaskDaily(slave);
                 if (result) {
                     stats.slave++;
@@ -540,18 +989,8 @@ ${invaderNames}${goalInfo}
                 }
             }
 
-            // 合并地下城事件到日志
-            const dungeonEvents = g._pendingDungeonEvents || [];
-            g._pendingDungeonEvents = null;
-            if (dungeonEvents.length > 0) {
-                if (!g._dayEventLog) g._dayEventLog = [];
-                if (g._dayEventLog.length > 0 && g._dayEventLog[0].day === g.day) {
-                    g._dayEventLog[0].events = dungeonEvents;
-                } else {
-                    g._dayEventLog.unshift({ day: g.day, events: dungeonEvents });
-                }
-                if (g._dayEventLog.length > 30) g._dayEventLog.pop();
-            }
+            // V12.0: 地下城事件已通过 processAdventureDaily 直接加入 phase2Queue
+            // 冒险日志由 phase2Queue 统一处理
         } catch (e) {
             console.error('[processPhase2] ERROR:', e);
             UI.showToast('勇者行动处理出错：' + e.message, 'danger');
@@ -575,6 +1014,7 @@ ${invaderNames}${goalInfo}
         // 统一弹窗队列
         const afterPhase2 = () => {
             g._dayPhase = 0;
+            g.phase = 'train'; // V12.0
             if (typeof UI !== 'undefined' && G && G.state === 'SHOP') {
                 UI.renderShop(G);
             }
@@ -662,6 +1102,7 @@ ${invaderNames}${goalInfo}
             child.cflag[CFLAGS.ATK] = 7; // 较浅肤色
         }
 
+        child.cflag[CFLAGS.HERO_RARITY] = 'N'; // 稀有度默认为N
         return child;
     }
 }

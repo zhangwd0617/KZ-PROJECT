@@ -1,3 +1,65 @@
+// Helper: calculate final stamina/energy cost after all mods
+function getFinalTrainCost(game, target, meta) {
+    if (!meta) return { stm: 0, nrg: 0, bStm: 0, bNrg: 0, mods: [] };
+    let stm = meta.staminaCost?.target || 0;
+    let nrg = meta.energyCost?.target || 0;
+    let bStm = meta.staminaCost?.bystander || 0;
+    let bNrg = meta.energyCost?.bystander || 0;
+
+    if (stm <= 0 && nrg <= 0) {
+        return { stm, nrg, bStm, bNrg, mods: [] };
+    }
+
+    const mods = [];
+
+    // Master rank mod
+    const masterRank = game.getMasterRank ? game.getMasterRank() : 0;
+    const masterMod = 1 - (masterRank * 0.05);
+    if (masterRank > 0) {
+        stm = Math.floor(stm * masterMod);
+        nrg = Math.floor(nrg * masterMod);
+        mods.push(`调教Lv${masterRank}`);
+    }
+
+    // ABL[12] technique mod
+    const techLv = target.abl ? (target.abl[12] || 0) : 0;
+    const ablMod = 1 - (techLv * 0.02);
+    if (techLv > 0) {
+        stm = Math.floor(stm * ablMod);
+        nrg = Math.floor(nrg * ablMod);
+        mods.push(`技巧Lv${techLv}`);
+    }
+
+    // Fatigue mod
+    if (target.energy !== undefined && target._maxEnergy > 0 && stm > 0) {
+        const energyPct = target.energy / target._maxEnergy;
+        if (energyPct < 0.3) {
+            stm = Math.floor(stm * 1.2);
+            mods.push('气力不足');
+        }
+    }
+    if (target.stamina !== undefined && target.maxbase[2] > 0 && nrg > 0) {
+        const staminaPct = target.stamina / target.maxbase[2];
+        if (staminaPct < 0.2) {
+            nrg = Math.floor(nrg * 1.3);
+            mods.push('体力见底');
+        }
+    }
+
+    // Personality mod
+    const pEff = target.getPersonalityEffects ? target.getPersonalityEffects() : null;
+    if (pEff) {
+        if (pEff.staminaMod && stm > 0) {
+            stm = Math.floor(stm * (1 - pEff.staminaMod));
+        }
+        if (pEff.energyMod && nrg > 0) {
+            nrg = Math.floor(nrg * (1 - pEff.energyMod));
+        }
+    }
+
+    return { stm, nrg, bStm, bNrg, mods };
+}
+
 // Injects methods into the global UI object
 Object.assign(UI, {
     // ========== TRAIN ==========
@@ -43,6 +105,40 @@ Object.assign(UI, {
         const assi = game.getAssi();
         const bystander = game.bystander >= 0 ? game.characters[game.bystander] : null;
 
+        // === Top: Active effects (horizontal, beside turn count) ===
+        const activeEffects = [];
+        const tequipNames = {
+            10: { name: '眼罩', icon: '😴', color: '#c678dd' },
+            11: { name: '绳索', icon: '🔗', color: '#e5c07b' },
+            12: { name: '口球', icon: '🔴', color: '#e06c75' },
+            17: { name: '淋浴', icon: '🚿', color: '#61afef' },
+            19: { name: '肛门珠', icon: '📿', color: '#98c379' },
+            20: { name: '润滑液', icon: '💧', color: '#61afef' },
+            21: { name: '媚药', icon: '💊', color: '#e06c75' },
+            22: { name: '利尿剂', icon: '💉', color: '#e5c07b' },
+            23: { name: '避孕套', icon: '🎈', color: '#c678dd' },
+            33: { name: '项圈', icon: '⭕', color: '#e5c07b' },
+            46: { name: '浣肠', icon: '🧴', color: '#98c379' },
+            47: { name: '束缚装', icon: '📦', color: '#e5c07b' },
+            49: { name: '肛门电极', icon: '⚡', color: '#e5c07b' },
+            54: { name: '野外play', icon: '🌲', color: '#98c379' },
+            57: { name: '羞耻play', icon: '😳', color: '#e06c75' },
+            58: { name: '浴室play', icon: '🛁', color: '#61afef' },
+            59: { name: '新婚play', icon: '💍', color: '#e06c75' },
+        };
+        for (const [tid, info] of Object.entries(tequipNames)) {
+            if (target.tequip && target.tequip[tid]) {
+                activeEffects.push(`<span style="color:${info.color};font-size:0.65rem;">${info.icon}${info.name}</span>`);
+            }
+        }
+        if (assi && assi._assistantBuff) {
+            const buffType = assi._assistantBuff.type || '';
+            if (buffType) activeEffects.push(`<span style="color:var(--accent);font-size:0.65rem;">✨${buffType}</span>`);
+        }
+        const activeEffectsHtml = activeEffects.length > 0
+            ? `<span style="display:flex;flex-wrap:wrap;gap:6px;margin-left:8px;">${activeEffects.join('')}</span>`
+            : '';
+
         // === Top: Assistant bar (single line) ===
         let assistantBar = '';
         if (assi) {
@@ -63,7 +159,26 @@ Object.assign(UI, {
         let labelTags = '';
         if (compoundLabel) labelTags += ` <span style="color:var(--accent);font-size:0.78rem;">${compoundLabel}</span>`;
         if (synergyLabel) labelTags += ` <span style="color:var(--warning);font-size:0.72rem;">[${synergyLabel}]</span>`;
-        leftHtml += `<div class="status-name">${target.name} Lv.${target.level} · ${persName}${pregTag}${labelTags}</div>`;
+        // 性格模式标签 → 姓名行
+        const pEffForName = target.getPersonalityEffects ? target.getPersonalityEffects() : null;
+        let modeTags = '';
+        if (pEffForName && pEffForName.activeModes) {
+            const modeColors = pEffForName.uiColors || [];
+            for (let i = 0; i < pEffForName.activeModes.length; i++) {
+                const color = modeColors[i] || '#98c379';
+                modeTags += ` <span style="color:${color};font-size:0.75rem;">${pEffForName.activeModes[i]}</span>`;
+            }
+        }
+        leftHtml += `<div class="status-name">${target.name} Lv.${target.level} · ${persName}${pregTag}${labelTags}${modeTags}</div>`;
+
+        // Hidden trait display (moved to name line area for compactness)
+        if (target.personality && target.personality.hidden) {
+            const ht = target.personality.hidden;
+            const htName = ht.revealed ? (typeof HIDDEN_TRAITS !== 'undefined' && HIDDEN_TRAITS[ht.traitId] ? HIDDEN_TRAITS[ht.traitId].name : '???') : '???';
+            const htColor = ht.revealed ? 'var(--accent)' : 'var(--text-dim)';
+            const htProgress = ht.progress || 0;
+            leftHtml += `<div style="font-size:0.65rem;color:${htColor};margin:2px 0 4px;">隐藏特质: ${htName} ${ht.revealed ? (ht.full ? '(完全)' : '(部分)') : '(未解锁)'} ${!ht.full ? `(${htProgress}%)` : ''}</div>`;
+        }
 
         // Stamina + Energy bars side by side
         const stmPct = target.maxbase[2] > 0 ? Math.max(0, (target.stamina || target.base[2]) / target.maxbase[2] * 100) : 0;
@@ -77,22 +192,26 @@ Object.assign(UI, {
             leftHtml += `<div style="font-size:0.62rem;color:${nrgState.color};margin:2px 0 4px;opacity:0.85;">${nrgState.desc}</div>`;
         }
 
-        // Total orgasm gauge
+        // === P2-4: Clickable main gauge + collapsible 8-part detail ===
         const totalGauge = target.totalOrgasmGauge || 0;
         const chargeLv = target.chargeLevel || 0;
         const chargeLabel = chargeLv > 0 ? `⚡C${chargeLv}` : '';
-        const gaugeColor = totalGauge >= 100 ? 'var(--danger)' : (totalGauge >= 80 ? 'var(--warning)' : 'var(--accent)');
-        leftHtml += `<div style="margin:6px 0;"><div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:2px;">绝顶槽 ${totalGauge}% ${chargeLabel}</div><div style="height:14px;background:rgba(255,255,255,0.05);border-radius:7px;overflow:hidden;border:1px solid var(--border);"><div style="height:100%;background:linear-gradient(90deg,${gaugeColor},${gaugeColor}88);width:${Math.min(100,totalGauge)}%;transition:width 0.3s;"></div></div></div>`;
-
-        // Dominant part hint (compact)
+        const gaugeColor = totalGauge >= 800 ? 'var(--danger)' : (totalGauge >= 500 ? 'var(--warning)' : 'var(--accent)');
         const partCodes = ['C','V','A','B','N','O','W','P'];
-        const partNames = ['阴核','阴道','肛门','乳房','乳头','口腔','子宫','阴茎'];
+        const partNames = ['阴核','阴道','肛门','乳房','乳头','口腔','子宫','心理'];
         const partColors = ['#e06c75','#c678dd','#e5c07b','#61afef','#61afef','#98c379','#c678dd','#e06c75'];
         let maxPart = -1, maxVal = -1;
         for (let i = 0; i < 8; i++) {
             const pg = target.partGauge ? (target.partGauge[i] || 0) : 0;
             if (pg > maxVal) { maxVal = pg; maxPart = i; }
         }
+
+        leftHtml += `<details class="train-part-details" style="margin:6px 0;">`;
+        leftHtml += `<summary style="cursor:pointer;list-style:none;">`;
+        const sessCount = target.sessionOrgasmCount || 0;
+        const sessCountLabel = sessCount > 0 ? `🔥${sessCount}` : '';
+        leftHtml += `<div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:2px;display:flex;justify-content:space-between;"><span>绝顶槽 ${Math.floor(totalGauge/10)}%</span><span>${sessCountLabel} ${chargeLabel}</span></div>`;
+        leftHtml += `<div style="height:14px;background:rgba(255,255,255,0.05);border-radius:7px;overflow:hidden;border:1px solid var(--border);"><div style="height:100%;background:linear-gradient(90deg,${gaugeColor},${gaugeColor}88);width:${Math.min(100,totalGauge/10)}%;transition:width 0.3s;"></div></div>`;
         if (maxPart >= 0 && maxVal > 0) {
             const pct = Math.min(100, Math.floor(maxVal / 10));
             leftHtml += `<div style="display:flex;align-items:center;gap:6px;margin:4px 0;font-size:0.68rem;">`;
@@ -101,10 +220,7 @@ Object.assign(UI, {
             leftHtml += `<span style="color:var(--text-dim)">${pct}%</span>`;
             leftHtml += `</div>`;
         }
-
-        // Collapsible 8-part detail panel
-        leftHtml += `<details style="margin:2px 0;">`;
-        leftHtml += `<summary style="font-size:0.65rem;padding:2px 8px;cursor:pointer;color:var(--text-dim);list-style:none;background:rgba(255,255,255,0.03);border-radius:4px;">▼ 部位详情</summary>`;
+        leftHtml += `</summary>`;
         leftHtml += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:4px;">`;
         for (let i = 0; i < 8; i++) {
             const pg = target.partGauge ? (target.partGauge[i] || 0) : 0;
@@ -112,17 +228,24 @@ Object.assign(UI, {
             const flash = pg >= 800 ? 'animation:pulse 1s infinite;' : '';
             const gold = pg >= 500 ? 'border-color:var(--accent);' : '';
             const cd = target.orgasmCooldown ? target.orgasmCooldown[i] : 0;
+            const partOc = target.partOrgasmCount ? (target.partOrgasmCount[i] || 0) : 0;
+            let partExtras = '';
+            if (partOc > 0 || cd > 0) {
+                const ocLabel = partOc > 0 ? `🔥${partOc}` : '';
+                const cdLabel = cd > 0 ? `CD${cd}` : '';
+                const joiner = ocLabel && cdLabel ? ' ' : '';
+                partExtras = ` <span style="font-size:0.58rem;color:var(--text-dim);">(${ocLabel}${joiner}${cdLabel})</span>`;
+            }
             leftHtml += `<div style="padding:3px 5px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:4px;${gold}">`;
-            leftHtml += `<div style="display:flex;justify-content:space-between;font-size:0.65rem;"><span style="color:${partColors[i]}">${partCodes[i]}</span><span style="color:var(--text-dim)">${partNames[i]}</span></div>`;
+            leftHtml += `<div style="display:flex;justify-content:space-between;font-size:0.65rem;align-items:center;"><span style="color:${partColors[i]}">${partCodes[i]}</span><span style="color:var(--text-dim)">${partNames[i]}${partExtras}</span></div>`;
             leftHtml += `<div style="height:4px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-top:2px;"><div style="height:100%;background:${partColors[i]}44;width:${pct}%;${flash}"></div></div>`;
-            if (cd > 0) leftHtml += `<div style="font-size:0.58rem;color:var(--text-dim);text-align:right;">CD:${cd}</div>`;
             leftHtml += `</div>`;
         }
         leftHtml += `</div></details>`;
 
         // Status tags
         const tags = [];
-        if (nrgState.state) tags.push({ text: nrgState.name, color: nrgState.color });
+        // nrgState name already shown next to energy bar, skip duplicate tag
         if (target.isCharging) tags.push({ text: `蓄力C${chargeLv}`, color: '#e5c07b' });
         const pEff = target.getPersonalityEffects ? target.getPersonalityEffects() : { activeModes: [], uiColors: [] };
         // === NEW (P3-5): Build personality effect tooltip ===
@@ -140,11 +263,7 @@ Object.assign(UI, {
             }
             if (modTexts.length > 0) pTooltip = modTexts.join(' | ');
         }
-        for (let i = 0; i < (pEff.activeModes || []).length; i++) {
-            const mode = pEff.activeModes[i];
-            const color = (pEff.uiColors && pEff.uiColors[i]) ? pEff.uiColors[i] : '#98c379';
-            tags.push({ text: mode, color: color, title: pTooltip });
-        }
+        // 性格模式标签已移到姓名行，此处不再重复添加
         // === NEW (P2-4): Special body mode tags ===
         if (target._specialMode) {
             if (target._specialMode.wet) tags.push({ text: '湿滑', color: '#61afef' });
@@ -162,16 +281,6 @@ Object.assign(UI, {
                 leftHtml += `<span style="font-size:0.68rem;padding:2px 8px;background:rgba(255,255,255,0.04);border:1px solid ${t.color}44;color:${t.color};border-radius:10px;cursor:help;"${titleAttr}>${t.text}</span>`;
             }
             leftHtml += `</div>`;
-        }
-
-        // Hidden trait display
-        if (target.personality && target.personality.hidden) {
-            const ht = target.personality.hidden;
-            const htName = ht.revealed ? (typeof HIDDEN_TRAITS !== 'undefined' && HIDDEN_TRAITS[ht.traitId] ? HIDDEN_TRAITS[ht.traitId].name : '???') : '???';
-            const htColor = ht.revealed ? 'var(--accent)' : 'var(--text-dim)';
-            const htProgress = ht.progress || 0;
-            const progressBar = ht.full ? '' : `<div style="height:4px;background:rgba(255,255,255,0.05);border-radius:2px;margin-top:2px;overflow:hidden;"><div style="height:100%;background:${htColor};width:${htProgress}%;transition:width 0.3s;"></div></div>`;
-            leftHtml += `<div style="font-size:0.7rem;color:${htColor};margin-top:4px;">隐藏特质: ${htName} ${ht.revealed ? (ht.full ? '(完全)' : '(部分)') : '(未解锁)'} ${!ht.full ? `(${htProgress}%)` : ''}</div>${progressBar}`;
         }
 
         // Penis ejaculation gauges (if any)
@@ -226,7 +335,7 @@ Object.assign(UI, {
             bystanderHtml += `</div></div>`;
         }
 
-        bar.innerHTML = `<div style="font-size:0.7rem;color:var(--text-dim);margin-bottom:4px;">第 ${game.trainCount + 1} 回</div>${assistantBar}<div class="train-info-panel"><div class="train-info-left">${leftHtml}${bystanderHtml}</div><div class="train-info-right">${rightHtml}</div></div>`;
+        bar.innerHTML = `<div style="font-size:0.7rem;color:var(--text-dim);margin-bottom:4px;display:flex;align-items:center;flex-wrap:wrap;"><span>第 ${game.trainCount + 1} 回</span>${activeEffectsHtml}</div>${assistantBar}<div class="train-info-panel"><div class="train-info-left">${leftHtml}${bystanderHtml}</div><div class="train-info-right">${rightHtml}</div></div>`;
         bar.style.display = 'block';
     },
 
@@ -392,6 +501,7 @@ Object.assign(UI, {
     },
 
     _renderTrainCommands(game) {
+        const target = game.getTarget();
         const GROUP_LABELS = { caress:"爱抚", tool:"器具", vaginal:"阴道", anal:"肛门", service:"侍奉", sm:"SM", rough:"过激", monster:"触手", assistant:"助手", arena:"斗技场", special:"特殊" };
         const GROUP_ORDER = ["caress", "tool", "vaginal", "anal", "service", "sm", "rough", "monster", "assistant", "arena", "special"];
         const category = this._trainCategory || GROUP_ORDER[0];
@@ -427,33 +537,55 @@ Object.assign(UI, {
             let costHint = cmd.name;
             const cmdMeta = (typeof getTrainMeta === 'function') ? getTrainMeta(cmd.id) : null;
             if (cmdMeta && cmd.available) {
-                const tStm = cmdMeta.staminaCost?.target || 0;
-                const tNrg = cmdMeta.energyCost?.target || 0;
+                const cost = getFinalTrainCost(game, target, cmdMeta);
                 const bStm = cmdMeta.staminaCost?.bystander || 0;
                 const bNrg = cmdMeta.energyCost?.bystander || 0;
                 let costParts = [];
-                if (tStm > 0 || tNrg > 0) costParts.push(`主:体-${tStm}气-${tNrg}`);
+                if (cost.stm > 0 || cost.nrg > 0) costParts.push(`主:体-${cost.stm}气-${cost.nrg}`);
                 if (bStm > 0 || bNrg > 0) costParts.push(`副:体-${bStm}气-${bNrg}`);
                 if (costParts.length > 0) costHint += `\n[${costParts.join(' | ')}]`;
+                if (cost.mods.length > 0) costHint += `\n减免: ${cost.mods.join(', ')}`;
             }
-            cmdHtml += `<button class="game-btn" ${cmd.available ? '' : 'disabled'} onclick="G.selectCommand(${cmd.id})" title="${costHint}">${cmd.name}</button>`;
+            
+            // === NEW: Success rate preview for threshold system ===
+            let rateStyle = '';
+            let rateLabel = '';
+            if (cmd.available && typeof getSuccessRate === 'function' && target) {
+                const rate = getSuccessRate(game, target, parseInt(cmd.id));
+                if (rate >= 80) {
+                    rateStyle = 'border-color:#98c379;color:#98c379;';
+                    rateLabel = `✓${rate}%`;
+                } else if (rate >= 50) {
+                    rateStyle = 'border-color:#e5c07b;color:#e5c07b;';
+                    rateLabel = `~${rate}%`;
+                } else if (rate >= 20) {
+                    rateStyle = 'border-color:#e06c75;color:#e06c75;';
+                    rateLabel = `!${rate}%`;
+                } else {
+                    rateStyle = 'border-color:#be5046;color:#be5046;opacity:0.7;';
+                    rateLabel = `✗${rate}%`;
+                }
+                costHint += `\n成功率: ${rate}%`;
+            }
+            
+            const btnStyle = rateStyle ? `style="${rateStyle}"` : '';
+            const btnContent = rateLabel ? `<span style="font-size:0.65rem;opacity:0.8;">${rateLabel}</span> ${cmd.name}` : cmd.name;
+            cmdHtml += `<button class="game-btn" ${cmd.available ? '' : 'disabled'} ${btnStyle} onclick="G.selectCommand(${cmd.id})" title="${costHint}">${btnContent}</button>`;
         }
         cmdHtml += '</div>';
 
         // === NEW (P2-5): Turn preview cost estimation ===
-        const target = game.getTarget();
         const assi = game.getAssi();
         const bystander = game.bystander >= 0 ? game.characters[game.bystander] : null;
         let previewHtml = '';
         if (target && game.selectcom >= 0) {
             const meta = (typeof getTrainMeta === 'function') ? getTrainMeta(game.selectcom) : null;
-            const stmCost = meta ? (meta.staminaCost?.target || 0) : 0;
-            const nrgCost = meta ? (meta.energyCost?.target || 0) : 0;
+            const cost = getFinalTrainCost(game, target, meta);
             const bStmCost = meta ? (meta.staminaCost?.bystander || 0) : 0;
             const bNrgCost = meta ? (meta.energyCost?.bystander || 0) : 0;
             let previewParts = [];
-            if (stmCost > 0 || nrgCost > 0) {
-                previewParts.push(`<span style="color:#e06c75;">主奴:体-${stmCost} 气-${nrgCost}</span>`);
+            if (cost.stm > 0 || cost.nrg > 0) {
+                previewParts.push(`<span style="color:#e06c75;">主奴:体-${cost.stm} 气-${cost.nrg}</span>`);
             }
             if (bystander && (bStmCost > 0 || bNrgCost > 0)) {
                 previewParts.push(`<span style="color:#61afef;">副奴:体-${bStmCost} 气-${bNrgCost}</span>`);
@@ -531,19 +663,31 @@ Object.assign(UI, {
         }
 
         // ========== 2. 道具/状态条件检查 ==========
-        // 消耗型道具: 没有物品时隐藏
-        const itemMap = { 50: 20, 51: 21, 52: 22 };
-        if (itemMap[comIdInt] !== undefined && (game.item[itemMap[comIdInt]] || 0) <= 0) {
-            return true;
-        }
-
-        // 触手召唤: 没有触手召唤契约书时隐藏 (已在unlock中检查，这里是fallback)
-        if (comIdInt === 100 && (game.item[90] || 0) <= 0) {
-            return true;
+        // V10.1: 统一道具检查 — 所有需要道具的指令从 TRAIN_DEFS 读取 requiredItem
+        const trainDef = TRAIN_DEFS[comIdInt];
+        if (trainDef && trainDef.requiredItem !== undefined) {
+            if ((game.item[trainDef.requiredItem] || 0) <= 0) {
+                return true;
+            }
         }
 
         // 放尿: 没有利尿剂状态时隐藏
         if (comIdInt === 85 && !target.tequip[22]) {
+            return true;
+        }
+
+        // 避孕套后续指令: 需使用过避孕套的状态
+        if ((comIdInt === 171 || comIdInt === 172) && !target.tequip[23]) {
+            return true;
+        }
+
+        // 犬化/遛狗: 需项圈状态
+        if ((comIdInt === 176) && !target.tequip[33]) {
+            return true;
+        }
+
+        // 野外撒尿(狗): 需项圈+野外play状态
+        if (comIdInt === 177 && (!target.tequip[33] || !target.tequip[54])) {
             return true;
         }
 
@@ -653,6 +797,7 @@ Object.assign(UI, {
     // ========== ABLUP ==========
     renderAblUp(game) {
         this.hideTrainStatus();
+        document.getElementById('game-container').classList.remove('train-layout');
         this.clearText();
         this.appendText(`【能力升级】\n`, "accent");
         const target = game.getTarget();
@@ -664,78 +809,202 @@ Object.assign(UI, {
 
         this.clearButtons();
 
-        // Build resource bar directly into button HTML (appendText uses textContent, not innerHTML)
-        const routeNames = ['\u987a\u4ece','\u6b32\u671b','\u75db\u82e6','\u9732\u51fa','\u652f\u914d'];
+        const routeNames = ['顺从','欲望','痛苦','露出','支配'];
         const routeColors = ['#61afef','#e06c75','#c678dd','#e5c07b','#98c379'];
         const thresholds = [0, 100, 300, 600, 1000, 1500];
-        let routeLine = '';
-        for (let r = 0; r < 5; r++) {
-            const lv = target.routeLevel ? (target.routeLevel[r] || 0) : 0;
-            const exp = target.routeExp ? (target.routeExp[r] || 0) : 0;
-            const next = thresholds[Math.min(5, lv + 1)];
-            routeLine += `<span style="color:${routeColors[r]};font-weight:bold;">${routeNames[r]}Lv${lv}</span><span style="color:var(--text-dim);font-size:0.68rem;">(${exp}/${next})</span>  `;
-        }
 
-        const keyJuel = [0,1,2,3,4,5,6,7,8,9,10,14,15];
-        let juelLine = "";
-        for (const j of keyJuel) {
-            if (target.juel[j] > 0) {
-                juelLine += `${PALAM_DEFS[j]?.name || '珠'+j}:${target.juel[j]}  `;
-            }
-        }
+        // Build info panel into text area
+        let infoHtml = `<div style="font-size:0.75rem;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid var(--border);line-height:1.6;">`;
+        
+        // Points display
+        infoHtml += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">`;
+        infoHtml += `<span style="font-weight:bold;color:var(--accent);">💎 升级点数: <span style="color:var(--text);">${target.routePoints || 0}</span></span>`;
+        infoHtml += `</div>`;
 
-        let html = '<div class="btn-grid btn-grid-3">';
-        html += `<div style="grid-column:1/-1;font-size:0.75rem;margin-bottom:6px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:6px;">`;
-        html += `<div style="margin-bottom:4px;line-height:1.6;">${target.name} 路线: ${routeLine}</div>`;
-        html += `<div style="color:var(--text-dim);">珠子: ${juelLine || '(暂无)'}</div>`;
-        html += `</div>`;
-
-        // === NEW (P3-5): Personality & Hidden Trait Panel ===
+        // Personality & Hidden
         if (target.personality) {
             const p = target.personality;
             const mainName = (typeof MAIN_PERSONALITY !== 'undefined' && MAIN_PERSONALITY[p.main]) ? MAIN_PERSONALITY[p.main].name : '???';
             const subNames = (p.sub || []).map(sid => (typeof SUB_PERSONALITY !== 'undefined' && SUB_PERSONALITY[sid]) ? SUB_PERSONALITY[sid].name : '???');
-            html += `<div style="grid-column:1/-1;font-size:0.72rem;margin-bottom:6px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid var(--border);">`;
-            html += `<div style="margin-bottom:4px;"><span style="color:var(--accent);font-weight:bold;">性格:</span> <span style="color:var(--text);">${mainName}</span>${subNames.length > 0 ? ' <span style="color:var(--text-dim);">/ ' + subNames.join(' / ') + '</span>' : ''}</div>`;
+            infoHtml += `<div style="margin-bottom:6px;">`;
+            infoHtml += `<span style="color:var(--accent);font-weight:bold;">性格:</span> <span style="color:var(--text);">${mainName}</span>${subNames.length > 0 ? ' <span style="color:var(--text-dim);">/ ' + subNames.join(' / ') + '</span>' : ''}`;
+            infoHtml += `</div>`;
             if (p.hidden) {
                 const ht = p.hidden;
                 const htDef = (typeof HIDDEN_TRAITS !== 'undefined' && HIDDEN_TRAITS[ht.traitId]) ? HIDDEN_TRAITS[ht.traitId] : null;
                 const htName = ht.revealed ? (htDef ? htDef.name : '???') : '???';
                 const htColor = ht.revealed ? 'var(--accent)' : 'var(--text-dim)';
                 const htProgress = ht.progress || 0;
-                html += `<div style="display:flex;align-items:center;gap:8px;margin-top:4px;">`;
-                html += `<span style="color:${htColor};">隐藏: ${htName} ${ht.revealed ? (ht.full ? '(完全)' : '(部分)') : '(未解锁)'}</span>`;
+                infoHtml += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">`;
+                infoHtml += `<span style="color:${htColor};">隐藏: ${htName} ${ht.revealed ? (ht.full ? '(完全)' : '(部分)') : '(未解锁)'}</span>`;
                 if (!ht.full) {
-                    html += `<div style="flex:1;height:6px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;"><div style="height:100%;background:${htColor};width:${htProgress}%;transition:width 0.3s;"></div></div>`;
-                    html += `<span style="font-size:0.65rem;color:var(--text-dim);">${htProgress}%</span>`;
+                    infoHtml += `<div style="flex:1;height:6px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;"><div style="height:100%;background:${htColor};width:${htProgress}%;transition:width 0.3s;"></div></div>`;
+                    infoHtml += `<span style="font-size:0.65rem;color:var(--text-dim);">${htProgress}%</span>`;
                 }
-                html += `</div>`;
+                infoHtml += `</div>`;
             }
-            html += `</div>`;
         }
 
-        // === Route Allocation (1 main + 2 sub) ===
-        const allocLabel = target.getRouteAllocationLabel ? target.getRouteAllocationLabel() : '\u672a\u5206\u914d';
-        html += `<div style="grid-column:1/-1;font-size:0.75rem;margin-bottom:6px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid var(--border);">`;
-        html += `<div style="margin-bottom:6px;font-weight:bold;color:var(--accent);">\u8def\u7ebf\u5206\u914d: <span style="color:var(--text);">${allocLabel}</span></div>`;
-        html += `<div style="display:flex;gap:6px;flex-wrap:wrap;">`;
+        // Juel exchange — V4.0: 兑换比率 50:1
+        const EXCHANGE_RATE = 50;
+        const allJuelTypes = [0,1,2,3,4,5,6,7,8,9,10,14,15];
+        const exchangeableJuels = allJuelTypes.filter(j => (target.juel[j] || 0) >= EXCHANGE_RATE);
+        infoHtml += `<div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;padding:6px;background:rgba(255,255,255,0.02);border-radius:6px;">`;
+        if (exchangeableJuels.length > 0) {
+            infoHtml += `<span style="font-size:0.7rem;color:var(--text-dim);">兑换:</span>`;
+            infoHtml += `<select id="exchange-juel-type" style="font-size:0.7rem;padding:3px 6px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:4px;">`;
+            for (const j of exchangeableJuels) {
+                infoHtml += `<option value="${j}">${PALAM_DEFS[j]?.name || '珠'+j} (${target.juel[j]}颗)</option>`;
+            }
+            infoHtml += `</select>`;
+            infoHtml += `<input id="exchange-juel-amount" type="number" value="${EXCHANGE_RATE}" min="${EXCHANGE_RATE}" step="${EXCHANGE_RATE}" style="font-size:0.7rem;width:70px;padding:3px 6px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:4px;">`;
+            infoHtml += `<button class="game-btn" style="font-size:0.68rem;padding:3px 8px;" onclick="const t=parseInt(document.getElementById('exchange-juel-type').value);const a=parseInt(document.getElementById('exchange-juel-amount').value);G.convertJuelToPoints(t,a)">兑换(${EXCHANGE_RATE}:1)</button>`;
+        } else {
+            // Show all juel counts even if not enough to exchange
+            const juelSummary = allJuelTypes
+                .filter(j => (target.juel[j] || 0) > 0)
+                .map(j => `${PALAM_DEFS[j]?.name || '珠'+j}:${target.juel[j]}`)
+                .join('  ');
+            infoHtml += `<span style="font-size:0.65rem;color:var(--text-dim);">💎 持有珠子（${juelSummary || '无'}）— 满${EXCHANGE_RATE}颗可兑换升级点</span>`;
+        }
+        infoHtml += `</div>`;
+        
+        // Route table
+        infoHtml += `<div style="border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">`;
+        infoHtml += `<div style="margin-bottom:6px;font-weight:bold;color:var(--accent);">路线分配与升级</div>`;
+        infoHtml += `<div style="display:flex;flex-direction:column;gap:6px;">`;
+        
         for (let r = 0; r < 5; r++) {
+            const lv = target.routeLevel ? (target.routeLevel[r] || 0) : 0;
+            const exp = target.routeExp ? (target.routeExp[r] || 0) : 0;
+            const nextExp = thresholds[Math.min(5, lv + 1)];
             const isMain = target.mainRoute === r;
             const isSub = target.subRoutes && target.subRoutes.includes(r);
-            let btnStyle = 'font-size:0.72rem;padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid ';
-            if (isMain) {
-                btnStyle += `${routeColors[r]};background:${routeColors[r]}22;color:${routeColors[r]};font-weight:bold;`;
-            } else if (isSub) {
-                btnStyle += `${routeColors[r]}88;background:${routeColors[r]}11;color:${routeColors[r]};border-style:dashed;`;
-            } else {
-                btnStyle += 'var(--border);background:transparent;color:var(--text-dim);';
+            const badge = isMain ? '【主】' : (isSub ? '【副】' : '【  】');
+            const badgeColor = isMain ? routeColors[r] : (isSub ? routeColors[r] + 'aa' : 'var(--text-dim)');
+            
+            // Stage boxes
+            const upInfo = target.getRouteUpgradeInfo ? target.getRouteUpgradeInfo(r) : { can: false, reasons: [''] };
+            let nodesHtml = '<div style="display:flex;gap:6px;flex:1;justify-content:center;">';
+            for (let s = 1; s <= 5; s++) {
+                const unlocked = lv >= s;
+                const isNext = s === lv + 1;
+                const canClick = isNext && upInfo.can;
+                
+                // Get stage reward info
+                let accName = '???', accDesc = '未解锁';
+                if (s <= 4) {
+                    const acc = window.ROUTE_ACCELERATORS ? window.ROUTE_ACCELERATORS[400 + r * 10 + (s - 1)] : null;
+                    if (acc) { accName = acc.name; accDesc = acc.effectDesc; }
+                } else {
+                    const buff = window.ASSISTANT_BUFFS ? window.ASSISTANT_BUFFS[450 + r] : null;
+                    if (buff) { accName = buff.name; accDesc = buff.effectDesc; }
+                }
+                
+                // Style based on state
+                let boxBg, boxBorder, boxText, cursor;
+                if (unlocked) {
+                    boxBg = routeColors[r] + '22';
+                    boxBorder = `2px solid ${routeColors[r]}`;
+                    boxText = routeColors[r];
+                    cursor = 'default';
+                } else if (canClick) {
+                    boxBg = 'rgba(255,255,255,0.05)';
+                    boxBorder = `2px solid ${routeColors[r]}`;
+                    boxText = 'var(--text)';
+                    cursor = 'pointer';
+                } else {
+                    boxBg = 'rgba(255,255,255,0.02)';
+                    boxBorder = '1px solid var(--border)';
+                    boxText = 'var(--text-dim)';
+                    cursor = 'not-allowed';
+                }
+                
+                const clickAttr = canClick ? `onclick="G.clickRouteUpgrade(${r})"` : '';
+                const safeAccDesc = accDesc.replace(/"/g, '&quot;');
+                
+                // Build detailed tooltip based on stage state
+                let tooltip = '';
+                if (unlocked) {
+                    tooltip = `${accName}（已解锁）\n${accDesc}`;
+                } else if (isNext) {
+                    if (upInfo.can) {
+                        tooltip = `点击升级 Stage ${s}\n消耗: ${upInfo.cost} 升级点数\n奖励: ${accName}\n${accDesc}`;
+                    } else {
+                        const reasons = upInfo.reasons && upInfo.reasons.length > 0 
+                            ? upInfo.reasons.join('\n• ') 
+                            : '条件未满足';
+                        tooltip = `Stage ${s} 升级条件未满足\n• ${reasons}\n\n需要: ${upInfo.needExp} 经验 + ${upInfo.cost} 点数`;
+                        // Add extra condition hints for Stage 3+
+                        if (s >= 3) {
+                            const routeAblMap = [10, 11, 21, 17, 20];
+                            const routeMarkMap = [2, 1, 3, 5, 6];
+                            const ablNeed = s === 3 ? 3 : (s === 4 ? 4 : 5);
+                            const markNeed = s === 3 ? 1 : (s === 4 ? 2 : 3);
+                            const ablId = routeAblMap[r];
+                            const markId = routeMarkMap[r];
+                            const ablName = (typeof ABL_DEFS !== 'undefined' && ABL_DEFS[ablId]) ? ABL_DEFS[ablId].name : `ABL[${ablId}]`;
+                            const markName = (typeof MARK_DEFS !== 'undefined' && MARK_DEFS[markId]) ? MARK_DEFS[markId].name : `刻印[${markId}]`;
+                            const ablVal = target.abl[ablId] || 0;
+                            const markVal = target.mark[markId] || 0;
+                            const trainCount = target.getTotalTrainCount ? target.getTotalTrainCount() : 0;
+                            tooltip += `\n${ablName}: ${ablVal}/${ablNeed} | ${markName}: ${markVal}/${markNeed} | 调教: ${trainCount}/${ablNeed}`;
+                            if (s >= 4) {
+                                const subMark = (target.mark[0] || 0) + (target.mark[2] || 0);
+                                const subNeed = s === 4 ? 1 : 2;
+                                tooltip += `\n屈服+侍奉刻印: ${subMark}/${subNeed}`;
+                            }
+                        }
+                        tooltip += `\n\n奖励: ${accName}\n${accDesc}`;
+                    }
+                } else {
+                    tooltip = `Stage ${s} 未解锁\n需先解锁 Stage ${lv + 1}`;
+                }
+                const safeTooltip = tooltip.replace(/"/g, '&quot;');
+                const hoverTitle = `title="${safeTooltip}"`;
+                
+                // Short desc (truncate if too long)
+                const shortDesc = accDesc.length > 12 ? accDesc.substring(0, 11) + '…' : accDesc;
+                const statusText = unlocked ? '✓' : (isNext && !upInfo.can ? '🔒' : '');
+                
+                const hoverScript = canClick ? `onmouseenter="this.style.transform='translateY(-2px)';this.style.background='rgba(255,255,255,0.08)';" onmouseleave="this.style.transform='';this.style.background='${boxBg}';"` : '';
+                nodesHtml += `<div ${clickAttr} ${hoverTitle} ${hoverScript} style="${cursor !== 'default' ? `cursor:${cursor};` : ''}width:86px;height:64px;border-radius:6px;border:${boxBorder};background:${boxBg};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:all 0.2s;">`;
+                nodesHtml += `<div style="font-size:0.6rem;color:${boxText};font-weight:bold;">${statusText} ${accName}</div>`;
+                if (unlocked || canClick) {
+                    nodesHtml += `<div style="font-size:0.5rem;color:${boxText};opacity:0.8;text-align:center;line-height:1.1;max-width:80px;overflow:hidden;">${shortDesc}</div>`;
+                } else {
+                    nodesHtml += `<div style="font-size:0.5rem;color:var(--text-dim);text-align:center;">???</div>`;
+                }
+                nodesHtml += `</div>`;
             }
-            const badge = isMain ? ' [\u4e3b]' : (isSub ? ' [\u8f85]' : '');
-            html += `<button class="game-btn" style="${btnStyle}" onclick="G.clickRouteAllocation(${r})" title="${isMain ? '\u70b9\u51fb\u53d6\u6d88\u4e3b\u8def\u7ebf' : (isSub ? '\u70b9\u51fb\u53d6\u6d88\u8f85\u52a9\u8def\u7ebf' : '\u70b9\u51fb\u9009\u62e9')}">${routeNames[r]}${badge}</button>`;
+            nodesHtml += '</div>';
+            
+            // Route row
+            infoHtml += `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(255,255,255,0.02);border-radius:6px;border:1px solid ${isMain ? routeColors[r]+'44' : 'transparent'};">`;
+            infoHtml += `<button class="game-btn" style="font-size:0.68rem;padding:3px 8px;min-width:48px;color:${badgeColor};border-color:${badgeColor};" onclick="G.clickRouteAllocation(${r})">${badge}</button>`;
+            infoHtml += `<span style="color:${routeColors[r]};font-weight:bold;min-width:40px;">${routeNames[r]}</span>`;
+            infoHtml += `<span style="font-size:0.65rem;color:var(--text-dim);min-width:70px;">${exp}/${nextExp}</span>`;
+            infoHtml += nodesHtml;
+            infoHtml += `<div style="min-width:60px;text-align:right;">`;
+            if (lv >= 5) {
+                infoHtml += `<span style="font-size:0.65rem;color:var(--success);">已满阶</span>`;
+            } else if (!upInfo.can) {
+                const reason = upInfo.reasons && upInfo.reasons.length > 0 ? upInfo.reasons[0] : '条件未满足';
+                infoHtml += `<span style="font-size:0.6rem;color:var(--text-dim);" title="${reason}">🔒</span>`;
+            }
+            infoHtml += `</div>`;
+            infoHtml += `</div>`;
         }
-        html += `</div>`;
-        html += `<div style="font-size:0.65rem;color:var(--text-dim);margin-top:4px;">\u4e3b\u8def\u7ebf100%\u7ecf\u9a8c\uff0c\u8f85\u52a9\u8def\u7ebf50%\uff0c\u5176\u4f59\u4e0d\u83b7\u53d6</div>`;
-        html += `</div>`;
+        infoHtml += `</div>`;
+        infoHtml += `<div style="font-size:0.6rem;color:var(--text-dim);margin-top:6px;">主路线奖励×2，副路线奖励×1.5，所有路线均获得100%经验</div>`;
+        infoHtml += `</div>`;
+        infoHtml += `</div>`;
+        
+        this.appendText(infoHtml, '', true);
+
+        // Buttons area: only upgrades
+        this.clearButtons();
+        let btnHtml = '<div class="btn-grid btn-grid-3">';
 
         // === Route Talents (unlockable first) ===
         const lockedTalents = [];
@@ -749,8 +1018,8 @@ Object.assign(UI, {
                 const check = (typeof checkTalentTreeUnlock === 'function') ? checkTalentTreeUnlock(target, node) : { unlock: false };
                 const routeInfo = TALENT_ROUTES[node.route];
                 const juelType = routeInfo ? routeInfo.juelType : 0;
-                const juelName = PALAM_DEFS[juelType]?.name || '\u73e0';
-                const cost = (node.req && node.req.juel) ? `需:${juelName}\u00d7${node.req.juel}` : '';
+                const juelName = PALAM_DEFS[juelType]?.name || '珠';
+                const cost = (node.req && node.req.juel) ? `需:${juelName}×${node.req.juel}` : '';
                 if (check.unlock) {
                     hasUnlockable = true;
                     talentHtml += `<button class="game-btn accent" onclick="if(G.doRouteTalentUp(${node.id})) UI.renderAblUp(G)" title="${node.desc || ''}">`;
@@ -763,18 +1032,18 @@ Object.assign(UI, {
                 }
             }
             if (hasUnlockable) {
-                html += `<div style="grid-column:1/-1;font-weight:bold;margin-top:4px;color:var(--accent);">\u3010\u8def\u7ebf\u5929\u8d4b - \u53ef\u89e3\u9501\u3011</div>`;
-                html += talentHtml;
+                btnHtml += `<div style="grid-column:1/-1;font-weight:bold;margin-top:4px;color:var(--accent);">【路线天赋 - 可解锁】</div>`;
+                btnHtml += talentHtml;
             }
         }
 
         // === ABL Upgrades (can-upgrade first) ===
         const categories = {
-            sensation: "\u3010\u611f\u89c9\u3011",
-            mental: "\u3010\u7cbe\u795e/\u6280\u672f\u3011",
-            fetish: "\u3010\u6027\u7656\u3011",
-            addiction: "\u3010\u4e2d\u6bd2\u3011",
-            otherworld: "\u3010\u5176\u4ed6\u3011"
+            sensation: "【感觉】",
+            mental: "【精神/技术】",
+            fetish: "【性癖】",
+            addiction: "【成瘾】",
+            otherworld: "【其他】"
         };
 
         for (const cat in categories) {
@@ -787,42 +1056,42 @@ Object.assign(UI, {
                 if (!info) continue;
 
                 if (info.can) {
-                    catHtml += `<button class="game-btn accent" onclick="if(G.doAblUp(${i})) UI.renderAblUp(G)" title="\u9700${PALAM_DEFS[info.juelType]?.name||''}\u00d7${info.need}">`;
-                    catHtml += `<div style="font-size:0.78rem;">${def.name} ${lv}\u2192${info.next}</div>`;
-                    catHtml += `<div style="font-size:0.65rem;color:var(--text-dim);">\u9700:${PALAM_DEFS[info.juelType]?.name||''}\u00d7${info.need}</div>`;
+                    catHtml += `<button class="game-btn accent" onclick="if(G.doAblUp(${i})) UI.renderAblUp(G)" title="需${PALAM_DEFS[info.juelType]?.name||''}×${info.need}">`;
+                    catHtml += `<div style="font-size:0.78rem;">${def.name} ${lv}→${info.next}</div>`;
+                    catHtml += `<div style="font-size:0.65rem;color:var(--text-dim);">需:${PALAM_DEFS[info.juelType]?.name||''}×${info.need}</div>`;
                     catHtml += `</button>`;
                 } else if (lv > 0 || info.hasJuel) {
                     let reason = "";
-                    if (!info.expOk) reason += `${EXP_DEFS[Object.keys(ABLUP_CONDITIONS[i].expCond||{})[0]]?.name||'\u7ecf\u9a8c'}\u4e0d\u8db3 `;
-                    else if (!info.markOk) reason += `\u523b\u5370\u4e0d\u8db3 `;
-                    else if (!info.hasJuel) reason += `\u73e0\u4e0d\u8db3`;
+                    if (!info.expOk) reason += `${EXP_DEFS[Object.keys(ABLUP_CONDITIONS[i].expCond||{})[0]]?.name||'经验'}不足 `;
+                    else if (!info.markOk) reason += `刻印不足 `;
+                    else if (!info.hasJuel) reason += `珠不足`;
                     catHtml += `<button class="game-btn" disabled title="${reason}">${def.name} Lv.${lv}</button>`;
                 }
             }
             if (catHtml) {
-                html += `<div style="grid-column:1/-1;font-weight:bold;margin-top:8px;color:var(--accent);">${categories[cat]}</div>`;
-                html += catHtml;
+                btnHtml += `<div style="grid-column:1/-1;font-weight:bold;margin-top:8px;color:var(--accent);">${categories[cat]}</div>`;
+                btnHtml += catHtml;
             }
         }
 
         // === Locked route talents (collapsible) ===
         if (lockedTalents.length > 0) {
-            html += `<details style="grid-column:1/-1;margin-top:8px;">`;
-            html += `<summary style="font-size:0.72rem;color:var(--text-dim);cursor:pointer;list-style:none;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">\u25bc \u672a\u89e3\u9501\u5929\u8d4b (${lockedTalents.length})</summary>`;
-            html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px;">`;
+            btnHtml += `<details style="grid-column:1/-1;margin-top:8px;">`;
+            btnHtml += `<summary style="font-size:0.72rem;color:var(--text-dim);cursor:pointer;list-style:none;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">▼ 未解锁天赋 (${lockedTalents.length})</summary>`;
+            btnHtml += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px;">`;
             for (const { node, check, routeInfo, cost } of lockedTalents) {
-                html += `<button class="game-btn" disabled title="${check.reasons ? check.reasons.join('\uff0c') : ''}">`;
-                html += `<div style="font-size:0.72rem;">${node.name}</div>`;
-                html += `<div style="font-size:0.6rem;color:var(--text-dim);">${routeInfo ? routeInfo.name : ''} ${cost}</div>`;
-                html += `<div style="font-size:0.58rem;color:var(--danger);margin-top:1px;">${check.reasons ? check.reasons.join('\uff0c') : ''}</div>`;
-                html += `</button>`;
+                btnHtml += `<button class="game-btn" disabled title="${check.reasons ? check.reasons.join('，') : ''}">`;
+                btnHtml += `<div style="font-size:0.72rem;">${node.name}</div>`;
+                btnHtml += `<div style="font-size:0.6rem;color:var(--text-dim);">${routeInfo ? routeInfo.name : ''} ${cost}</div>`;
+                btnHtml += `<div style="font-size:0.58rem;color:var(--danger);margin-top:1px;">${check.reasons ? check.reasons.join('，') : ''}</div>`;
+                btnHtml += `</button>`;
             }
-            html += `</div></details>`;
+            btnHtml += `</div></details>`;
         }
 
-        html += `<button class="game-btn back-btn" onclick="G.finishAblUp()" style="grid-column:1/-1;margin-top:8px;">\u7ed3\u675f\u5347\u7ea7</button>`;
-        html += '</div>';
-        this.setButtons(html);
+        btnHtml += `<button class="game-btn back-btn" onclick="G.finishAblUp()" style="grid-column:1/-1;margin-top:8px;">结束升级</button>`;
+        btnHtml += '</div>';
+        this.setButtons(btnHtml);
     },
 
     // ========== TURNEND ==========

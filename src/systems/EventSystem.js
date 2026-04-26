@@ -6,16 +6,30 @@ class EventSystem {
         this.game = game;
     }
 
-    processDayEnd() {
-        // 每日开始时清零事件标记
-        for (const hero of this.game.invaders) {
-            hero.cflag[CFLAGS.SPY_SENT] = 0;
-        }
+    // V12.0: 阶段D重构——拆分为魔王日常和冒险日常
+    processMasterDaily() {
+        // 魔王日常事件：结束一天后触发（魔王/奴隶/俘虏互动）
         const results = [];
         const dailyCount = this.game.flag[501] || 2;
         results.push(...this._processDailyEvents(dailyCount));
-        results.push(...this._processDungeonEvents());
         return results;
+    }
+
+    processAdventureDaily() {
+        // 冒险日常事件：观察勇者活动后触发（勇者地下城事件+魔王军冒险事件）
+        const results = [];
+        // 每日开始时清零间谍标记
+        for (const hero of this.game.invaders) {
+            hero.cflag[CFLAGS.SPY_SENT] = 0;
+        }
+        results.push(...this._processDungeonEvents());
+        results.push(...this._processDemonArmyEvents());
+        return results;
+    }
+
+    // 兼容旧调用
+    processDayEnd() {
+        return this.processMasterDaily();
     }
 
     _processDailyEvents(count) {
@@ -63,6 +77,7 @@ class EventSystem {
             { id: 'unfallen_shamepose',  weight: 6,  handler: (g) => this._evtUnfallenShamePose(g) },
             { id: 'unfallen_public',     weight: 5,  handler: (g) => this._evtUnfallenPublic(g) },
             { id: 'unfallen_bathe',      weight: 6,  handler: (g) => this._evtUnfallenBathe(g) },
+            { id: 'slave_dream',         weight: 6,  handler: (g) => this._evtSlaveDream(g) },
             { id: 'fallen_service',      weight: 10, handler: (g) => this._evtFallenService(g) },
             { id: 'fallen_masturbate',   weight: 9,  handler: (g) => this._evtFallenMasturbate(g) },
             { id: 'fallen_yuri',         weight: 8,  handler: (g) => this._evtFallenYuri(g) },
@@ -88,7 +103,28 @@ class EventSystem {
             { id: 'slave_escape',    weight: 2, handler: (g) => this._evtSlaveEscapeTry(g) },
             { id: 'memory_recovery', weight: 5, handler: (g) => this._evtMemoryRecovery(g) },
             { id: 'orgy_feast',           weight: 4, handler: (g) => this._evtOrgyFeast(g) },
-            { id: 'fallen_teaches',       weight: 5, handler: (g) => this._evtFallenTeachesUnfallen(g) }
+            { id: 'fallen_teaches',       weight: 5, handler: (g) => this._evtFallenTeachesUnfallen(g) },
+            // V12.0: 新增魔王专属事件（20个）
+            { id: 'master_torture_insight', weight: 4, handler: (g) => this._evtMasterTortureInsight(g) },
+            { id: 'master_slave_chat',      weight: 5, handler: (g) => this._evtMasterSlaveChat(g) },
+            { id: 'master_past_diary',      weight: 3, handler: (g) => this._evtMasterPastDiary(g) },
+            { id: 'master_dream_past',      weight: 4, handler: (g) => this._evtMasterDreamPast(g) },
+            { id: 'master_visitor',         weight: 3, handler: (g) => this._evtMasterVisitor(g) },
+            { id: 'master_rebellion_quell', weight: 3, handler: (g) => this._evtMasterRebellionQuell(g) },
+            { id: 'master_ritual_upgrade',  weight: 3, handler: (g) => this._evtMasterRitualUpgrade(g) },
+            { id: 'master_spy_report',      weight: 5, handler: (g) => this._evtMasterSpyReport(g) },
+            { id: 'master_hero_analysis',   weight: 4, handler: (g) => this._evtMasterHeroAnalysis(g) },
+            { id: 'master_weapon_forge',    weight: 3, handler: (g) => this._evtMasterWeaponForge(g) },
+            { id: 'master_curse_study',     weight: 3, handler: (g) => this._evtMasterCurseStudy(g) },
+            { id: 'master_potion_brew',     weight: 4, handler: (g) => this._evtMasterPotionBrew(g) },
+            { id: 'master_trap_set',        weight: 4, handler: (g) => this._evtMasterTrapSet(g) },
+            { id: 'master_dungeon_expand',  weight: 2, handler: (g) => this._evtMasterDungeonExpand(g) },
+            { id: 'master_alliance_break',  weight: 3, handler: (g) => this._evtMasterAllianceBreak(g) },
+            { id: 'master_pride_growth',    weight: 4, handler: (g) => this._evtMasterPrideGrowth(g) },
+            { id: 'master_lonely',          weight: 4, handler: (g) => this._evtMasterLonely(g) },
+            { id: 'master_slave_gift',      weight: 5, handler: (g) => this._evtMasterSlaveGift(g) },
+            { id: 'master_omen',            weight: 3, handler: (g) => this._evtMasterOmen(g) },
+            { id: 'master_final_prep',      weight: 2, handler: (g) => this._evtMasterFinalPrep(g) }
         ];
         // 结婚事件：仅当存在结婚对象时加入池子
         if (this._getMarriedSlave(this.game)) {
@@ -117,7 +153,8 @@ class EventSystem {
     }
 
     _isFallen(c) {
-        return (c.mark[0] || 0) >= 3;
+        // V4.0: Fallen if submission mark (mark[0]) OR service mark (mark[2]) reaches Lv3
+        return (c.mark[0] || 0) >= 3 || (c.mark[2] || 0) >= 3;
     }
 
     /**
@@ -300,7 +337,7 @@ class EventSystem {
         if (!pair) return null;
         const [a, b] = pair;
         // 已陷落或特殊奴隶不会争执
-        if ((a.mark[0] || 0) >= 3 || a.talent[199] || (b.mark[0] || 0) >= 3 || b.talent[199]) return this._evtSlaveBond(g);
+        if (this._isFallen(a) || a.talent[199] || this._isFallen(b) || b.talent[199]) return this._evtSlaveBond(g);
         this._gainPalam(a, 7, 20);
         this._gainPalam(b, 7, 20);
         return {
@@ -378,11 +415,14 @@ class EventSystem {
             hero.talent = [...c.talent];
             hero.talent[200] = 0; // 不再是前勇者
             hero.cflag[912] = 0; // 不是伪装者
+            hero.cflag[CFLAGS.HERO_RARITY] = c.cflag[CFLAGS.HERO_RARITY] || 'N'; // 继承原角色稀有度
             hero.talent[203] = 1; // 逃跑者特质
             hero.abl = [...c.abl];
             hero.mark = new Array(20).fill(0);
             hero.cflag[CFLAGS.HERO_FLOOR] = 1;
             hero.cflag[CFLAGS.HERO_PROGRESS] = 0;
+            hero.hp = Math.floor(c.maxHp * 0.5);
+            hero.mp = Math.floor(c.maxMp * 0.4);
             g.invaders.push(hero);
             return {
                 title: `【日常】${c.name}逃跑了！`,
@@ -660,7 +700,7 @@ class EventSystem {
         const flavorF2 = this._getTalentFlavor(c);
         return {
             title: `【沉沦】${c.name}的自慰展示`,
-            text: `${c.name}独自躺在自己的牢房中，双腿大大分开，一只手在乳房上揉捏，另一只手则在私处激烈地进出自慰。她的牢房门并没有上锁——这是魔王给予「已陷落奴隶」的特殊待遇。\n\n就在她即将达到高潮的瞬间，魔王推门走了进来。${c.name}愣了一下，但出乎魔王意料的是，她并没有停下来，反而更加激烈地展示给魔王看。她的手指在自己体内进出的速度越来越快，发出淫靡的水声，眼神迷离地看着魔王，仿佛在说「请看着我」。\n\n「啊……魔王大人……看着奴隶……」${c.name}一边自慰一边用甜美的声音呼唤着魔王，已经完全不在乎羞耻了。她的身体剧烈颤抖，最终在一阵痉挛中达到了高潮，大量透明的液体从私处喷涌而出，打湿了身下的床单。\n\n高潮过后，她并没有停下来，而是继续用手指在敏感的部位画着圈，眼神中满是欲求不满的渴望。${flavorF2 ? '\n\n' + flavorF2 : ''}\n\n欲望 +1，自慰中毒 +1，情欲大幅上升。`,
+            text: `${c.name}独自躺在自己的牢房中，双腿大大分开，一只手在乳房上揉捏，另一只手则在私处激烈地进出自慰。她的牢房门并没有上锁——这是魔王给予「已陷落奴隶」的特殊待遇。\n\n就在她即将达到高潮的瞬间，魔王推门走了进来。${c.name}愣了一下，但出乎魔王意料的是，她并没有停下来，反而更加激烈地展示给魔王看。她的手指在自己体内进出的速度越来越快，发出淫靡的水声，眼神迷离地看着魔王，仿佛在说「请看着我」。\n\n「啊……魔王大人……看着奴隶……」${c.name}一边自慰一边用甜美的声音呼唤着魔王，已经完全不在乎羞耻了。她的身体剧烈颤抖，最终在一阵痉挛中达到了高潮，大量透明的液体从私处喷涌而出，打湿了身下的床单。\n\n高潮过后，她并没有停下来，而是继续用手指在敏感的部位画着圈，眼神中满是欲求不满的渴望。${flavorF2 ? '\n\n' + flavorF2 : ''}\n\n欲望 +1，自慰成瘾 +1，情欲大幅上升。`,
             effects: [{ target: c.name, abl11: `+1`, abl31: `+1` }]
         };
     }
@@ -757,7 +797,7 @@ class EventSystem {
         this._gainPalam(c, 6, 100);
         return {
             title: `【沉沦】${c.name}的露出快感`,
-            text: `${c.name}主动要求在魔物面前露出身体。「请让大家看看奴隶属于魔王大人的身体……」她站在大厅中央， naked 的身体完全暴露在无数道目光之下。\n\n被众多目光注视的${c.name}不仅没有羞耻，反而因兴奋而颤抖，私处不断分泌着爱液。她甚至主动摆出了更加羞耻的姿势，让魔物们能够看得更清楚。\n\n露出癖 +1，露出中毒 +1，情欲上升。`,
+            text: `${c.name}主动要求在魔物面前露出身体。「请让大家看看奴隶属于魔王大人的身体……」她站在大厅中央， naked 的身体完全暴露在无数道目光之下。\n\n被众多目光注视的${c.name}不仅没有羞耻，反而因兴奋而颤抖，私处不断分泌着爱液。她甚至主动摆出了更加羞耻的姿势，让魔物们能够看得更清楚。\n\n露出癖 +1，露出成瘾 +1，情欲上升。`,
             effects: [{ target: c.name, abl17: `+1`, abl36: `+1` }]
         };
     }
@@ -799,7 +839,7 @@ class EventSystem {
         this._gainPalam(c, 6, 100);
         return {
             title: `【沉沦】${c.name}的快感记忆`,
-            text: `${c.name}在独处时不断回想着被魔王侵犯的记忆，那些画面让她不由自主地开始自慰。「魔王大人的味道……」她贪婪地嗅着带有魔王气味的物品，脑海中全是淫靡的画面。\n\n她的身体已经记住了魔王的形状，即使没有触碰，私处也会不自觉地收缩，渴求着被填充。\n\n欲望 +1，性交中毒 +1，情欲上升。`,
+            text: `${c.name}在独处时不断回想着被魔王侵犯的记忆，那些画面让她不由自主地开始自慰。「魔王大人的味道……」她贪婪地嗅着带有魔王气味的物品，脑海中全是淫靡的画面。\n\n她的身体已经记住了魔王的形状，即使没有触碰，私处也会不自觉地收缩，渴求着被填充。\n\n欲望 +1，性交成瘾 +1，情欲上升。`,
             effects: [{ target: c.name, abl11: `+1`, abl30: `+1` }]
         };
     }
@@ -871,7 +911,7 @@ class EventSystem {
         c.mp = Math.max(0, c.mp - 20);
         return {
             title: `【沉沦】${c.name}的发情期`,
-            text: `${c.name}突然进入了发情期，全身滚烫，不断摩擦着大腿，发出甜美的喘息。\n\n好热，身体好热。${c.name}撕扯着自己的衣服，眼神迷离地向魔王伸出双手。发情中的她失去了理智，主动抱住魔王，不断扭动身体渴求着交合。\n\n欲望 +1，性交中毒 +1，情欲大幅上升，气力 -20。`,
+            text: `${c.name}突然进入了发情期，全身滚烫，不断摩擦着大腿，发出甜美的喘息。\n\n好热，身体好热。${c.name}撕扯着自己的衣服，眼神迷离地向魔王伸出双手。发情中的她失去了理智，主动抱住魔王，不断扭动身体渴求着交合。\n\n欲望 +1，性交成瘾 +1，情欲大幅上升，气力 -20。`,
             effects: [{ target: c.name, abl11: `+1`, abl30: `+1`, mp: -20 }]
         };
     }
@@ -912,6 +952,129 @@ class EventSystem {
             text: "地下城最深层的密室被装点成了洞房的模样。墙壁上挂满了红色的绸缎和燃烧的龙凤烛，空气中弥漫着玫瑰花瓣与麝香混合的甜腻香气。" + c.name + "穿着一袭由魔丝织就的红色嫁衣，端坐在铺满天鹅绒的床榻边缘，双手紧张地交叠在膝上。\n\n魔王推开门，身上不再是平日的黑色铠甲，而是一套暗红色的华贵礼服。他缓步走到" + c.name + "面前，伸手挑起了她的下巴。" + c.name + "的脸颊染上了比嫁衣还要艳丽的潮红，眼中既有新娘的羞涩，又有奴隶对主人本能的顺从。\n\n「从今天起，你不仅是我的奴隶，更是我的妻子。」魔王低沉的声音让" + c.name + "浑身一颤。她仰起头，主动献上了自己的嘴唇。那是一个漫长而深情的吻，两人的舌头交缠在一起，唾液混合着，发出淫靡的水声。\n\n魔王将" + c.name + "压倒在柔软的天鹅绒床榻上，一层一层解开她的嫁衣。当最后一层薄纱被揭开时，" + c.name + "赤裸的身体在烛光下泛着珍珠般的光泽。魔王俯下身，从锁骨一路吻到乳房，舌尖挑逗着那已经挺立的乳头。\n\n「啊……夫君……」" + c.name + "发出了甜美的呻吟，双腿不自觉地缠上了魔王的腰肢。魔王分开她的双腿，将已经硬挺的性器抵在了她湿润的入口处。\n\n「叫我主人。」魔王在她耳边低语。\n\n「主……主人……请占有您的妻子……」" + c.name + "哀求着，私处早已分泌出大量的爱液。魔王缓缓挺入，感受着那紧致的内壁紧紧包裹着自己。" + c.name + "仰起头，发出了一声高亢而幸福的呻吟。\n\n这一夜漫长而激烈。魔王一次又一次地占有着自己的新娘，而" + c.name + "则在快感中不断地呼唤着「主人」和「夫君」。当黎明的光芒透过缝隙照进密室时，两人交缠在一起的身体仍未分开，床单上留下了无数爱的痕迹。\n\n爱情经验 +5，服从度 +1，反抗刻印 -2，情欲与屈服大幅上升，魔王气力 +100。",
             effects: [{ target: c.name, mark0: "+1", mark3: "-2", love: "+5" }]
         };
+    }
+
+    // ========== V12.0: 新增魔王专属事件（20个）==========
+
+    _evtMasterTortureInsight(g) {
+        const c = this._getRandomSlave(g);
+        if (!c) return null;
+        c.addMark(3, -1);
+        if (c.mark[3] < 0) c.mark[3] = 0;
+        return { title: `【魔王】拷问洞察`, text: `魔王在对${c.name}的拷问中意外发现了勇者的弱点情报。这些情报将在未来的战斗中派上用场。`, effects: [{ target: c.name, mark3: -1 }] };
+    }
+
+    _evtMasterSlaveChat(g) {
+        const c = this._getRandomSlave(g);
+        if (!c) return null;
+        return { title: `【魔王】与${c.name}的对话`, text: `魔王罕见地没有进行调教，而是与${c.name}进行了一场平静的对话。${c.name}透露了一些关于地表世界的近况。`, effects: [{ target: c.name, info: '地表情报' }] };
+    }
+
+    _evtMasterPastDiary(g) {
+        const master = g.getMaster();
+        if (master) master.mp = Math.min(master.maxMp, master.mp + 30);
+        return { title: `【魔王】发现过去的日记`, text: `魔王在地下城深处发现了一本古老的日记。上面记载着上一代魔王的心得——「不要信任勇者，也不要憎恨他们。我们都是在轮回中挣扎的囚徒。」`, effects: [{ target: '魔王', mp: 30 }] };
+    }
+
+    _evtMasterDreamPast(g) {
+        const master = g.getMaster();
+        if (master) master.mp = Math.min(master.maxMp, master.mp + 50);
+        return { title: `【魔王】梦见过去`, text: `魔王做了一个梦。梦中，自己还是一名年轻的勇者，站在阳光下的村庄里。那时的他还没有铠甲，也没有野心，只有一个简单的愿望——保护身边的人。`, effects: [{ target: '魔王', mp: 50 }] };
+    }
+
+    _evtMasterVisitor(g) {
+        g.money = (g.money || 0) + 200;
+        return { title: `【魔王】神秘访客`, text: `一位身披斗篷的神秘访客来到魔王城，留下了一袋金币和一句警告：「小心那些自称正义的人，他们往往比恶魔更危险。」金币 +200`, effects: [{ target: '魔王', gold: 200 }] };
+    }
+
+    _evtMasterRebellionQuell(g) {
+        const slaves = g.characters.filter((c, i) => i !== g.master && c.hp > 0);
+        if (slaves.length === 0) return null;
+        for (const s of slaves) s.addMark(0, 1);
+        return { title: `【魔王】镇压叛乱`, text: `几名奴隶试图策划叛乱，但被魔王的威严所震慑。叛乱在萌芽阶段就被扑灭，奴隶们的服从度有所提升。`, effects: [{ target: '全体奴隶', mark0: '+1' }] };
+    }
+
+    _evtMasterRitualUpgrade(g) {
+        const master = g.getMaster();
+        if (master) { master.atk = (master.atk || 0) + 3; master.def = (master.def || 0) + 3; }
+        return { title: `【魔王】仪式升级`, text: `魔王完成了一个古老的黑暗仪式，力量得到了进一步提升。`, effects: [{ target: '魔王', atk: 3, def: 3 }] };
+    }
+
+    _evtMasterSpyReport(g) {
+        const targets = g.invaders.filter(h => h.hp > 0);
+        const info = targets.length > 0 ? `发现${targets.length}名勇者活跃` : '地表平静';
+        return { title: `【魔王】间谍报告`, text: `潜伏在地表的间谍传回了最新情报：${info}。`, effects: [{ target: '魔王', info }] };
+    }
+
+    _evtMasterHeroAnalysis(g) {
+        const target = g.invaders[RAND(g.invaders.length)];
+        if (!target) return null;
+        return { title: `【魔王】分析勇者${target.name}`, text: `魔王仔细研究了${target.name}的战斗记录和性格特征，制定了针对性的应对策略。`, effects: [{ target: target.name, analyzed: true }] };
+    }
+
+    _evtMasterWeaponForge(g) {
+        const master = g.getMaster();
+        if (master) master.atk = (master.atk || 0) + 5;
+        return { title: `【魔王】锻造魔器`, text: `魔王在熔炉中锻造了一件新的魔器，攻击力获得了提升。`, effects: [{ target: '魔王', atk: 5 }] };
+    }
+
+    _evtMasterCurseStudy(g) {
+        return { title: `【魔王】诅咒研究`, text: `魔王深入研究了古代诅咒的奥秘。今后施加的诅咒效果将更加持久和强大。`, effects: [{ target: '魔王', curse_power: 1 }] };
+    }
+
+    _evtMasterPotionBrew(g) {
+        const master = g.getMaster();
+        if (master) master.hp = Math.min(master.maxHp, master.hp + 50);
+        return { title: `【魔王】魔药调制`, text: `魔王成功调制了一瓶恢复魔药，饮下后感觉体力充沛。HP +50`, effects: [{ target: '魔王', hp: 50 }] };
+    }
+
+    _evtMasterTrapSet(g) {
+        g.flag[997] = (g.flag[997] || 0) + 1;
+        return { title: `【魔王】设置陷阱`, text: `魔王亲自设计了一套精妙的陷阱系统，布置在地下城的关键通道上。勇者们的通行将更加危险。`, effects: [{ target: '魔王', trap: 1 }] };
+    }
+
+    _evtMasterDungeonExpand(g) {
+        return { title: `【魔王】扩张地下城`, text: `魔王命令魔物们开凿了新的通道和房间。地下城的规模进一步扩大，勇者们将面对更多未知的危险。`, effects: [{ target: '魔王', expand: 1 }] };
+    }
+
+    _evtMasterAllianceBreak(g) {
+        const heroes = g.invaders.filter(h => h.hp > 0);
+        if (heroes.length >= 2) {
+            const a = heroes[RAND(heroes.length)];
+            const b = heroes[RAND(heroes.length)];
+            if (a !== b && g._setHeroRelation) g._setHeroRelation(a, b, -1, 'alliance_break');
+        }
+        return { title: `【魔王】破坏勇者联盟`, text: `魔王派出的间谍成功在勇者之间散布了猜忌和不信任。`, effects: [{ target: '勇者关系', relation: -1 }] };
+    }
+
+    _evtMasterPrideGrowth(g) {
+        const master = g.getMaster();
+        if (master) { master.atk = (master.atk || 0) + 3; master.def = (master.def || 0) + 2; }
+        return { title: `【魔王】傲慢增长`, text: `随着俘虏的增加，魔王的自信心也在膨胀。力量提升了，但也许...傲慢会是最大的敌人。`, effects: [{ target: '魔王', atk: 3, def: 2 }] };
+    }
+
+    _evtMasterLonely(g) {
+        const master = g.getMaster();
+        if (master) master.mp = Math.max(0, master.mp - 20);
+        return { title: `【魔王】孤独`, text: `深夜，魔王独自坐在王座上，周围是空荡荡的大厅。即使拥有无尽的权力和奴隶，内心深处依然感到一种无法填补的空虚。`, effects: [{ target: '魔王', mp: -20 }] };
+    }
+
+    _evtMasterSlaveGift(g) {
+        const c = this._getRandomSlave(g);
+        if (!c) return null;
+        g.money = (g.money || 0) + 100;
+        c.addMark(0, 1);
+        return { title: `【魔王】${c.name}的献礼`, text: `${c.name}将自己珍藏的物品献给了魔王。虽然只值100G，但这份心意让魔王感到满意。`, effects: [{ target: c.name, mark0: '+1', gold: 100 }] };
+    }
+
+    _evtMasterOmen(g) {
+        return { title: `【魔王】不祥预兆`, text: `魔王在水晶球中看到了模糊的画面——一位从未见过的勇者正在向地下城深处进发。那个勇者的眼神中，有着和曾经的自己一样的东西。`, effects: [{ target: '魔王', omen: '新勇者接近' }] };
+    }
+
+    _evtMasterFinalPrep(g) {
+        const master = g.getMaster();
+        if (master) { master.hp = master.maxHp; master.mp = master.maxMp; master.atk = (master.atk || 0) + 10; master.def = (master.def || 0) + 10; }
+        return { title: `【魔王】最终决战准备`, text: `魔王感受到了决战的气息。所有力量都被调动起来，为即将到来的最终对决做准备。全属性大幅提升！`, effects: [{ target: '魔王', hp: 'MAX', mp: 'MAX', atk: 10, def: 10 }] };
     }
 
     _evtOrgyFeast(g) {
@@ -965,15 +1128,55 @@ class EventSystem {
     // ========== 地下城事件（勇者） ==========
     _processDungeonEvents() {
         const results = [];
+        const processedSquads = new Set();
         for (const hero of this.game.invaders) {
-            // 每个勇者/小队每天只能触发一次事件
+            // 如果已经触发过事件，跳过
             if (this.game._hasTriggeredDailyEvent(hero)) continue;
-            const evt = this._pickDungeonEvent(hero);
-            if (evt) {
-                const result = evt.handler(this.game, hero);
-                if (result) {
-                    results.push({ type: `dungeon`, hero: hero.name, ...result });
-                    this.game._markDailyEventTriggered(hero);
+
+            const squadId = hero.cflag[CFLAGS.SQUAD_ID];
+            const isLeader = hero.cflag[CFLAGS.SQUAD_LEADER] === 1;
+
+            // 如果是小队成员（非队长），跳过——由队长统一处理
+            if (squadId && !isLeader) continue;
+
+            if (squadId && isLeader) {
+                // 队长：二选一——小队事件 or 单人事件
+                if (processedSquads.has(squadId)) continue;
+                processedSquads.add(squadId);
+
+                // 获取小队所有成员（包括队长）
+                const squad = this.game.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === squadId);
+
+                if (RAND(100) < 50) {
+                    // 50%概率触发小队事件
+                    const squadResult = this._processSquadEvent(this.game, hero);
+                    if (squadResult) {
+                        results.push({ type: `squad`, hero: hero.name, ...squadResult });
+                        // 标记全队已触发
+                        for (const m of squad) this.game._markDailyEventTriggered(m);
+                    }
+                } else {
+                    // 50%概率：随机选一名成员触发单人事件
+                    const target = squad[RAND(squad.length)];
+                    const evt = this._pickDungeonEvent(target);
+                    if (evt) {
+                        const result = evt.handler(this.game, target);
+                        if (result) {
+                            results.push({ type: `dungeon`, hero: target.name, ...result });
+                            // 标记全队已触发（小队一天最多一个事件）
+                            for (const m of squad) this.game._markDailyEventTriggered(m);
+                        }
+                    }
+                }
+            } else {
+                // 独行侠：正常触发单人事件
+                const evt = this._pickDungeonEvent(hero);
+                if (evt) {
+                    const result = evt.handler(this.game, hero);
+                    if (result) {
+                        results.push({ type: `dungeon`, hero: hero.name, ...result });
+                        this.game._markDailyEventTriggered(hero);
+                    }
                 }
             }
         }
@@ -1008,6 +1211,28 @@ class EventSystem {
             { id: `hero_chest_weapon`, name: `武器宝箱`, weight: 3, handler: (g, h) => this._evtHeroChestWeapon(g, h) },
             { id: `hero_chest_item`, name: `道具宝箱`, weight: 4, handler: (g, h) => this._evtHeroChestItem(g, h) },
             { id: `hero_chest_cleanse`, name: `净化之光`, weight: 2, handler: (g, h) => this._evtHeroChestCleanse(g, h) },
+            { id: `hero_lore`, name: `历史碎片`, weight: 5, handler: (g, h) => this._evtHeroLore(g, h) },
+            // V12.0: 新增勇者单人事件（20个）
+            { id: `hero_starvation`, name: `饥饿`, weight: 6, handler: (g, h) => this._evtHeroStarvation(g, h) },
+            { id: `hero_morale_boost`, name: `士气高涨`, weight: 5, handler: (g, h) => this._evtHeroMoraleBoost(g, h) },
+            { id: `hero_blessing`, name: `神明祝福`, weight: 4, handler: (g, h) => this._evtHeroBlessing(g, h) },
+            { id: `hero_mirror`, name: `魔镜恐惧`, weight: 4, handler: (g, h) => this._evtHeroMirror(g, h) },
+            { id: `hero_whispers`, name: `地下城低语`, weight: 5, handler: (g, h) => this._evtHeroWhispers(g, h) },
+            { id: `hero_fog`, name: `迷雾`, weight: 5, handler: (g, h) => this._evtHeroFog(g, h) },
+            { id: `hero_sacrifice_altar`, name: `献祭祭坛`, weight: 3, handler: (g, h) => this._evtHeroSacrificeAltar(g, h) },
+            { id: `hero_ghost_hero`, name: `勇者亡魂`, weight: 4, handler: (g, h) => this._evtHeroGhost(g, h) },
+            { id: `hero_treasure_map`, name: `藏宝图`, weight: 3, handler: (g, h) => this._evtHeroTreasureMap(g, h) },
+            { id: `hero_black_market`, name: `黑市商人`, weight: 3, handler: (g, h) => this._evtHeroBlackMarket(g, h) },
+            { id: `hero_mimic`, name: `宝箱怪`, weight: 4, handler: (g, h) => this._evtHeroMimic(g, h) },
+            { id: `hero_potion_overflow`, name: `药水溢出`, weight: 4, handler: (g, h) => this._evtHeroPotionOverflow(g, h) },
+            { id: `hero_equipment_rust`, name: `装备锈蚀`, weight: 4, handler: (g, h) => this._evtHeroEquipmentRust(g, h) },
+            { id: `hero_reinforcement`, name: `援军`, weight: 3, handler: (g, h) => this._evtHeroReinforcement(g, h) },
+            { id: `hero_trap_room`, name: `陷阱房间`, weight: 5, handler: (g, h) => this._evtHeroTrapRoom(g, h) },
+            { id: `hero_secret_door`, name: `密道`, weight: 4, handler: (g, h) => this._evtHeroSecretDoor(g, h) },
+            { id: `hero_rest_site`, name: `安全休息点`, weight: 4, handler: (g, h) => this._evtHeroRestSite(g, h) },
+            { id: `hero_cursed_gold`, name: `诅咒金币`, weight: 4, handler: (g, h) => this._evtHeroCursedGold(g, h) },
+            { id: `hero_memory_shard`, name: `记忆碎片`, weight: 3, handler: (g, h) => this._evtHeroMemoryShard(g, h) },
+            { id: `hero_blood_moon`, name: `血月`, weight: 2, handler: (g, h) => this._evtHeroBloodMoon(g, h) },
         ];
     }
 
@@ -1075,12 +1300,27 @@ class EventSystem {
     }
 
     _evtHeroRelic(g, hero) {
-        const buffs = [`攻击力上升`, `防御力上升`, `速度上升`, `魔力抗性`];
+        const buffs = [
+            { name: `攻击力上升`, stat: 'atk', val: 0.15 },
+            { name: `防御力上升`, stat: 'def', val: 0.15 },
+            { name: `速度上升`, stat: 'spd', val: 0.10 },
+            { name: `魔力抗性`, stat: 'mpPct', val: 0.20 }
+        ];
         const buff = buffs[RAND(buffs.length)];
+        // V12.0: 古代遗物现在提供实际buff效果（持续3天）
+        const expireDay = (g.day || 1) + 3;
+        const relicBuffs = JSON.parse(hero.cstr[CSTRS.RELIC_BUFFS] || '[]');
+        relicBuffs.push({ name: buff.name, stat: buff.stat, val: buff.val, expire: expireDay });
+        hero.cstr[CSTRS.RELIC_BUFFS] = JSON.stringify(relicBuffs);
+        // 立即应用buff
+        if (buff.stat === 'atk') hero.atk = Math.floor(hero.atk * (1 + buff.val));
+        else if (buff.stat === 'def') hero.def = Math.floor(hero.def * (1 + buff.val));
+        else if (buff.stat === 'spd') hero.spd = Math.floor(hero.spd * (1 + buff.val));
+        else if (buff.stat === 'mpPct') hero.maxMp = Math.floor(hero.maxMp * (1 + buff.val));
         return {
             title: `【地下城】${hero.name}获得了古代遗物`,
-            text: `${hero.name}从石棺中取出了闪耀着微光的遗物。获得了临时增益：${buff}`,
-            effects: [{ target: hero.name, buff }]
+            text: `${hero.name}从石棺中取出了闪耀着微光的遗物。获得了临时增益：${buff.name}（持续3天）`,
+            effects: [{ target: hero.name, buff: buff.name }]
         };
     }
 
@@ -1157,10 +1397,12 @@ class EventSystem {
     }
 
     _evtHeroChestItem(g, hero) {
-        const itemTypes = ['heal', 'mana', 'buff'];
+        // V8.0: 移除buff，新增town_portal
+        const itemTypes = ['heal', 'mana', 'cleanse', 'town_portal'];
         const itype = itemTypes[RAND(itemTypes.length)];
         const item = GearSystem.generateItem(itype, hero.level);
-        const r = GearSystem.equipItem(hero, item);
+        // V8.0: 智能装备比较（道具直接装备）
+        const r = itype === 'town_portal' ? GearSystem.equipItem(hero, item) : GearSystem.equipItem(hero, item);
         const curseWarn = (r.curseTriggered && !hero.cflag[CFLAGS.SQUAD_ID]) ? ' 但这东西看起来有些诡异...' : '';
         return {
             title: `【地下城】${hero.name}发现了道具宝箱`,
@@ -1178,6 +1420,960 @@ class EventSystem {
             effects: [{ target: hero.name, item: GearSystem.getGearDesc(cleanse) }]
         };
     }
+
+    // ========== V12.0: 魔王军冒险事件 ==========
+    _processDemonArmyEvents() {
+        const results = [];
+        const processedSquads = new Set();
+        // 遍历执行任务的魔王军角色（前勇者/魔王）
+        const demonArmies = this.game.characters.filter(c => {
+            if (c.hp <= 0) return false;
+            const isMaster = this.game.getMaster() === c;
+            const isExHero = c.talent && c.talent[200];
+            if (!isMaster && !isExHero) return false;
+            // 只给正在执行任务的魔王军触发冒险事件
+            const taskType = c.cflag[CFLAGS.SLAVE_TASK_TYPE] || 0;
+            return taskType !== 0;
+        });
+        for (const actor of demonArmies) {
+            if (this.game._hasTriggeredDailyEvent(actor)) continue;
+            const isMaster = this.game.getMaster() === actor;
+            // V12.0: 魔王单人出击时触发魔王专属地下城事件
+            if (isMaster) {
+                if (RAND(100) >= 30) continue;
+                const evt = this._pickMasterRaidEvent();
+                if (evt) {
+                    const result = evt.handler(this.game, actor);
+                    if (result) {
+                        results.push({ type: 'master_raid', actor: actor.name, ...result });
+                        this.game._markDailyEventTriggered(actor);
+                    }
+                }
+                continue;
+            }
+            // V12.0: 魔王军（手下）应用小队2选1规则
+            const squadMarker = actor.cflag[998];
+            const isLeader = actor.cflag[CFLAGS.SQUAD_LEADER] === 1;
+            // 小队成员跳过独立事件（由队长统一决策）
+            if (squadMarker && !isLeader) continue;
+            // 队长决策：小队事件 or 单人事件
+            if (squadMarker && isLeader && !processedSquads.has(squadMarker)) {
+                processedSquads.add(squadMarker);
+                if (RAND(100) < 25) {
+                    // 25%触发小队事件（全体）
+                    const squadResult = this._processDemonSquadEvent(this.game, actor);
+                    if (squadResult) {
+                        results.push({ type: 'demon_squad', actor: actor.name, ...squadResult });
+                        // 标记全队已触发
+                        const squad = demonArmies.filter(c => c.cflag[998] === squadMarker);
+                        for (const m of squad) this.game._markDailyEventTriggered(m);
+                        continue;
+                    }
+                }
+                // 否则：队长自己触发单人事件（队员不触发）
+            }
+            // 单人事件（独行魔王军 or 队长未触发小队事件时）
+            if (RAND(100) >= 30) continue;
+            const evt = this._pickDemonArmyEvent(actor);
+            if (evt) {
+                const result = evt.handler(this.game, actor);
+                if (result) {
+                    results.push({ type: 'demon_army', actor: actor.name, ...result });
+                    this.game._markDailyEventTriggered(actor);
+                }
+            }
+        }
+        return results;
+    }
+
+    _pickDemonArmyEvent(actor) {
+        const pool = this._getDemonArmyEventPool();
+        const totalWeight = pool.reduce((s, e) => s + e.weight, 0);
+        let roll = RAND(totalWeight);
+        for (const e of pool) {
+            roll -= e.weight;
+            if (roll < 0) return e;
+        }
+        return pool[0];
+    }
+
+    _pickMasterRaidEvent() {
+        const pool = this._getMasterRaidEventPool();
+        const totalWeight = pool.reduce((s, e) => s + e.weight, 0);
+        let roll = RAND(totalWeight);
+        for (const e of pool) {
+            roll -= e.weight;
+            if (roll < 0) return e;
+        }
+        return pool[0];
+    }
+
+    _getDemonArmyEventPool() {
+        return [
+            { id: 'demon_train',      name: '训练魔物',     weight: 8, handler: (g, a) => this._evtDemonTrain(g, a) },
+            { id: 'demon_crystal',    name: '发现堕落结晶', weight: 5, handler: (g, a) => this._evtDemonCrystal(g, a) },
+            { id: 'demon_rumor',      name: '散播谣言',     weight: 6, handler: (g, a) => this._evtDemonRumor(g, a) },
+            { id: 'demon_equip',      name: '强化装备',     weight: 5, handler: (g, a) => this._evtDemonEquip(g, a) },
+            { id: 'demon_capture',    name: '捕获落单勇者', weight: 4, handler: (g, a) => this._evtDemonCapture(g, a) },
+            { id: 'demon_meditate',   name: '冥想修炼',     weight: 7, handler: (g, a) => this._evtDemonMeditate(g, a) },
+            // V12.0: 新增魔王军冒险事件（第一批10个）
+            { id: 'demon_scout',      name: '侦察勇者',     weight: 6, handler: (g, a) => this._evtDemonScout(g, a) },
+            { id: 'demon_trap_set',   name: '设置陷阱',     weight: 5, handler: (g, a) => this._evtDemonTrapSet(g, a) },
+            { id: 'demon_potion',     name: '调制魔药',     weight: 4, handler: (g, a) => this._evtDemonPotion(g, a) },
+            { id: 'demon_forge',      name: '锻造魔器',     weight: 4, handler: (g, a) => this._evtDemonForge(g, a) },
+            { id: 'domen_ritual',     name: '黑暗仪式',     weight: 3, handler: (g, a) => this._evtDemonRitual(g, a) },
+            { id: 'demon_spy_report', name: '间谍报告',     weight: 5, handler: (g, a) => this._evtDemonSpyReport(g, a) },
+            { id: 'demon_ambush_plan',name: '埋伏计划',     weight: 4, handler: (g, a) => this._evtDemonAmbushPlan(g, a) },
+            { id: 'demon_corrupt_ground', name: '腐化大地', weight: 3, handler: (g, a) => this._evtDemonCorruptGround(g, a) },
+            { id: 'demon_summon',     name: '召唤魔物',     weight: 4, handler: (g, a) => this._evtDemonSummon(g, a) },
+            { id: 'demon_intimidate', name: '恐吓勇者',     weight: 5, handler: (g, a) => this._evtDemonIntimidate(g, a) },
+            // V12.0: 新增魔王军冒险事件（第二批10个）
+            { id: 'demon_ambush',      name: '伏击落单勇者', weight: 4, handler: (g, a) => this._evtDemonAmbush(g, a) },
+            { id: 'demon_sabotage',    name: '破坏补给',     weight: 4, handler: (g, a) => this._evtDemonSabotage(g, a) },
+            { id: 'demon_forage',      name: '采集资源',     weight: 5, handler: (g, a) => this._evtDemonForage(g, a) },
+            { id: 'demon_prisoner_interrogate', name: '审讯俘虏', weight: 3, handler: (g, a) => this._evtDemonPrisonerInterrogate(g, a) },
+            { id: 'demon_armor_enchant', name: '护甲附魔',   weight: 4, handler: (g, a) => this._evtDemonArmorEnchant(g, a) },
+            { id: 'demon_map_draw',    name: '绘制地图',     weight: 4, handler: (g, a) => this._evtDemonMapDraw(g, a) },
+            { id: 'demon_blood_pact',  name: '血契',         weight: 3, handler: (g, a) => this._evtDemonBloodPact(g, a) },
+            { id: 'demon_soul_harvest', name: '灵魂收割',    weight: 3, handler: (g, a) => this._evtDemonSoulHarvest(g, a) },
+            { id: 'demon_monster_breed', name: '魔物培育',   weight: 4, handler: (g, a) => this._evtDemonMonsterBreed(g, a) },
+            { id: 'demon_chaos_ritual', name: '混沌仪式',    weight: 2, handler: (g, a) => this._evtDemonChaosRitual(g, a) },
+        ];
+    }
+
+    _getMasterRaidEventPool() {
+        // V12.0: 魔王单人出击时触发的地下城专属事件
+        return [
+            { id: 'master_raid_diary',    name: '地下城古文献', weight: 5, handler: (g, a) => this._evtMasterRaidDiary(g, a) },
+            { id: 'master_raid_forge',    name: '地下城熔炉',   weight: 4, handler: (g, a) => this._evtMasterRaidForge(g, a) },
+            { id: 'master_raid_curse',    name: '诅咒研究',     weight: 4, handler: (g, a) => this._evtMasterRaidCurse(g, a) },
+            { id: 'master_raid_trap',     name: '布置陷阱',     weight: 5, handler: (g, a) => this._evtMasterRaidTrap(g, a) },
+            { id: 'master_raid_potion',   name: '采集制药',     weight: 4, handler: (g, a) => this._evtMasterRaidPotion(g, a) },
+            { id: 'master_raid_spy',     name: '观察勇者',     weight: 5, handler: (g, a) => this._evtMasterRaidSpy(g, a) },
+            { id: 'master_raid_ritual',   name: '黑暗仪式',     weight: 3, handler: (g, a) => this._evtMasterRaidRitual(g, a) },
+            { id: 'master_raid_pride',    name: '傲慢增长',     weight: 4, handler: (g, a) => this._evtMasterRaidPride(g, a) },
+            { id: 'master_raid_omen',    name: '不祥预感',     weight: 4, handler: (g, a) => this._evtMasterRaidOmen(g, a) },
+            { id: 'master_raid_dungeon', name: '地下城共鸣',   weight: 3, handler: (g, a) => this._evtMasterRaidDungeon(g, a) },
+        ];
+    }
+
+    _evtDemonTrain(g, actor) {
+        const expGain = actor.level * 3;
+        // V12.0: EXP现在实际生效，存入exp[102]并检查升级
+        actor.exp[102] = (actor.exp[102] || 0) + expGain;
+        if (typeof g.checkLevelUp === 'function') g.checkLevelUp(actor);
+        // V12.0: 训练强化标记——后续地下城怪物更强
+        g.flag[998] = (g.flag[998] || 0) + 1;
+        return {
+            title: `【魔王军】${actor.name}训练了魔物`,
+            text: `${actor.name}在地下城中训练了一批新生魔物，教导它们如何更有效地伏击勇者。魔物们的凶性被激发，地下城的威胁提升了。EXP +${expGain}`,
+            effects: [{ target: actor.name, exp: expGain }]
+        };
+    }
+
+    _evtDemonCrystal(g, actor) {
+        const crystal = GearSystem.generateItem('buff', actor.level, 2 + RAND(2));
+        const r = GearSystem.equipItem(actor, crystal);
+        // V12.0: 标记持有堕落结晶，用于后续装备强化事件链
+        actor.cflag[CFLAGS.DEMON_CRYSTAL] = (actor.cflag[CFLAGS.DEMON_CRYSTAL] || 0) + 1;
+        return {
+            title: `【魔王军】${actor.name}发现了堕落结晶`,
+            text: `${actor.name}在地下城深处发现了一块散发着诡异紫光的堕落结晶。将其收好后，感觉力量有所提升。${r.msg}`,
+            effects: [{ target: actor.name, item: GearSystem.getGearDesc(crystal) }]
+        };
+    }
+
+    _evtDemonRumor(g, actor) {
+        g.addFame(10);
+        // V12.0: 谣言事件链——设置谣言标记，影响后续捕获事件
+        g.flag[996] = g.day || 1;
+        // 谣言使所有勇者移动速度临时降低（恐慌效果）
+        let affected = 0;
+        for (const h of g.invaders) {
+            if (h.hp > 0) {
+                h.cflag[CFLAGS.PANIC_DAY] = (g.day || 1) + 2; // 恐慌标记，持续2天
+                affected++;
+            }
+        }
+        return {
+            title: `【魔王军】${actor.name}散播了谣言`,
+            text: `${actor.name}在地下城中散播关于魔王的恐怖传言，勇者们闻风丧胆。${affected > 0 ? `共有${affected}名勇者陷入恐慌，行动力下降。` : ''}魔王声望 +10`,
+            effects: [{ target: '魔王', fame: 10 }]
+        };
+    }
+
+    _evtDemonEquip(g, actor) {
+        if (!actor.gear) return null;
+        const slots = ['head', 'body', 'legs', 'hands', 'neck', 'ring'];
+        const slot = slots[RAND(slots.length)];
+        const gear = actor.gear[slot];
+        if (!gear || gear.rarity >= 5) return null;
+        // V12.0: 事件链——如果有堕落结晶，强化效果翻倍
+        const hasCrystal = (actor.cflag[CFLAGS.DEMON_CRYSTAL] || 0) > 0;
+        const boost = hasCrystal ? 2 : 1;
+        gear.rarity = Math.min(5, gear.rarity + boost);
+        if (hasCrystal) actor.cflag[CFLAGS.DEMON_CRYSTAL] = Math.max(0, (actor.cflag[CFLAGS.DEMON_CRYSTAL] || 0) - 1);
+        return {
+            title: `【魔王军】${actor.name}强化了装备`,
+            text: `${actor.name}${hasCrystal ? '利用堕落结晶的力量' : '利用地下城的魔力'}强化了${gear.name}，装备品质提升至【${GearSystem.getRarityName(gear.rarity)}】。`,
+            effects: [{ target: actor.name, gear: gear.name }]
+        };
+    }
+
+    _evtDemonCapture(g, actor) {
+        // V12.0: 事件链——谣言期间捕获条件放宽
+        const rumorDay = g.flag[996] || 0;
+        const rumorActive = rumorDay > 0 && (g.day - rumorDay) <= 3;
+        const hpThreshold = rumorActive ? 0.5 : 0.3; // 谣言期间HP<50%即可捕获
+        const targets = g.invaders.filter(h => {
+            if (h.hp <= 0) return false;
+            if (!rumorActive && (h.cflag[CFLAGS.SQUAD_ID] || 0) > 0) return false; // 非谣言期只抓独行
+            const hpPct = h.maxHp > 0 ? h.hp / h.maxHp : 1;
+            return hpPct < hpThreshold;
+        });
+        if (targets.length === 0) return null;
+        const target = targets[RAND(targets.length)];
+        g._imprisonHero(target, 0);
+        return {
+            title: `【魔王军】${actor.name}捕获了${rumorActive ? '恐慌中的' : '落单'}勇者`,
+            text: `${actor.name}在地下城阴影中发现了${rumorActive ? '因谣言而恐慌逃窜的' : '身受重伤的'}${target.name}，轻松将其俘虏并带回魔王城。`,
+            effects: [{ target: target.name, captured: true }]
+        };
+    }
+
+    _evtDemonMeditate(g, actor) {
+        const mpGain = Math.floor(actor.maxMp * 0.5);
+        const expGain = actor.level * 2;
+        actor.mp = Math.min(actor.maxMp, actor.mp + mpGain);
+        // V12.0: EXP现在实际生效
+        actor.exp[102] = (actor.exp[102] || 0) + expGain;
+        if (typeof g.checkLevelUp === 'function') g.checkLevelUp(actor);
+        return {
+            title: `【魔王军】${actor.name}进行了冥想修炼`,
+            text: `${actor.name}在地下城的静谧角落冥想，恢复了MP并领悟了新的战斗技巧。MP +${mpGain}，EXP +${expGain}`,
+            effects: [{ target: actor.name, mp: mpGain, exp: expGain }]
+        };
+    }
+
+    // V12.0: 地下城历史碎片事件
+    _evtHeroLore(g, hero) {
+        const floorId = g.getHeroFloor(hero);
+        const lore = DUNGEON_LORE_DEFS[floorId] || DUNGEON_LORE_DEFS[1];
+        hero.fame = (hero.fame || 0) + 2;
+        if (g._addAdventureLog) g._addAdventureLog(hero, 'lore_found', `在第${floorId}层发现了历史碎片`);
+        return {
+            title: `【地下城】${hero.name}发现了历史碎片`,
+            text: `${hero.name}在${lore.location}发现了一些古老的遗迹。${lore.text}\n\n这段历史让人不寒而栗，但也让${hero.name}对这个世界有了更深的理解。声望 +2`,
+            effects: [{ target: hero.name, fame: 2 }]
+        };
+    }
+
+    // ========== V12.0: 新增勇者单人事件（20个）==========
+
+    _evtHeroStarvation(g, hero) {
+        const dmg = Math.floor(hero.maxHp * 0.1);
+        hero.hp = Math.max(1, hero.hp - dmg);
+        const voices = ['肚子好饿...已经两天没吃东西了...', '干粮在路上弄丢了，必须尽快找到补给...'];
+        if (g._addAdventureLog) g._addAdventureLog(hero, 'voice', voices[RAND(voices.length)]);
+        return { title: `【地下城】${hero.name}饥肠辘辘`, text: `长时间没有进食，${hero.name}感到体力在流失。HP -${dmg}`, effects: [{ target: hero.name, hp: -dmg }] };
+    }
+
+    _evtHeroMoraleBoost(g, hero) {
+        const mpGain = Math.floor(hero.maxMp * 0.3);
+        hero.mp = Math.min(hero.maxMp, hero.mp + mpGain);
+        return { title: `【地下城】${hero.name}士气高涨`, text: `${hero.name}回想起家乡的温暖，一股力量涌上心头。MP +${mpGain}`, effects: [{ target: hero.name, mp: mpGain }] };
+    }
+
+    _evtHeroBlessing(g, hero) {
+        const expire = (g.day || 1) + 3;
+        const blessings = JSON.parse(hero.cstr[CSTRS.RELIC_BUFFS] || '[]');
+        blessings.push({ name: '神明祝福', stat: 'atk', val: 0.10, expire });
+        blessings.push({ name: '神明祝福', stat: 'def', val: 0.10, expire });
+        hero.cstr[CSTRS.RELIC_BUFFS] = JSON.stringify(blessings);
+        hero.atk = Math.floor(hero.atk * 1.1);
+        hero.def = Math.floor(hero.def * 1.1);
+        return { title: `【地下城】${hero.name}受到神明祝福`, text: `一道圣光笼罩了${hero.name}，全属性临时提升10%（持续3天）！`, effects: [{ target: hero.name, buff: '全属性+10%' }] };
+    }
+
+    _evtHeroMirror(g, hero) {
+        const dmg = Math.floor(hero.maxMp * 0.2);
+        hero.mp = Math.max(0, hero.mp - dmg);
+        const voices = [`魔镜中映出的不是我的脸...那是谁？`, `我看到了...我最恐惧的东西...`];
+        if (g._addAdventureLog) g._addAdventureLog(hero, 'voice', voices[RAND(voices.length)]);
+        return { title: `【地下城】${hero.name}被魔镜恐吓`, text: `一面古老的魔镜映出了${hero.name}内心最深处的恐惧。MP -${dmg}`, effects: [{ target: hero.name, mp: -dmg }] };
+    }
+
+    _evtHeroWhispers(g, hero) {
+        if (RAND(2) === 0) {
+            hero.fame = (hero.fame || 0) + 3;
+            return { title: `【地下城】${hero.name}听到了有用的低语`, text: `地下城的墙壁似乎在低语...${hero.name}从中获取了关于前方陷阱的情报。声望 +3`, effects: [{ target: hero.name, fame: 3 }] };
+        } else {
+            const dmg = Math.floor(hero.maxMp * 0.15);
+            hero.mp = Math.max(0, hero.mp - dmg);
+            return { title: `【地下城】${hero.name}被低语折磨`, text: `不可名状的声音在${hero.name}脑海中回荡，精神受到了冲击。MP -${dmg}`, effects: [{ target: hero.name, mp: -dmg }] };
+        }
+    }
+
+    _evtHeroFog(g, hero) {
+        let progress = g.getHeroProgress(hero);
+        progress = Math.max(0, progress - 10);
+        hero.cflag[CFLAGS.HERO_PROGRESS] = progress;
+        return { title: `【地下城】${hero.name}在迷雾中迷路`, text: `浓重的迷雾遮蔽了视线，${hero.name}迷失了方向。进度 -10%`, effects: [{ target: hero.name, progress: -10 }] };
+    }
+
+    _evtHeroSacrificeAltar(g, hero) {
+        const hpCost = Math.floor(hero.maxHp * 0.2);
+        hero.hp = Math.max(1, hero.hp - hpCost);
+        const stats = ['atk', 'def', 'spd'];
+        const stat = stats[RAND(stats.length)];
+        if (stat === 'atk') hero.atk += 2;
+        else if (stat === 'def') hero.def += 2;
+        else hero.spd += 2;
+        return { title: `【地下城】${hero.name}在祭坛献祭`, text: `${hero.name}在古老祭坛上献祭了鲜血，获得了永久的属性提升。HP -${hpCost}，${stat.toUpperCase()} +2`, effects: [{ target: hero.name, stat: stat, val: 2 }] };
+    }
+
+    _evtHeroGhost(g, hero) {
+        const floorId = g.getHeroFloor(hero);
+        const nextFloor = Math.min(10, floorId + 1);
+        hero.fame = (hero.fame || 0) + 2;
+        return { title: `【地下城】${hero.name}遇到了勇者亡魂`, text: `一位已故勇者的灵魂向${hero.name}诉说了第${nextFloor}层的危险。声望 +2`, effects: [{ target: hero.name, fame: 2 }] };
+    }
+
+    _evtHeroTreasureMap(g, hero) {
+        hero.cflag[994] = (g.day || 1) + 2; // 藏宝图标记，2天内金币翻倍
+        return { title: `【地下城】${hero.name}发现了藏宝图`, text: `${hero.name}在一具骷髅手中发现了一张残破的藏宝图。未来2天内获得的金币将翻倍！`, effects: [{ target: hero.name, buff: '金币翻倍(2天)' }] };
+    }
+
+    _evtHeroBlackMarket(g, hero) {
+        const items = [`回复药`, `强化药`, `火把`, `解毒草`];
+        const item = items[RAND(items.length)];
+        const cost = 50 + RAND(100);
+        if (hero.gold >= cost) {
+            hero.gold -= cost;
+            return { title: `【地下城】${hero.name}遇到了黑市商人`, text: `一个可疑的商人在阴影中向${hero.name}兜售商品。花费${cost}G购买了【${item}】。`, effects: [{ target: hero.name, gold: -cost }] };
+        }
+        return { title: `【地下城】${hero.name}遇到了黑市商人`, text: `一个可疑的商人向${hero.name}展示了商品，但价格太高只好放弃。`, effects: [] };
+    }
+
+    _evtHeroMimic(g, hero) {
+        const floorId = g.getHeroFloor(hero);
+        const monster = g._spawnMonster ? g._spawnMonster(floorId, 'normal') : null;
+        if (monster) {
+            monster.name = '宝箱怪';
+            monster.icon = '🎁';
+            monster.atk = Math.floor(monster.atk * 1.2);
+            return { title: `【地下城】${hero.name}遭遇了宝箱怪！`, text: `那个闪闪发光的宝箱突然张开了血盆大口！原来是一只宝箱怪！`, effects: [{ target: hero.name, combat: true, monster }] };
+        }
+        return { title: `【地下城】${hero.name}差点被宝箱怪袭击`, text: `一个可疑的宝箱在${hero.name}靠近时抖动了一下，但很快恢复了平静。`, effects: [] };
+    }
+
+    _evtHeroPotionOverflow(g, hero) {
+        const effects = [
+            () => { hero.hp = Math.min(hero.maxHp, hero.hp + 50); return 'HP +50'; },
+            () => { hero.mp = Math.min(hero.maxMp, hero.mp + 30); return 'MP +30'; },
+            () => { hero.hp = Math.max(1, hero.hp - 30); return 'HP -30（变质了！）'; },
+            () => { hero.atk += 3; return '攻击力 +3'; },
+        ];
+        const effect = effects[RAND(effects.length)];
+        const result = effect();
+        return { title: `【地下城】${hero.name}饮用了神秘药水`, text: `${hero.name}发现了一瓶未标注的药水，喝下去后...${result}`, effects: [{ target: hero.name, text: result }] };
+    }
+
+    _evtHeroEquipmentRust(g, hero) {
+        const slots = ['head', 'body', 'legs', 'hands', 'neck', 'ring'];
+        const slot = slots[RAND(slots.length)];
+        const gear = hero.gear ? hero.gear[slot] : null;
+        if (gear && gear.rarity > 1) {
+            gear.rarity -= 1;
+            return { title: `【地下城】${hero.name}的装备锈蚀了`, text: `地下城的潮湿环境让${hero.name}的${gear.name}生了锈，品质下降了！`, effects: [{ target: hero.name, gear: gear.name }] };
+        }
+        return { title: `【地下城】${hero.name}发现了锈蚀痕迹`, text: `${hero.name}注意到周围的金属都在快速锈蚀，幸好自己的装备没有受到影响。`, effects: [] };
+    }
+
+    _evtHeroReinforcement(g, hero) {
+        const hpBoost = Math.floor(hero.maxHp * 0.5);
+        hero.hp = Math.min(hero.maxHp, hero.hp + hpBoost);
+        return { title: `【地下城】${hero.name}遇到了援军`, text: `一位受伤的退伍老兵将自己的剩余物资交给了${hero.name}。HP +${hpBoost}`, effects: [{ target: hero.name, hp: hpBoost }] };
+    }
+
+    _evtHeroTrapRoom(g, hero) {
+        const dmg = Math.floor(hero.maxHp * 0.3);
+        hero.hp = Math.max(1, hero.hp - dmg);
+        return { title: `【地下城】${hero.name}触发了陷阱房间`, text: `${hero.name}踏入了一个布满机关的房间，无数暗器从四面八方射来！HP -${dmg}`, effects: [{ target: hero.name, hp: -dmg }] };
+    }
+
+    _evtHeroSecretDoor(g, hero) {
+        let progress = g.getHeroProgress(hero);
+        progress += 20;
+        if (progress >= 100) {
+            progress = 0;
+            hero.cflag[CFLAGS.HERO_FLOOR] = (g.getHeroFloor(hero) || 1) + 1;
+        }
+        hero.cflag[CFLAGS.HERO_PROGRESS] = progress;
+        return { title: `【地下城】${hero.name}发现了密道`, text: `${hero.name}推开书架后露出了一条隐秘通道，大幅缩短了路程。进度 +20%`, effects: [{ target: hero.name, progress: 20 }] };
+    }
+
+    _evtHeroRestSite(g, hero) {
+        const hpHeal = hero.maxHp - hero.hp;
+        const mpHeal = hero.maxMp - hero.mp;
+        hero.hp = hero.maxHp;
+        hero.mp = hero.maxMp;
+        return { title: `【地下城】${hero.name}找到了安全休息点`, text: `一个被圣光庇护的小房间，${hero.name}在这里得到了充分的休息。HP/MP完全恢复！`, effects: [{ target: hero.name, hp: hpHeal, mp: mpHeal }] };
+    }
+
+    _evtHeroCursedGold(g, hero) {
+        const gold = 100 + RAND(200);
+        hero.gold += gold;
+        hero.cflag[994] = 0; // 清除可能的藏宝图标记
+        return { title: `【地下城】${hero.name}发现了诅咒金币`, text: `${hero.name}在一具干尸身上发现了${gold}G，但拿到钱的那一刻感到一阵寒意...这些金币被诅咒了。`, effects: [{ target: hero.name, gold }] };
+    }
+
+    _evtHeroMemoryShard(g, hero) {
+        hero.fame = (hero.fame || 0) + 3;
+        const voices = ['这些记忆...不属于我...但又那么熟悉...', '我看到了上一轮回的自己...那是...'];
+        if (g._addAdventureLog) g._addAdventureLog(hero, 'voice', voices[RAND(voices.length)]);
+        return { title: `【地下城】${hero.name}触碰了记忆碎片`, text: `${hero.name}触碰了一块散发着微光的水晶碎片，无数不属于自己记忆涌入脑海。声望 +3`, effects: [{ target: hero.name, fame: 3 }] };
+    }
+
+    _evtHeroBloodMoon(g, hero) {
+        hero.cflag[993] = (g.day || 1) + 1; // 血月标记，1天内遇敌率提升
+        return { title: `【地下城】血月降临`, text: `一轮血红色的月亮悬挂在地下城的天花板上（不知从何而来），${hero.name}感到周围的魔物变得躁动不安。今日遇敌率大幅提升！`, effects: [{ target: hero.name, buff: '遇敌率提升' }] };
+    }
+
+    // ========== V12.0: 新增魔王军冒险事件（10个）==========
+
+    _evtDemonScout(g, actor) {
+        const target = g.invaders[RAND(g.invaders.length)];
+        const floor = target ? (g.getHeroFloor ? g.getHeroFloor(target) : '?') : '?';
+        return { title: `【魔王军】${actor.name}侦察了勇者动向`, text: `${actor.name}潜伏在阴影中观察，发现勇者${target ? target.name : '某人'}正在第${floor}层活动。`, effects: [{ target: actor.name, info: '勇者位置情报' }] };
+    }
+
+    _evtDemonTrapSet(g, actor) {
+        g.flag[997] = (g.flag[997] || 0) + 1; // 陷阱层数标记
+        return { title: `【魔王军】${actor.name}设置了陷阱`, text: `${actor.name}在地下城通道中布置了精密的陷阱，勇者们的通行将更加危险。`, effects: [{ target: actor.name, trap: 1 }] };
+    }
+
+    _evtDemonPotion(g, actor) {
+        const potion = GearSystem.generateItem('buff', actor.level, 1 + RAND(2));
+        GearSystem.equipItem(actor, potion);
+        return { title: `【魔王军】${actor.name}调制了魔药`, text: `${actor.name}利用地下城的奇异植物调制了一瓶强力魔药。${potion.name}已装备。`, effects: [{ target: actor.name, item: potion.name }] };
+    }
+
+    _evtDemonForge(g, actor) {
+        if (!actor.gear || !actor.gear.weapons) return null;
+        const w = actor.gear.weapons[RAND(actor.gear.weapons.length)];
+        if (!w) return null;
+        w.atk = (w.atk || 0) + 2 + RAND(3);
+        return { title: `【魔王军】${actor.name}锻造了魔器`, text: `${actor.name}在地下城熔炉中锻造了${w.name}，攻击力获得了提升。`, effects: [{ target: actor.name, weapon: w.name }] };
+    }
+
+    _evtDemonRitual(g, actor) {
+        const hpCost = Math.floor(actor.maxHp * 0.1);
+        actor.hp = Math.max(1, actor.hp - hpCost);
+        actor.atk = (actor.atk || 0) + 5;
+        actor.def = (actor.def || 0) + 5;
+        return { title: `【魔王军】${actor.name}执行了黑暗仪式`, text: `${actor.name}以自身鲜血为代价，换取了强大的黑暗力量。HP -${hpCost}，攻防 +5`, effects: [{ target: actor.name, hp: -hpCost, atk: 5, def: 5 }] };
+    }
+
+    _evtDemonSpyReport(g, actor) {
+        const targets = g.invaders.filter(h => h.hp > 0);
+        const info = targets.length > 0 ? `发现${targets.length}名活跃勇者` : '未发现勇者踪迹';
+        return { title: `【魔王军】${actor.name}收到了间谍报告`, text: `潜伏在勇者中的间谍传回了情报：${info}。`, effects: [{ target: actor.name, info }] };
+    }
+
+    _evtDemonAmbushPlan(g, actor) {
+        g.flag[998] = (g.flag[998] || 0) + 1; // 与训练共用标记，增强地下城
+        return { title: `【魔王军】${actor.name}制定了埋伏计划`, text: `${actor.name}精心策划了针对勇者小队的埋伏，地下城的威胁进一步提升了。`, effects: [{ target: actor.name, plan: '埋伏' }] };
+    }
+
+    _evtDemonCorruptGround(g, actor) {
+        for (const h of g.invaders) {
+            if (h.hp > 0) h.hp = Math.max(1, h.hp - 10);
+        }
+        return { title: `【魔王军】${actor.name}腐化了大地`, text: `${actor.name}释放的黑暗能量污染了地下城的环境，所有勇者受到了持续伤害。`, effects: [{ target: '全体勇者', hp: -10 }] };
+    }
+
+    _evtDemonSummon(g, actor) {
+        const floorId = actor.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] || actor.cflag[CFLAGS.SLAVE_TASK_FLOOR] || 1;
+        const monster = g._spawnMonster ? g._spawnMonster(floorId, 'chief') : null;
+        if (monster) {
+            return { title: `【魔王军】${actor.name}召唤了精英魔物`, text: `${actor.name}通过禁忌仪式召唤了一只强大的${monster.name}来守护地下城！`, effects: [{ target: actor.name, monster: monster.name }] };
+        }
+        return { title: `【魔王军】${actor.name}尝试召唤魔物`, text: `${actor.name}的召唤仪式只唤来了几只普通史莱姆...`, effects: [] };
+    }
+
+    _evtDemonIntimidate(g, actor) {
+        const target = g.invaders[RAND(g.invaders.length)];
+        if (target) {
+            target.mp = Math.max(0, target.mp - 20);
+            const voices = [`${actor.name}...那个名字让我不寒而栗...`, `魔王军越来越近了...我们能赢吗？`];
+            if (g._addAdventureLog) g._addAdventureLog(target, 'voice', voices[RAND(voices.length)]);
+        }
+        return { title: `【魔王军】${actor.name}恐吓了勇者`, text: `${actor.name}在勇者营地附近故意留下恐怖的标记，削弱了对方的士气。`, effects: [{ target: target ? target.name : '勇者', mp: -20 }] };
+    }
+
+    // ========== V12.0: 魔王军冒险事件（第二批10个）==========
+
+    _evtDemonAmbush(g, actor) {
+        const target = g.invaders.filter(h => h.hp > 0 && !h.cflag[CFLAGS.SQUAD_ID])[RAND(g.invaders.length)];
+        if (!target) return null;
+        const dmg = Math.floor(target.maxHp * 0.2);
+        target.hp = Math.max(1, target.hp - dmg);
+        const gold = 50 + RAND(100);
+        g.money = (g.money || 0) + gold;
+        return { title: `【魔王军】${actor.name}伏击了勇者`, text: `${actor.name}在地下城暗处成功伏击了落单的${target.name}，${target.name}受到了重创。缴获了${gold}G。`, effects: [{ target: target.name, hp: -dmg }, { target: '魔王', gold }] };
+    }
+
+    _evtDemonSabotage(g, actor) {
+        for (const h of g.invaders) {
+            if (h.hp > 0) h.hp = Math.max(1, h.hp - 15);
+        }
+        return { title: `【魔王军】${actor.name}破坏了勇者补给`, text: `${actor.name}潜入勇者营地，破坏了他们的食物和水源。所有勇者受到了伤害。`, effects: [{ target: '全体勇者', hp: -15 }] };
+    }
+
+    _evtDemonForage(g, actor) {
+        const heal = Math.floor(actor.maxHp * 0.3);
+        actor.hp = Math.min(actor.maxHp, actor.hp + heal);
+        const item = GearSystem.generateItem('heal', actor.level);
+        GearSystem.equipItem(actor, item);
+        return { title: `【魔王军】${actor.name}采集了地下城资源`, text: `${actor.name}在地下城的角落发现了珍稀的草药和矿石，制作了恢复药剂。HP +${heal}，获得${item.name}。`, effects: [{ target: actor.name, hp: heal, item: item.name }] };
+    }
+
+    _evtDemonPrisonerInterrogate(g, actor) {
+        const prisoners = g.prisoners || [];
+        if (prisoners.length === 0) return null;
+        const p = prisoners[RAND(prisoners.length)];
+        const intel = g.invaders[RAND(g.invaders.length)];
+        return { title: `【魔王军】${actor.name}审讯了俘虏`, text: `${actor.name}从俘虏${p.name}口中撬出了情报：${intel ? intel.name : '某位勇者'}正在策划大规模进攻。`, effects: [{ target: actor.name, info: '勇者情报' }] };
+    }
+
+    _evtDemonArmorEnchant(g, actor) {
+        if (!actor.gear) return null;
+        const slots = ['head', 'body', 'legs', 'hands', 'neck', 'ring'];
+        const slot = slots[RAND(slots.length)];
+        const gear = actor.gear[slot];
+        if (!gear) return null;
+        gear.def = (gear.def || 0) + 3 + RAND(3);
+        return { title: `【魔王军】${actor.name}附魔了护甲`, text: `${actor.name}利用地下城的魔力为${gear.name}附魔，防御力大幅提升。`, effects: [{ target: actor.name, gear: gear.name }] };
+    }
+
+    _evtDemonMapDraw(g, actor) {
+        actor.cflag[992] = (actor.cflag[992] || 0) + 1; // 地图完成度标记
+        const expGain = actor.level * 2;
+        actor.exp[102] = (actor.exp[102] || 0) + expGain;
+        if (typeof g.checkLevelUp === 'function') g.checkLevelUp(actor);
+        return { title: `【魔王军】${actor.name}绘制了地下城地图`, text: `${actor.name}仔细勘察了地下城的地形，绘制了详尽的地图。这将有助于未来的作战计划。EXP +${expGain}`, effects: [{ target: actor.name, exp: expGain }] };
+    }
+
+    _evtDemonBloodPact(g, actor) {
+        const hpCost = Math.floor(actor.maxHp * 0.2);
+        actor.hp = Math.max(1, actor.hp - hpCost);
+        actor.atk = (actor.atk || 0) + 8;
+        actor.cflag[991] = (g.day || 1) + 3; // 血契标记，3天内属性提升
+        return { title: `【魔王军】${actor.name}缔结了血契`, text: `${actor.name}与地下城的黑暗意志缔结了血契，以鲜血换取了强大的力量。HP -${hpCost}，攻击 +8（3天）`, effects: [{ target: actor.name, hp: -hpCost, atk: 8 }] };
+    }
+
+    _evtDemonSoulHarvest(g, actor) {
+        const deadHeroes = g.invaders.filter(h => h.hp <= 0);
+        if (deadHeroes.length === 0) {
+            actor.mp = Math.min(actor.maxMp, actor.mp + 30);
+            return { title: `【魔王军】${actor.name}尝试收割灵魂`, text: `${actor.name}没有发现可供收割的灵魂，但吸收了一些游离的魔力。MP +30`, effects: [{ target: actor.name, mp: 30 }] };
+        }
+        const soulPower = deadHeroes.length * 5;
+        actor.atk = (actor.atk || 0) + soulPower;
+        return { title: `【魔王军】${actor.name}收割了勇者灵魂`, text: `${actor.name}收割了${deadHeroes.length}名勇者的灵魂，力量获得了大幅提升。攻击 +${soulPower}`, effects: [{ target: actor.name, atk: soulPower }] };
+    }
+
+    _evtDemonMonsterBreed(g, actor) {
+        const floorId = actor.cflag[CFLAGS.SLAVE_TASK_CURRENT_FLOOR] || actor.cflag[CFLAGS.SLAVE_TASK_FLOOR] || 1;
+        const monster = g._spawnMonster ? g._spawnMonster(floorId) : null;
+        g.flag[998] = (g.flag[998] || 0) + 1;
+        if (monster) {
+            return { title: `【魔王军】${actor.name}培育了新魔物`, text: `${actor.name}成功培育了一只${monster.name}，并教导它如何伏击勇者。地下城威胁提升。`, effects: [{ target: actor.name, monster: monster.name }] };
+        }
+        return { title: `【魔王军】${actor.name}尝试培育魔物`, text: `${actor.name}的培育实验失败了...但积累了一些经验。`, effects: [] };
+    }
+
+    _evtDemonChaosRitual(g, actor) {
+        const hpCost = Math.floor(actor.maxHp * 0.15);
+        actor.hp = Math.max(1, actor.hp - hpCost);
+        const affected = [];
+        for (const h of g.invaders) {
+            if (h.hp > 0) {
+                h.hp = Math.max(1, h.hp - 20);
+                h.mp = Math.max(0, h.mp - 20);
+                affected.push(h.name);
+            }
+        }
+        g.flag[998] = (g.flag[998] || 0) + 2;
+        return { title: `【魔王军】${actor.name}执行了混沌仪式`, text: `${actor.name}以自身鲜血为代价，释放了混沌能量。所有勇者受到了重创，地下城进一步被腐化。`, effects: [{ target: actor.name, hp: -hpCost }, { target: '全体勇者', hp: -20, mp: -20 }] };
+    }
+
+    // ========== V12.0: 魔王军小队事件 ==========
+
+    _processDemonSquadEvent(g, actor) {
+        const squadMarker = actor.cflag[998];
+        if (!squadMarker) return null;
+        const squad = g.characters.filter(c => {
+            if (c.hp <= 0) return false;
+            const isExHero = c.talent && c.talent[200];
+            if (!isExHero) return false;
+            return c.cflag[998] === squadMarker && c !== actor;
+        });
+        if (squad.length === 0) return null;
+        const events = [
+            (g, a, s) => this._evtDemonSquadPatrol(g, a, s),
+            (g, a, s) => this._evtDemonSquadAssault(g, a, s),
+            (g, a, s) => this._evtDemonSquadTactical(g, a, s),
+            (g, a, s) => this._evtDemonSquadRest(g, a, s),
+            (g, a, s) => this._evtDemonSquadRivalry(g, a, s),
+            (g, a, s) => this._evtDemonSquadBetrayal(g, a, s),
+            (g, a, s) => this._evtDemonSquadTraining(g, a, s),
+            (g, a, s) => this._evtDemonSquadLoot(g, a, s),
+            (g, a, s) => this._evtDemonSquadSacrifice(g, a, s),
+            (g, a, s) => this._evtDemonSquadVictory(g, a, s),
+        ];
+        const evt = events[RAND(events.length)];
+        return evt(g, actor, squad);
+    }
+
+    _evtDemonSquadPatrol(g, actor, squad) {
+        for (const m of squad) m.hp = Math.min(m.maxHp, m.hp + 15);
+        actor.hp = Math.min(actor.maxHp, actor.hp + 15);
+        return { title: `【魔王军小队】联合巡逻`, text: `${actor.name}带领小队进行了联合巡逻，确保地下城通道的安全。全队HP恢复。`, effects: [{ target: '全体小队', hp: 15 }] };
+    }
+
+    _evtDemonSquadAssault(g, actor, squad) {
+        const target = g.invaders.filter(h => h.hp > 0)[RAND(g.invaders.length)];
+        if (!target) return null;
+        const dmg = Math.floor(target.maxHp * 0.25);
+        target.hp = Math.max(1, target.hp - dmg);
+        return { title: `【魔王军小队】联合突击`, text: `${actor.name}指挥小队对${target.name}发起了联合突击！${target.name}受到了重创。`, effects: [{ target: target.name, hp: -dmg }] };
+    }
+
+    _evtDemonSquadTactical(g, actor, squad) {
+        for (const m of squad) m.cflag[989] = (g.day || 1) + 1;
+        actor.cflag[989] = (g.day || 1) + 1;
+        return { title: `【魔王军小队】战术会议`, text: `${actor.name}召集小队进行了战术会议，制定了针对勇者的作战计划。明日全队伤害提升。`, effects: [{ target: '全体小队', buff: '伤害+20%(1天)' }] };
+    }
+
+    _evtDemonSquadRest(g, actor, squad) {
+        for (const m of squad) m.mp = Math.min(m.maxMp, m.mp + 20);
+        actor.mp = Math.min(actor.maxMp, actor.mp + 20);
+        return { title: `【魔王军小队】休整`, text: `小队在安全区域进行了休整，恢复了MP。`, effects: [{ target: '全体小队', mp: 20 }] };
+    }
+
+    _evtDemonSquadRivalry(g, actor, squad) {
+        const mate = squad[RAND(squad.length)];
+        actor.atk = Math.floor((actor.atk || 0) * 1.05);
+        mate.atk = Math.floor((mate.atk || 0) * 1.05);
+        return { title: `【魔王军小队】内部竞争`, text: `${actor.name}和${mate.name}暗中较劲，互相激励之下战斗力都有所提升。`, effects: [{ target: `${actor.name}&${mate.name}`, atk: '5%' }] };
+    }
+
+    _evtDemonSquadBetrayal(g, actor, squad) {
+        const mate = squad[RAND(squad.length)];
+        mate.hp = Math.max(1, mate.hp - 30);
+        return { title: `【魔王军小队】背叛`, text: `${mate.name}在战斗中故意退缩，导致${actor.name}陷入了险境。${mate.name}的HP受到了伤害。`, effects: [{ target: mate.name, hp: -30 }] };
+    }
+
+    _evtDemonSquadTraining(g, actor, squad) {
+        for (const m of squad) {
+            m.exp[102] = (m.exp[102] || 0) + Math.floor(m.level * 3);
+            if (typeof g.checkLevelUp === 'function') g.checkLevelUp(m);
+        }
+        actor.exp[102] = (actor.exp[102] || 0) + Math.floor(actor.level * 3);
+        if (typeof g.checkLevelUp === 'function') g.checkLevelUp(actor);
+        return { title: `【魔王军小队】集体训练`, text: `小队进行了集体训练，每个人的经验值都获得了提升。`, effects: [{ target: '全体小队', exp: '提升' }] };
+    }
+
+    _evtDemonSquadLoot(g, actor, squad) {
+        const gold = 100 + RAND(200);
+        g.money = (g.money || 0) + gold;
+        return { title: `【魔王军小队】掠夺`, text: `小队掠夺了一处勇者营地，获得了${gold}G。`, effects: [{ target: '魔王', gold }] };
+    }
+
+    _evtDemonSquadSacrifice(g, actor, squad) {
+        const mate = squad[RAND(squad.length)];
+        const hpCost = Math.floor(mate.maxHp * 0.2);
+        mate.hp = Math.max(1, mate.hp - hpCost);
+        actor.atk = (actor.atk || 0) + 10;
+        return { title: `【魔王军小队】献祭`, text: `${actor.name}以${mate.name}的鲜血为代价，换取了强大的黑暗力量。${mate.name}HP -${hpCost}，${actor.name}攻击 +10`, effects: [{ target: mate.name, hp: -hpCost }, { target: actor.name, atk: 10 }] };
+    }
+
+    _evtDemonSquadVictory(g, actor, squad) {
+        for (const m of squad) {
+            m.hp = Math.min(m.maxHp, m.hp + 20);
+            m.mp = Math.min(m.maxMp, m.mp + 20);
+        }
+        actor.hp = Math.min(actor.maxHp, actor.hp + 20);
+        actor.mp = Math.min(actor.maxMp, actor.mp + 20);
+        g.addFame(5);
+        return { title: `【魔王军小队】胜利庆祝`, text: `小队成功完成了一次重大任务，举行了简短的庆祝。全队状态恢复，魔王声望 +5。`, effects: [{ target: '全体小队', hp: 20, mp: 20 }, { target: '魔王', fame: 5 }] };
+    }
+
+    // ========== V12.0: 魔王单人出击事件 ==========
+
+    _evtMasterRaidDiary(g, actor) {
+        actor.mp = Math.min(actor.maxMp, actor.mp + 30);
+        return { title: `【魔王出击】发现古文献`, text: `${actor.name}在地下城深处发现了一块刻有古老文字的石板。上面记载着上一代魔王的遗言：「地下城本身就是一座牢笼，而我们都是其中的囚徒。」`, effects: [{ target: actor.name, mp: 30 }] };
+    }
+
+    _evtMasterRaidForge(g, actor) {
+        actor.atk = (actor.atk || 0) + 5;
+        return { title: `【魔王出击】地下城熔炉锻造`, text: `${actor.name}在地下城熔炉中锻造了一件新的魔器。熔炉中的火焰似乎有自己的意志，锻造出的武器散发着不祥的光芒。攻击 +5`, effects: [{ target: actor.name, atk: 5 }] };
+    }
+
+    _evtMasterRaidCurse(g, actor) {
+        g.flag[995] = (g.flag[995] || 0) + 1; // 诅咒强度标记
+        return { title: `【魔王出击】诅咒研究`, text: `${actor.name}在地下城发现了古代诅咒的符文。深入研究后，对诅咒的理解更加深刻了。今后的诅咒效果将更强。`, effects: [{ target: actor.name, curse_power: 1 }] };
+    }
+
+    _evtMasterRaidTrap(g, actor) {
+        g.flag[997] = (g.flag[997] || 0) + 2;
+        return { title: `【魔王出击】布置陷阱`, text: `${actor.name}亲自设计了一套精妙的陷阱系统，布置在地下城的关键通道上。这些陷阱连经验丰富的勇者都难以察觉。`, effects: [{ target: actor.name, trap: 2 }] };
+    }
+
+    _evtMasterRaidPotion(g, actor) {
+        actor.hp = Math.min(actor.maxHp, actor.hp + 50);
+        return { title: `【魔王出击】采集制药`, text: `${actor.name}在地下城采集了珍稀的草药，成功调制了一瓶强效的恢复魔药。HP +50`, effects: [{ target: actor.name, hp: 50 }] };
+    }
+
+    _evtMasterRaidSpy(g, actor) {
+        const targets = g.invaders.filter(h => h.hp > 0);
+        const info = targets.length > 0 ? `发现${targets.length}名活跃勇者` : '地表平静';
+        return { title: `【魔王出击】观察勇者`, text: `${actor.name}潜伏在暗处观察勇者的动向，收集到了宝贵的情报：${info}。`, effects: [{ target: actor.name, info }] };
+    }
+
+    _evtMasterRaidRitual(g, actor) {
+        const hpCost = Math.floor(actor.maxHp * 0.1);
+        actor.hp = Math.max(1, actor.hp - hpCost);
+        actor.atk = (actor.atk || 0) + 8;
+        actor.def = (actor.def || 0) + 8;
+        return { title: `【魔王出击】黑暗仪式`, text: `${actor.name}在地下城祭坛执行了禁忌的黑暗仪式，以自身鲜血为代价换取了强大的力量。HP -${hpCost}，攻防 +8`, effects: [{ target: actor.name, hp: -hpCost, atk: 8, def: 8 }] };
+    }
+
+    _evtMasterRaidPride(g, actor) {
+        actor.atk = (actor.atk || 0) + 3;
+        actor.def = (actor.def || 0) + 2;
+        return { title: `【魔王出击】傲慢增长`, text: `随着每一次胜利，${actor.name}的自信心也在膨胀。力量提升了，但也许...傲慢会是最大的敌人。`, effects: [{ target: actor.name, atk: 3, def: 2 }] };
+    }
+
+    _evtMasterRaidOmen(g, actor) {
+        return { title: `【魔王出击】不祥预感`, text: `${actor.name}在地下城深处感受到了异样的气息——一位强大的勇者正在接近。那个勇者的眼神中，有着和曾经的自己一样的东西。`, effects: [{ target: actor.name, omen: '强敌接近' }] };
+    }
+
+    _evtMasterRaidDungeon(g, actor) {
+        actor.mp = Math.min(actor.maxMp, actor.mp + 40);
+        g.masterExp = (g.masterExp || 0) + 10;
+        return { title: `【魔王出击】地下城共鸣`, text: `${actor.name}感受到了地下城本身的脉动。这座古老建筑似乎有自己的意识，正在回应魔王的呼唤。MP +40，魔王经验 +10`, effects: [{ target: actor.name, mp: 40, exp: 10 }] };
+    }
+
+    // ========== V12.0: 勇者小队事件（20个）==========
+
+    _processSquadEvent(g, hero) {
+        const squadId = hero.cflag[CFLAGS.SQUAD_ID];
+        if (!squadId) return null;
+        const squad = g.invaders.filter(h => h.cflag[CFLAGS.SQUAD_ID] === squadId && h !== hero);
+        if (squad.length === 0) return null;
+        const events = [
+            (g, h, s) => this._evtSquadNightTalk(g, h, s),
+            (g, h, s) => this._evtSquadArgument(g, h, s),
+            (g, h, s) => this._evtSquadMutualAid(g, h, s),
+            (g, h, s) => this._evtSquadTactical(g, h, s),
+            (g, h, s) => this._evtSquadFoodShare(g, h, s),
+            (g, h, s) => this._evtSquadCampfire(g, h, s),
+            (g, h, s) => this._evtSquadBetrayalThought(g, h, s),
+            (g, h, s) => this._evtSquadRivalry(g, h, s),
+            (g, h, s) => this._evtSquadMentor(g, h, s),
+            (g, h, s) => this._evtSquadRescue(g, h, s),
+            (g, h, s) => this._evtSquadCombined(g, h, s),
+            (g, h, s) => this._evtSquadGuard(g, h, s),
+            (g, h, s) => this._evtSquadTreasureDispute(g, h, s),
+            (g, h, s) => this._evtSquadSecret(g, h, s),
+            (g, h, s) => this._evtSquadOath(g, h, s),
+            (g, h, s) => this._evtSquadSacrifice(g, h, s),
+            (g, h, s) => this._evtSquadVictory(g, h, s),
+            (g, h, s) => this._evtSquadLoveTriangle(g, h, s),
+            (g, h, s) => this._evtSquadReunion(g, h, s),
+            (g, h, s) => this._evtSquadFarewell(g, h, s),
+        ];
+        const evt = events[RAND(events.length)];
+        return evt(g, hero, squad);
+    }
+
+    _evtSquadNightTalk(g, hero, squad) {
+        const mate = squad[RAND(squad.length)];
+        if (g._setHeroRelation) g._setHeroRelation(hero, mate, 1, 'night_talk');
+        return { title: `【小队】${hero.name}与${mate.name}的夜间谈话`, text: `营火旁，${hero.name}和${mate.name}分享了彼此的故事，关系变得更加亲密。`, effects: [{ target: `${hero.name}&${mate.name}`, relation: +1 }] };
+    }
+
+    _evtSquadArgument(g, hero, squad) {
+        const mate = squad[RAND(squad.length)];
+        if (g._setHeroRelation) g._setHeroRelation(hero, mate, -1, 'argument');
+        return { title: `【小队】${hero.name}与${mate.name}发生争执`, text: `因为路线选择的分歧，${hero.name}和${mate.name}发生了激烈的争吵。`, effects: [{ target: `${hero.name}&${mate.name}`, relation: -1 }] };
+    }
+
+    _evtSquadMutualAid(g, hero, squad) {
+        for (const m of squad) {
+            m.hp = Math.min(m.maxHp, m.hp + Math.floor(m.maxHp * 0.1));
+        }
+        hero.hp = Math.min(hero.maxHp, hero.hp + Math.floor(hero.maxHp * 0.1));
+        return { title: `【小队】互相救助`, text: `小队成员互相包扎伤口，分享药剂， everyone's condition improved.`, effects: [{ target: '全体小队', hp: '10%' }] };
+    }
+
+    _evtSquadTactical(g, hero, squad) {
+        hero.cflag[989] = (g.day || 1) + 1; // 战术buff标记
+        for (const m of squad) m.cflag[989] = (g.day || 1) + 1;
+        return { title: `【小队】战术讨论`, text: `${hero.name}召集小队进行了战术讨论，明日战斗中的伤害将提升20%。`, effects: [{ target: '全体小队', buff: '伤害+20%(1天)' }] };
+    }
+
+    _evtSquadFoodShare(g, hero, squad) {
+        return { title: `【小队】分享食物`, text: `物资匮乏之际，小队成员将仅剩的食物平均分配。没有人挨饿，士气得到了维持。`, effects: [{ target: '全体小队', morale: 1 }] };
+    }
+
+    _evtSquadCampfire(g, hero, squad) {
+        for (const m of squad) m.mp = Math.min(m.maxMp, m.mp + 20);
+        hero.mp = Math.min(hero.maxMp, hero.mp + 20);
+        return { title: `【小队】营火歌声`, text: `有人轻声唱起了故乡的歌谣，疲惫的小队在温暖的火光旁恢复了精神。MP +20`, effects: [{ target: '全体小队', mp: 20 }] };
+    }
+
+    _evtSquadBetrayalThought(g, hero, squad) {
+        const mate = squad[RAND(squad.length)];
+        if (g._setHeroRelation) g._setHeroRelation(hero, mate, -2, 'betrayal_thought');
+        const voices = [`${mate.name}...真的值得信任吗？`, `如果情况危急，${mate.name}会不会抛弃我...`];
+        if (g._addAdventureLog) g._addAdventureLog(hero, 'voice', voices[RAND(voices.length)]);
+        return { title: `【小队】背叛的念头`, text: `深夜，${hero.name}看着${mate.name}的背影，脑海中闪过了不祥的念头...`, effects: [{ target: `${hero.name}&${mate.name}`, relation: -2 }] };
+    }
+
+    _evtSquadRivalry(g, hero, squad) {
+        const mate = squad[RAND(squad.length)];
+        hero.atk = Math.floor((hero.atk || 0) * 1.05);
+        mate.atk = Math.floor((mate.atk || 0) * 1.05);
+        return { title: `【小队】良性竞争`, text: `${hero.name}和${mate.name}暗中较劲，互相激励之下战斗力都有所提升。`, effects: [{ target: `${hero.name}&${mate.name}`, atk: '5%' }] };
+    }
+
+    _evtSquadMentor(g, hero, squad) {
+        const junior = squad.find(m => (m.level || 1) < (hero.level || 1)) || squad[RAND(squad.length)];
+        junior.exp[102] = (junior.exp[102] || 0) + Math.floor(junior.level * 5);
+        return { title: `【小队】老带新`, text: `${hero.name}向${junior.name}传授了战斗经验。${junior.name}的EXP获得了提升。`, effects: [{ target: junior.name, exp: '提升' }] };
+    }
+
+    _evtSquadRescue(g, hero, squad) {
+        const wounded = squad.find(m => m.hp > 0 && m.hp < m.maxHp * 0.3);
+        if (wounded) {
+            wounded.hp = Math.min(wounded.maxHp, wounded.hp + Math.floor(wounded.maxHp * 0.4));
+            return { title: `【小队】紧急救援`, text: `${hero.name}在战斗中及时救助了濒死的${wounded.name}！`, effects: [{ target: wounded.name, hp: '40%' }] };
+        }
+        return { title: `【小队】预防性救助`, text: `小队互相照应，没有发现需要紧急救助的同伴。`, effects: [] };
+    }
+
+    _evtSquadCombined(g, hero, squad) {
+        return { title: `【小队】联合技演练`, text: `小队成员配合演练了一套联合攻击技巧，下次遭遇战将造成额外伤害。`, effects: [{ target: '全体小队', buff: '联合攻击' }] };
+    }
+
+    _evtSquadGuard(g, hero, squad) {
+        return { title: `【小队】守夜轮班`, text: `小队安排了守夜轮班，夜间没有遭遇任何袭击。每个人都得到了充分的休息。`, effects: [{ target: '全体小队', buff: '安全休息' }] };
+    }
+
+    _evtSquadTreasureDispute(g, hero, squad) {
+        const mate = squad[RAND(squad.length)];
+        if (g._setHeroRelation) g._setHeroRelation(hero, mate, -1, 'treasure_dispute');
+        return { title: `【小队】宝物分配争执`, text: `${hero.name}和${mate.name}因为战利品分配产生了争执。`, effects: [{ target: `${hero.name}&${mate.name}`, relation: -1 }] };
+    }
+
+    _evtSquadSecret(g, hero, squad) {
+        const mate = squad[RAND(squad.length)];
+        return { title: `【小队】秘密揭露`, text: `在一次醉酒后，${mate.name}不小心透露了自己隐藏已久的秘密——原来${mate.name}曾是一名贵族的私生子。`, effects: [{ target: mate.name, secret: 'revealed' }] };
+    }
+
+    _evtSquadOath(g, hero, squad) {
+        for (const m of squad) {
+            if (g._setHeroRelation) g._setHeroRelation(hero, m, 1, 'oath_renewal');
+        }
+        return { title: `【小队】重温誓言`, text: `在月光下，小队成员再次宣誓要共同进退，彼此间的羁绊更加深厚了。`, effects: [{ target: '全体小队', relation: +1 }] };
+    }
+
+    _evtSquadSacrifice(g, hero, squad) {
+        const mate = squad[RAND(squad.length)];
+        const dmg = Math.floor(hero.maxHp * 0.15);
+        hero.hp = Math.max(1, hero.hp - dmg);
+        mate.hp = Math.min(mate.maxHp, mate.hp + Math.floor(mate.maxHp * 0.3));
+        return { title: `【小队】舍身相护`, text: `${hero.name}挺身而出，替${mate.name}挡下了致命一击！`, effects: [{ target: hero.name, hp: -dmg }, { target: mate.name, hp: '30%' }] };
+    }
+
+    _evtSquadVictory(g, hero, squad) {
+        for (const m of squad) {
+            m.hp = Math.min(m.maxHp, m.hp + 20);
+            m.mp = Math.min(m.maxMp, m.mp + 20);
+        }
+        hero.hp = Math.min(hero.maxHp, hero.hp + 20);
+        hero.mp = Math.min(hero.maxMp, hero.mp + 20);
+        return { title: `【小队】胜利庆祝`, text: `击败强敌后，小队举行了简短的庆祝。每个人都分享了一份喜悦。HP/MP +20`, effects: [{ target: '全体小队', hp: 20, mp: 20 }] };
+    }
+
+    _evtSquadLoveTriangle(g, hero, squad) {
+        if (squad.length < 2) return null;
+        const a = squad[0], b = squad[1];
+        if (g._setHeroRelation) {
+            g._setHeroRelation(hero, a, -1, 'love_triangle');
+            g._setHeroRelation(hero, b, -1, 'love_triangle');
+            g._setHeroRelation(a, b, -1, 'love_triangle');
+        }
+        return { title: `【小队】三角关系`, text: `小队中复杂的感情纠葛让气氛变得微妙起来...`, effects: [{ target: '小队关系', relation: -1 }] };
+    }
+
+    _evtSquadReunion(g, hero, squad) {
+        return { title: `【小队】失散同伴重逢`, text: `原以为已经阵亡的同伴突然出现在营地门口！小队再次团聚。`, effects: [{ target: '全体小队', morale: 2 }] };
+    }
+
+    _evtSquadFarewell(g, hero, squad) {
+        const mate = squad[RAND(squad.length)];
+        return { title: `【小队】离别`, text: `${mate.name}因为个人原因决定暂时离队。小队的实力有所削弱。`, effects: [{ target: mate.name, action: '离队' }] };
+    }
 }
+
+// V12.0: 地下城历史碎片定义
+window.DUNGEON_LORE_DEFS = {
+    1: {
+        location: '入口大厅的壁画前',
+        text: `壁画上描绘着初代勇者封印魔王的场景。但仔细辨认后会发现，那位「魔王」的面容与现在的魔王截然不同——这意味着，所谓的「魔王」只是一个不断更替的称号。而勇者们，也在不断轮回中重复着同样的命运。`
+    },
+    2: {
+        location: '一处坍塌的民居废墟中',
+        text: `碎石下压着一本烧焦的日记。最后一页写着：「他们说要保护我们，可勇者们的战斗摧毁了一切。村子没了，家人也没了。也许...魔王才是带来秩序的那个人？」`
+    },
+    3: {
+        location: '石棺底部的暗格里',
+        text: `一张泛黄的羊皮纸上记录着上一代魔王的独白：「我并非生来就是魔王。我也曾是一名勇者，直到我发现——勇者讨伐魔王后，自己会成为新的魔王。这是一个无尽的循环，而我们都是其中的一部分。」`
+    },
+    4: {
+        location: '被遗弃的图书馆角落',
+        text: `残破的典籍记载着一个被遗忘的名字：「轮回系统」。每隔数十年，就会出现一名新的魔王和一群新的勇者。勇者杀死魔王，勇者变成魔王，新的勇者再来讨伐——这就是这个世界的真相。没有人真正胜利，只有永恒的轮回。`
+    },
+    5: {
+        location: '祭坛下方的密室',
+        text: `密室的墙壁上刻满了名字——都是曾经的魔王和勇者。每个名字后面都标注着相同的日期间隔：正好三十年。这就是轮回的周期。而更令人恐惧的是，最早的名字已经模糊到无法辨认，这意味着这个循环已经持续了...数千年。`
+    },
+    6: {
+        location: '战场遗迹中的阵亡者身边',
+        text: `两具紧紧抱在一起的骸骨旁边有一封信：「对不起，我的挚友。为了救你，我不得不对另一位同伴下手。但我不后悔...在这个残酷的世界里，友情是我们唯一的救赎。」原来，勇者之间也会互相背叛。`
+    },
+    7: {
+        location: '魔王研究所的废墟',
+        text: `实验记录上写着：「第47号实验体成功转化为魔王。转化过程：勇者杀死前任魔王后，体内会被注入『魔王因子』。72小时后，实验体将失去自我意识，成为新的魔王。建议：提前准备好下一批勇者。」`
+    },
+    8: {
+        location: '地下城核心控制室',
+        text: `一台仍在运转的古老装置上显示着令人震惊的信息：「地下城并非自然形成，而是人为建造的培养皿。目的是通过勇者-魔王的循环，持续产出『战斗经验结晶』——这就是这个世界真正的能源。」`
+    },
+    9: {
+        location: '世界树枯死的根系旁',
+        text: `树皮下刻着最后的留言：「世界树正在死去。每一次轮回都在抽取它的生命力。当树彻底枯死时，这个世界也将终结。但那些操纵轮回的人不在乎——他们会在世界毁灭前，带着结晶前往下一个世界。」`
+    },
+    10: {
+        location: '魔王王座背后的密道',
+        text: `密道尽头的石碑上刻着：「如果你读到了这段文字，说明你已经接近真相。魔王和勇者都是棋子，真正的棋手在高处俯瞰着一切。打破循环的唯一方法...是同时存在魔王和勇者，让他们共存而非互相杀戮。」`
+    }
+};
 
 window.EventSystem = EventSystem;

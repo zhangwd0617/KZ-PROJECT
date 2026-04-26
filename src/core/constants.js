@@ -57,6 +57,12 @@ export const CFLAGS = {
     HERO_PERSONALITY: 962,    // 英雄个性
     HERO_BACKSTORY: 970,      // 英雄背景故事
     HERO_APPEARANCE: 971,     // 英雄外观
+    FALLEN_RACE_ID: 972,      // 真实堕落种族ID（伪装机制）
+    CORRUPTION_YIELD: 973,    // 堕落种族勇者屈服度累积
+    HERO_ELEMENT: 974,        // 角色元素属性（用于元素克制）
+    IS_DEMON_ARMY: 975,       // 魔军标记（用于堕落种族被动禁用）
+    SPRING_LAST_USED: 976,    // 上次使用回复泉水的天数（5天冷却）
+    SEVERE_INJURY_DAY: 977,   // 获得重伤的游戏天数（用于计算等级衰减）
     HERO_REASON: 981,         // 成为勇者理由
     HERO_ORIGIN: 982,         // 英雄出身
     HERO_FAMILY: 983,         // 英雄家族
@@ -71,9 +77,13 @@ export const CFLAGS = {
     SLAVE_TASK_RESULT: 988,   // 奴隶任务结果
     SLAVE_TASK_PROGRESS: 990, // 奴隶任务移动进度
 
+    // V12.0 事件链系统
+    PANIC_DAY: 989,           // 恐慌效果过期日（谣言事件链）
+    DEMON_CRYSTAL: 997,       // 持有的堕落结晶数量
+
     // 魔王勋章
-    MEDAL_COUNT: 988,         // 勋章数
-    MEDAL_EXP: 989,           // 勋章经验
+    MEDAL_COUNT: 993,         // 勋章数
+    MEDAL_EXP: 994,           // 勋章经验
 
     // 职业系统（V5.0 统一职业）
     CLASS_ID: 955,            // 统一职业ID（替代 HERO_CLASS）
@@ -87,6 +97,13 @@ export const CFLAGS = {
 
     // 调教过滤
     COMMAND_FILTER: 991,      // 命令过滤位掩码
+
+    // V9.0 洗脑系统
+    BRAINWASH_STATUS: 992,    // 洗脑状态标记
+
+    // V12.0 勇者态度系统
+    HERO_ATTITUDE: 995,       // 勇者态度: 1=holy讨伐型, 2=neutral中立型, 3=pro_demon倾向魔王
+    IS_LONE_WOLF: 996,        // 独行侠标记（倾向魔王型勇者）
 };
 
 // ---------- CSTR 索引 ----------
@@ -114,6 +131,13 @@ export const CSTRS = {
     COMBAT_LOG: 352,          // 战斗日志
     TRAIN_LOG: 353,           // 调教日志
     RELATION_LOG: 354,        // 关系日志
+
+    // V7.0 称号与履历系统
+    ADVENTURE_LOG: 360,       // 冒险履历 JSON
+    CURRENT_TITLE: 361,       // 当前称号
+    TITLE_STATS: 362,         // 称号统计 JSON
+    SEXUAL_RECORDS: 363,      // 性经历记录 JSON
+    RELIC_BUFFS: 364,         // 古代遗物临时buff JSON
 };
 
 // ---------- 性弱点类型 ----------

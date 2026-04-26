@@ -30,8 +30,9 @@ Game.prototype.sendSpy = function(index) {
         spy.cflag[CFLAGS.DEF] = slave.cflag[CFLAGS.DEF] || 15 + slave.level * 4;
         spy.cflag[CFLAGS.SPD] = slave.cflag[CFLAGS.SPD] || 10 + slave.level * 3;
         spy.talent = [...slave.talent];
-        spy.talent[200] = 1; // 前勇者标记
+        spy.talent[200] = 0; // 伪装者应像普通勇者，不要前勇者标记
         spy.cflag[912] = 1; // 伪装者标记
+        spy.cflag[CFLAGS.HERO_RARITY] = 'N'; // 稀有度默认为N
         spy.mark = [...slave.mark];
         spy.abl = [...slave.abl];
 

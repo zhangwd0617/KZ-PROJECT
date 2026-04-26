@@ -16,12 +16,15 @@ import './data/TalentTree.js';
 import './data/PersonalitySystem.js';
 import './data/TalentEffects.js';
 import './data/RouteAccelerators.js';
+import './data/MarkSystem.js';
+import './data/RouteStageEvents.js';
 import './data/OrgasmSystem.js';
 import './data/GenitalConfig.js';
 import './data/TrainCommandMeta.js';
 import './data/ComboSystem.js';
 import './data/SpecialEvents.js';
 import './data/CharaTemplates.js';
+import './data/EventDefs.js';
 
 // 3. Engine
 import './engine/Character.js';
@@ -57,6 +60,7 @@ import './dialogues/_index.js';
 import './dialogues/_loader.js';
 
 // 8. Systems
+import './systems/CommandThresholdSystem.js';
 import './systems/DialogueSystem.js';
 import './systems/TrainSystem.js';
 import './systems/ShopSystem.js';
@@ -65,6 +69,7 @@ import './systems/EventSystem.js';
 
 // 9. Engine main
 import './engine/Game.js';
+import './systems/FactionSystem.js';
 import './systems/CombatEngine.js';
 import './systems/DungeonExplorer.js';
 import './systems/HeroGenerator.js';
@@ -86,6 +91,7 @@ import './ui/pages/CharaDetailPages.js';
 import './ui/pages/DisposalMuseumPage.js';
 import './ui/pages/ShopPage.js';
 import './ui/pages/PrisonTaskPage.js';
+import './ui/pages/TownUI.js';
 import './ui/pages/ConfigWikiPage.js';
 
 // 11. Application bootstrap

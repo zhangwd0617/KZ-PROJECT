@@ -64,8 +64,15 @@ Game.prototype._processHeroEncounters = function() {
                     // 直接对战
                     const combatResult = this._doHeroVsHeroCombat(actor, target);
                     // 内战导致关系恶化
-                    if (rel.level > 0) {
-                        this._setHeroRelation(actor, target, -1, 'reckless');
+                    const combat = combatResult.combat;
+                    if (!combat.victory && !combat.defeated) {
+                        // 平手（50回合不分胜负）：关系破裂
+                        if (rel.level > 0) {
+                            this._setHeroRelation(actor, target, -rel.level, 'combat');
+                        }
+                    } else {
+                        // 有胜负：双方关系-2（最低0）
+                        this._setHeroRelation(actor, target, -2, 'combat');
                     }
                     this._markDailyEventTriggered(actor);
                     this._markDailyEventTriggered(target);
@@ -93,6 +100,11 @@ Game.prototype._processHeroEncounters = function() {
                     const eventResult = this._doDisguiseEvent(spy, victim);
                     this._markDailyEventTriggered(actor);
                     this._markDailyEventTriggered(target);
+                    // V7.0: 背叛履历
+                    this._incrementTitleStat(spy, 'betrayalCount');
+                    this._addAdventureLog(spy, 'first_betrayal', `背叛了同伴${victim.name}`);
+                    this._incrementTitleStat(victim, 'betrayedCount');
+                    this._addAdventureLog(victim, 'betrayal', `被同伴${spy.name}背叛`);
                     results.push({
                         title: `🎭 伪装者行动`,
                         text: `${spy.name}伪装成同伴接近了${victim.name}！${eventResult.text}`
@@ -138,6 +150,29 @@ Game.prototype._processHeroEncounters = function() {
                     results.push({
                         title: `💕 同甘共苦`,
                         text: `${actor.name}与${target.name}互相鼓舞，恢复了${healAmt}HP！关系变得更好。`
+                    });
+                } else if (action === 'frame') {
+                    // V7.0: 陷害
+                    const stolenGold = Math.min(target.gold, 50 + RAND(100));
+                    target.gold -= stolenGold;
+                    actor.gold += stolenGold;
+                    this._setHeroRelation(actor, target, -1, 'frame');
+                    this._markDailyEventTriggered(actor);
+                    this._markDailyEventTriggered(target);
+                    results.push({
+                        title: `🕸️ 陷害`,
+                        text: `${actor.name}散布谣言并窃取了${target.name}的财物（${stolenGold}G）……两人关系恶化了。`
+                    });
+                } else if (action === 'monster_lure') {
+                    // V7.0: 引诱魔物
+                    const dmg = Math.floor(target.maxHp * 0.2);
+                    target.hp = Math.max(1, target.hp - dmg);
+                    this._setHeroRelation(actor, target, -1, 'monster_lure');
+                    this._markDailyEventTriggered(actor);
+                    this._markDailyEventTriggered(target);
+                    results.push({
+                        title: `👹 诱敌`,
+                        text: `${actor.name}故意将强大魔物引向${target.name}的营地……${target.name}受到${dmg}点伤害！`
                     });
                 } else {
                     // 什么都不做
@@ -283,9 +318,16 @@ Game.prototype._decideHeroEncounterAction = function(hero, relationLevel = 2) {
 
         if (RAND(100) < combatChance) {
             return 'combat';
-        } else {
-            return 'none';
         }
+
+        // V7.0: Framing / Monster lure for hostile relations
+        if (relationLevel <= 1) {
+            const roll = RAND(100);
+            if (roll < 15) return 'frame';
+            if (roll < 30) return 'monster_lure';
+        }
+
+        return 'none';
     }
 
     // 勇【vs 勇者战】
@@ -293,11 +335,7 @@ Game.prototype._doHeroVsHeroCombat = function(a, b) {
         // 使用标准团队战斗系统
         const floorId = this.getHeroFloor(a);
         const progress = this.getHeroProgress(a);
-        const aReinforcements = this._findReinforcements([a], floorId, progress, 'hero');
-        const bReinforcements = this._findReinforcements([b], floorId, progress, 'hero');
-        const leftTeam = [a, ...aReinforcements];
-        const rightTeam = [b, ...bReinforcements];
-        const combat = this._doTeamCombat(leftTeam, rightTeam, { noExp: true, noDrop: true, maxRounds: 50 });
+        const combat = this._doTeamCombat([a], [b], { noExp: true, noDrop: true, maxRounds: 50 });
         const aHp = a.hp;
         const bHp = b.hp;
         const aWin = aHp > bHp;
@@ -330,6 +368,10 @@ Game.prototype._doHeroVsHeroCombat = function(a, b) {
             }
             // 胜利者没收失败者装备与金钱
             lootText = this._confiscateFromLoser(a, b);
+            // V7.0: 击败勇者履历
+            this._incrementTitleStat(a, 'heroKills');
+            this._addAdventureLog(a, 'hero_kill', `在内战中击败勇者${b.name}`);
+            this._checkTitle(a);
         } else if (bWin) {
             resultText = `${b.name}获胜，${a.name}受到重创(HP:${a.hp}/${a.maxHp})`;
             let progress = a.cflag[CFLAGS.HERO_PROGRESS] || 0;
@@ -352,6 +394,10 @@ Game.prototype._doHeroVsHeroCombat = function(a, b) {
             }
             // 胜利者没收失败者装备与金钱
             lootText = this._confiscateFromLoser(b, a);
+            // V7.0: 击败勇者履历
+            this._incrementTitleStat(b, 'heroKills');
+            this._addAdventureLog(b, 'hero_kill', `在内战中击败勇者${a.name}`);
+            this._checkTitle(b);
         } else {
             resultText = `双方势均力敌，各自负伤后撤退`;
         }
@@ -421,15 +467,29 @@ Game.prototype._confiscateFromLoser = function(winner, loser) {
     // 检查勇者或小队今天是否已触发事件
 Game.prototype._getHeroRelation = function(a, b) {
         const key = this._getHeroRelationKey(a, b);
-        if (!key) return { level: 2, history: [] };
+        if (!key) return { level: 2, history: [], squadDays: 0 };
         let rel = this._heroRelations[key];
         if (!rel) {
             // 根据相性差初始化关系
             const diff = this._getAffinityDiff(a, b);
             const initLevel = this._getAffinityRelationLevel(diff);
-            rel = { level: initLevel, history: [] };
+            rel = { level: initLevel, history: [], squadDays: 0, metDay: this.day || 1 };
             this._heroRelations[key] = rel;
         }
+        // V7.0: ensure new fields exist on old relations
+        if (rel.squadDays === undefined) rel.squadDays = 0;
+        if (rel.metDay === undefined) rel.metDay = this.day || 1;
+        if (rel.romanceDay === undefined) rel.romanceDay = null;
+        if (rel.engagedDay === undefined) rel.engagedDay = null;
+        if (rel.marriedDay === undefined) rel.marriedDay = null;
+        if (rel.kissCount === undefined) rel.kissCount = 0;
+        if (rel.sexCount === undefined) rel.sexCount = 0;
+        if (rel.lastIntimacyDay === undefined) rel.lastIntimacyDay = 0;
+        if (rel.swornDay === undefined) rel.swornDay = null;
+        if (rel.swornType === undefined) rel.swornType = null;
+        if (rel.rivalTarget === undefined) rel.rivalTarget = null;
+        if (rel.conflictCount === undefined) rel.conflictCount = 0;
+        if (rel.lastConflictDay === undefined) rel.lastConflictDay = 0;
         return rel;
     }
 

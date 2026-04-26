@@ -182,6 +182,7 @@ window.generateFallenCharacter = function(typeKey, options) {
     penises: isMale || isFuta ? [{ id: 0, name: "肉棒", ejaculationGauge: 0, sensitivity: 1.0, linkedParts: ["V", "A", "O"] }] : [],
     orgasmSystem: "standard"
   };
+  c.cflag[CFLAGS.HERO_RARITY] = 'N'; // 稀有度默认为N
 
   return c;
 };
@@ -219,13 +220,8 @@ window.calculateRaceCompatibility = function(raceA, raceB, isFallenA, isFallenB)
 };
 
 // ============================================
-// 稀有度判定
+// V8.0: 稀有度判定 - 固定为N，后续通过个人声望晋升
 // ============================================
-window.rollHeroRarity = function() {
-  const r = RAND(100);
-  if (r < 1) return "UR";
-  if (r < 5) return "SSR";
-  if (r < 15) return "SR";
-  if (r < 40) return "R";
-  return "N";
+window.rollHeroRarity = function(day = 1) {
+  return 'N';
 };

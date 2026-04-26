@@ -13,6 +13,10 @@ Game.prototype._addStatusAilment = function(hero, type, turns) {
         hero.cflag[CFLAGS.HERO_PREVIOUS] = (hero.cflag[CFLAGS.HERO_PREVIOUS] || 0) | def.bit;
         const turnKey = STATUS_AILMENT_TURN_CFIDS[type];
         hero.cflag[turnKey] = Math.max(hero.cflag[turnKey] || 0, turns);
+        // V10.0: 记录获得重伤的游戏天数（用于等级衰减）
+        if (type === 'severe_injury' && typeof this.day === 'number') {
+            hero.cflag[CFLAGS.SEVERE_INJURY_DAY] = this.day;
+        }
     }
 
 Game.prototype._removeStatusAilment = function(hero, type) {
@@ -21,6 +25,10 @@ Game.prototype._removeStatusAilment = function(hero, type) {
         hero.cflag[CFLAGS.HERO_PREVIOUS] = (hero.cflag[CFLAGS.HERO_PREVIOUS] || 0) & ~def.bit;
         const turnKey = STATUS_AILMENT_TURN_CFIDS[type];
         hero.cflag[turnKey] = 0;
+        // V10.0: 清除重伤记录天数
+        if (type === 'severe_injury') {
+            hero.cflag[CFLAGS.SEVERE_INJURY_DAY] = 0;
+        }
     }
 
 Game.prototype._clearAllStatusAilments = function(hero) {
@@ -44,22 +52,24 @@ Game.prototype._getStatusAilmentText = function(hero) {
     }
 
 Game.prototype._applyStatusAilmentEffects = function(hero) {
-        if (!hero) return { atkMod: 0, defMod: 0, spdMod: 0, dotHp: 0, dotMp: 0, actionBlock: 0, friendlyFire: 0 };
+        if (!hero) return { atkMod: 0, defMod: 0, spdMod: 0, hpMod: 0, mpMod: 0, dotHp: 0, dotMp: 0, actionBlock: 0, friendlyFire: 0 };
         const mask = hero.cflag[CFLAGS.HERO_PREVIOUS] || 0;
-        let atkMod = 0, defMod = 0, spdMod = 0, dotHp = 0, dotMp = 0, actionBlock = 0, friendlyFire = 0;
+        let atkMod = 0, defMod = 0, spdMod = 0, hpMod = 0, mpMod = 0, dotHp = 0, dotMp = 0, actionBlock = 0, friendlyFire = 0;
         for (const key in STATUS_AILMENT_DEFS) {
             const def = STATUS_AILMENT_DEFS[key];
             if ((mask & def.bit) !== 0) {
                 atkMod += def.effect.atkMod || 0;
                 defMod += def.effect.defMod || 0;
                 spdMod += def.effect.spdMod || 0;
+                hpMod += def.effect.hpMod || 0;
+                mpMod += def.effect.mpMod || 0;
                 if (def.dot.type === "hp_percent") dotHp += Math.floor(hero.maxHp * def.dot.value);
                 if (def.dot.type === "mp_percent") dotMp += Math.floor(hero.maxMp * def.dot.value);
                 actionBlock = Math.max(actionBlock, def.actionBlock || 0);
                 friendlyFire = Math.max(friendlyFire, def.friendlyFire || 0);
             }
         }
-        return { atkMod, defMod, spdMod, dotHp, dotMp, actionBlock, friendlyFire };
+        return { atkMod, defMod, spdMod, hpMod, mpMod, dotHp, dotMp, actionBlock, friendlyFire };
     }
 
 Game.prototype._processStatusAilmentTurn = function(hero) {

@@ -13,12 +13,14 @@ const MAIN_PERSONALITY = {
           desc: "\u6e29\u67d4\u6148\u7231\uff0c\u987a\u4ece/\u5c48\u670dPALAM+\uff0c\u62d2\u7edd\u7387-\u3002\u9ad8\u987a\u4ece\u65f6\u89e6\u53d1\u6bcd\u6027\u6a21\u5f0f" },
     11: { id: 11, name: "\u81ea\u4fe1\u5bb6", code: "confidence",
           palamMods: { 8: 0.15, 5: 0.05 }, refuseMod: 0.15, staminaMod: 0, energyMod: -0.05, orgasmMod: 0,
-          specialMode: { name: "\u50b2\u6162", condition: (c) => c.mark[3] >= 2, uiColor: "#e5c07b" },
-          desc: "\u81ea\u4fe1\u8fc7\u5269\uff0c\u7f9e\u803bPALAM+\u4f46\u62d2\u7edd\u7387+\u3002\u53cd\u6297\u523b\u5370\u9ad8\u65f6\u89e6\u53d1\u50b2\u6162\u6a21\u5f0f" },
+          // V4.0: mark[3] 反抗刻印→M属性专精，"傲慢"模式改为"对抗"模式（痛苦中获得的快感）
+          specialMode: { name: "对抗", condition: (c) => c.mark[3] >= 2, uiColor: "#e5c07b" },
+          desc: "自信过剩，羞耻PALAM+但拒绝率+。反抗刻印高时触发对抗模式（痛苦转化为快感）" },
     12: { id: 12, name: "\u618e\u6068", code: "hatred",
           palamMods: { 11: 0.20, 10: 0.10 }, refuseMod: 0.25, staminaMod: 0, energyMod: 0, orgasmMod: -0.10,
-          specialMode: { name: "\u6574\u590d", condition: (c) => c.mark[6] >= 2, uiColor: "#e06c75" },
-          desc: "\u6ee1\u6000\u618e\u6068\uff0c\u53cd\u611f/\u6050\u60e7PALAM+\uff0c\u62d2\u7edd\u7387++\u3002\u53cd\u53d1\u523b\u5370\u9ad8\u65f6\u89e6\u53d1\u6574\u590d\u6a21\u5f0f" },
+          // V4.0: mark[6] 反发刻印→征服刻印，"整复"模式改为"支配"模式
+          specialMode: { name: "支配", condition: (c) => c.mark[6] >= 2, uiColor: "#e06c75" },
+          desc: "满怀憎恨，反感/恐惧PALAM+，拒绝率++。征服刻印高时触发支配模式" },
     13: { id: 13, name: "\u9ad8\u8d35", code: "noble",
           palamMods: { 8: 0.20 }, refuseMod: 0.20, staminaMod: 0, energyMod: -0.05, orgasmMod: 0,
           specialMode: { name: "\u96c5\u9177", condition: (c) => c.abl[10] >= 4, uiColor: "#61afef" },
@@ -67,8 +69,9 @@ const MAIN_PERSONALITY = {
            desc: "\u5b88\u62a4\u4ed6\u4eba\uff0c\u987a\u4ece/\u5c48\u670dPALAM+\uff0c\u62d2\u7edd\u7387--\uff0c\u9ad8\u987a\u4ece\u65f6\u89e6\u53d1\u5b88\u62a4\u6a21\u5f0f" },
     165: { id: 165, name: "\u8d35\u516c\u5b50", code: "prince",
            palamMods: { 8: 0.20, 11: 0.10 }, refuseMod: 0.20, staminaMod: 0, energyMod: 0, orgasmMod: 0,
-           specialMode: { name: "\u9a84\u50b2", condition: (c) => c.mark[3] >= 1, uiColor: "#e5c07b" },
-           desc: "\u9a84\u50b2\u7684\u8d35\u516c\u5b50\uff0c\u7f9e\u803b/\u53cd\u611fPALAM+\uff0c\u62d2\u7edd\u7387+\u3002\u53cd\u6297\u523b\u5370\u89e6\u53d1\u9a84\u50b2\u6a21\u5f0f" },
+           // V4.0: mark[3] 反抗刻印→M属性专精
+           specialMode: { name: "痛苦欢愉", condition: (c) => c.mark[3] >= 1, uiColor: "#e5c07b" },
+           desc: "骄傲的贵公子，羞耻/反感PALAM+，拒绝率+。反抗刻印触发痛苦欢愉模式" },
     166: { id: 166, name: "\u4f36\u4fd0", code: "clever",
            palamMods: { 7: 0.15, 19: 0.15 }, refuseMod: 0.05, staminaMod: 0, energyMod: -0.05, orgasmMod: 0,
            specialMode: { name: "\u673a\u7075", condition: (c) => c.abl[100] >= 3, uiColor: "#61afef" },
@@ -394,6 +397,134 @@ function addHiddenTraitProgress(chara, amount) {
     h.progress = Math.min(100, (h.progress || 0) + amount);
 }
 
+// ========== Charge Reactions (22 Main Personalities) ==========
+// 蓄力时每回合的额外效果与释放修正倍率
+const CHARGE_REACTIONS = {
+    10:  { name: "慈爱",     reactText: "温柔地忍耐着，偶尔投来关切的目光",           perTurn: { palam: {4: 20}, chanceText: 0.20, text: "「您累了吗？需要休息的话...」" }, releaseMult: 1.1 },
+    11:  { name: "自信家",   reactText: "咬紧牙关，不肯在魔王面前示弱",               perTurn: { palam: {11: 25}, chanceChallenge: 0.20, challengeText: "「就这点程度吗？再来！]" }, releaseMult: 1.3 },
+    12:  { name: "憎恶",     reactText: "用充满恨意的眼神瞪着魔王",                   perTurn: { palam: {11: 30}, refuseMod: 0.15 }, releaseMult: 1.2 },
+    13:  { name: "高贵",     reactText: "努力维持着高傲的姿态",                       perTurn: { palam: {8: 40}, chanceComposed: 0.20, composedText: "「这点刺激...还不足以让我失态」" }, releaseMult: 1.3 },
+    14:  { name: "冷静",     reactText: "面无表情地承受着快感",                       perTurn: { orgasmThresholdMod: 0.15, energyDecayMod: -0.20 }, releaseMult: 0.9 },
+    15:  { name: "魔王",     reactText: "霸气地压抑着快感",                           perTurn: { chargeCostMod: -0.10 }, releaseMult: 1.2 },
+    16:  { name: "恶女",     reactText: "暗中计算着反击的时机",                       perTurn: { chargeCostMod: -0.10 }, releaseMult: 1.2 },
+    17:  { name: "红桃",     reactText: "主动渴求着更多刺激",                         perTurn: { palam: {5: 30}, chanceBeg: 0.25, begText: "「还不够...请给我更多...」" }, releaseMult: 1.2 },
+    18:  { name: "黑桃",     reactText: "沉默地承受着一切",                           perTurn: { energyDecayMod: -0.30 }, releaseMult: 1.0 },
+    160: { name: "方块",     reactText: "元气满满地忍耐着",                           perTurn: { startPalam: 50, staminaMod: 0.10 }, releaseMult: 1.0 },
+    161: { name: "梅花",     reactText: "硬撑着不认输",                               perTurn: { palam: {16: 20}, extraStaminaCost: 3 }, releaseMult: 1.3 },
+    162: { name: "莉莉",     reactText: "天真地不知所措",                             perTurn: { chargeCostMod: -0.15, palamVariance: 0.10 }, releaseMult: 1.15 },
+    163: { name: "知的",     reactText: "假装冷静地分析着状况",                       perTurn: { chargeCostMod: -0.10, chanceLeak: 0.15, leakText: "「唔...计划出现了偏差...」" }, releaseMult: 1.15 },
+    164: { name: "庇护者",   reactText: "一边忍耐一边担心着魔王",                     perTurn: { palam: {4: 20}, chanceText: 0.20, text: "「您不要太勉强自己...」" }, releaseMult: 1.1 },
+    165: { name: "贵公子",   reactText: "不服输地昂着头",                             perTurn: { palam: {11: 25}, chanceChallenge: 0.20, challengeText: "「再来！我不会输的！」" }, releaseMult: 1.3 },
+    166: { name: "伶俐",     reactText: "暗中寻找着最优解",                           perTurn: { chargeCostMod: -0.10, chanceLeak: 0.15, leakText: "「情况...比预想的要棘手...」" }, releaseMult: 1.15 },
+    167: { name: "菲娅",     reactText: "梦幻般地渴求着快感",                         perTurn: { palam: {5: 30}, chanceBeg: 0.25, begText: "「更多...请让我感受更多...」" }, releaseMult: 1.2 },
+    168: { name: "嘉德",     reactText: "坦率地报告着当前状态",                       perTurn: { palam: {4: 25}, orgasmThresholdMod: -0.05 }, releaseMult: 1.1 },
+    169: { name: "幽灵",     reactText: "独自在角落里颤抖",                           perTurn: { noBystanderCostMod: -0.20, lowEnergyExtraCost: 3 }, releaseMult: 1.0 },
+    170: { name: "烈焰",     reactText: "热血燃烧着",                                 perTurn: { highStaminaPalamMult: 1.15, staminaThreshold: 0.80 }, releaseMult: 1.0 },
+    171: { name: "深渊",     reactText: "多疑地审视着周围",                           perTurn: { palam: {10: 20}, chanceDoubt: 0.15, doubtText: "「又在打什么主意...？」" }, releaseMult: 0.95 },
+    172: { name: "普通",     reactText: "默默地忍耐着",                               perTurn: {}, releaseMult: 1.0 }
+};
+
+function getChargeReaction(chara) {
+    const p = chara.personality || { main: 172 };
+    const reaction = CHARGE_REACTIONS[p.main] || CHARGE_REACTIONS[172];
+    const texts = [];
+    const effects = [];
+    const roll = Math.random();
+
+    // Apply per-turn PALAM effects
+    if (reaction.perTurn.palam) {
+        for (const pid in reaction.perTurn.palam) {
+            const val = reaction.perTurn.palam[pid];
+            if (chara.addPalam) chara.addPalam(parseInt(pid), val);
+            effects.push(`PALAM[${pid}]+${val}`);
+        }
+    }
+
+    // Chance-based texts
+    if (reaction.perTurn.chanceText && roll < reaction.perTurn.chanceText) {
+        texts.push(reaction.perTurn.text);
+    }
+    if (reaction.perTurn.chanceChallenge && roll < reaction.perTurn.chanceChallenge) {
+        texts.push(reaction.perTurn.challengeText);
+    }
+    if (reaction.perTurn.chanceBeg && roll < reaction.perTurn.chanceBeg) {
+        texts.push(reaction.perTurn.begText);
+    }
+    if (reaction.perTurn.chanceComposed && roll < reaction.perTurn.chanceComposed) {
+        texts.push(reaction.perTurn.composedText);
+    }
+    if (reaction.perTurn.chanceLeak && roll < reaction.perTurn.chanceLeak) {
+        texts.push(reaction.perTurn.leakText);
+    }
+    if (reaction.perTurn.chanceDoubt && roll < reaction.perTurn.chanceDoubt) {
+        texts.push(reaction.perTurn.doubtText);
+    }
+
+    // Extra stamina cost
+    if (reaction.perTurn.extraStaminaCost) {
+        chara.stamina = (chara.stamina || chara.base[2] || 0) - reaction.perTurn.extraStaminaCost;
+        effects.push(`体力额外-${reaction.perTurn.extraStaminaCost}`);
+    }
+
+    // Low energy extra cost (幽灵/懦弱型)
+    if (reaction.perTurn.lowEnergyExtraCost) {
+        const energyPct = chara.maxEnergy > 0 ? (chara.energy || 0) / chara.maxEnergy : 1;
+        if (energyPct < 0.5) {
+            chara.energy = (chara.energy || 0) - reaction.perTurn.lowEnergyExtraCost;
+            effects.push(`气力<50%额外-${reaction.perTurn.lowEnergyExtraCost}`);
+        }
+    }
+
+    // PALAM variance (天然/单纯型)
+    if (reaction.perTurn.palamVariance) {
+        for (let i = 0; i < (chara.palam || []).length; i++) {
+            if (chara.palam[i] > 0) {
+                const variance = 1 + (Math.random() * reaction.perTurn.palamVariance * 2 - reaction.perTurn.palamVariance);
+                chara.palam[i] = Math.max(0, Math.floor(chara.palam[i] * variance));
+            }
+        }
+        effects.push(`全PALAM波动±${Math.round(reaction.perTurn.palamVariance * 100)}%`);
+    }
+
+    return {
+        reactText: reaction.reactText,
+        effects,
+        texts,
+        perTurn: reaction.perTurn,
+        releaseMult: reaction.releaseMult || 1.0
+    };
+}
+
+function getChargeReleaseMultiplier(chara) {
+    const p = chara.personality || { main: 172 };
+    const reaction = CHARGE_REACTIONS[p.main] || CHARGE_REACTIONS[172];
+    let mult = reaction.releaseMult || 1.0;
+
+    // 冷静：绝顶门槛+15% → 释放时倍率额外降低
+    if (reaction.perTurn.orgasmThresholdMod && reaction.perTurn.orgasmThresholdMod > 0) {
+        mult *= 0.92;
+    }
+    // 嘉德：绝顶门槛-5% → 释放时倍率微增
+    if (reaction.perTurn.orgasmThresholdMod && reaction.perTurn.orgasmThresholdMod < 0) {
+        mult *= 1.05;
+    }
+
+    return mult;
+}
+
+function getChargeEvent(chara) {
+    const reaction = getChargeReaction(chara);
+    if (!reaction) return null;
+    let text = `【${chara.name}${reaction.reactText}】`;
+    if (reaction.texts.length > 0) {
+        text += "\n" + reaction.texts.join("\n");
+    }
+    if (reaction.effects.length > 0) {
+        text += `\n（${reaction.effects.join("、")}）`;
+    }
+    return text;
+}
+
 window.MAIN_PERSONALITY = MAIN_PERSONALITY;
 window.SUB_PERSONALITY = SUB_PERSONALITY;
 window.MINOR_TRAITS = MINOR_TRAITS;
@@ -403,3 +534,7 @@ window.getPersonalityEffects = getPersonalityEffects;
 window.checkHiddenTraitUnlock = checkHiddenTraitUnlock;
 window.revealHiddenTrait = revealHiddenTrait;
 window.addHiddenTraitProgress = addHiddenTraitProgress;
+window.CHARGE_REACTIONS = CHARGE_REACTIONS;
+window.getChargeReaction = getChargeReaction;
+window.getChargeReleaseMultiplier = getChargeReleaseMultiplier;
+window.getChargeEvent = getChargeEvent;

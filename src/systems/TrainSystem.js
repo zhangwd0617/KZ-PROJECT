@@ -15,9 +15,53 @@ class TrainSystem {
         const def = TRAIN_DEFS[comId];
         if (!def) return;
 
+        // === NEW: Command Execution Threshold Check ===
+        if (typeof checkCommandExecution === 'function') {
+            const check = checkCommandExecution(this.game, target, comId);
+            if (!check.success) {
+                this._handleRefusal(target, master, comId, check);
+                this.game.masterExp++;
+                // Check HP/Stamina depletion after refusal struggle
+                if (target.hp <= 0 || target.stamina <= 0) {
+                    const reason = target.hp <= 0 ? '昏了过去' : '体力耗尽';
+                    UI.appendText(`\n【${target.name}${reason}……】\n`);
+                    this.game.setState("AFTERTRAIN");
+                    return;
+                }
+                return;
+            }
+        }
+
+        // === P1: Apply next-turn effects from previous orgasm ===
+        if (target._nextTurnCSensitivityBoost) {
+            target._sensitivityMultipliers = target._sensitivityMultipliers || {};
+            target._sensitivityMultipliers[0] = (target._sensitivityMultipliers[0] || 1.0) + target._nextTurnCSensitivityBoost;
+            UI.appendText(`【${target.name}的阴蒂因上次绝顶而更加敏感了...】\n`, "info");
+            target._nextTurnCSensitivityBoost = 0;
+        }
+        if (target._nextTurnPalamBoost) {
+            for (let i = 0; i < target.palam.length; i++) {
+                if (target.palam[i] > 0) target.addPalam(i, target._nextTurnPalamBoost);
+            }
+            UI.appendText(`【${target.name}的全身因子宫绝顶而提前兴奋...（全PALAM+${target._nextTurnPalamBoost}）】\n`, "info");
+            target._nextTurnPalamBoost = 0;
+        }
+        // P2-3: 边缘控制下回合快感爆发
+        if (target._edgeControlBoost) {
+            for (let i = 0; i < 8; i++) {
+                if (target.partGauge[i] > 0) target.partGauge[i] = Math.floor(target.partGauge[i] * (1 + target._edgeControlBoost));
+            }
+            if (typeof calculateTotalGauge === 'function') calculateTotalGauge(target);
+            UI.appendText(`【${target.name}被压抑的快感爆发了！（部位快感+50%）】\n`, "accent");
+            target._edgeControlBoost = 0;
+        }
+
         // 0. 记录执行前状态快照
         const before = this._snapState(target);
         const beforeMarks = [...target.mark];
+
+        // === V4.0: Apply mark effects at start of each training ===
+        if (typeof applyMarkEffects === 'function') applyMarkEffects(target);
 
         UI.appendText(`\n──── ${def.name} [#${this.game.trainCount + 1}] ────\n`);
 
@@ -26,6 +70,11 @@ class TrainSystem {
 
         // 2. Dialogue: character lines (KOJO_MESSAGE_COM)
         this.game.dialogueSystem.onCommand(target, comId);
+
+        // V7.0: 首次调教记录
+        if (this.game._recordSexualFirst(target, 'firstTrain', master, 'train')) {
+            this.game._incrementTitleStat(target, 'trainCount');
+        }
 
         // 3. Source calculation
         switch (def.category) {
@@ -73,7 +122,7 @@ class TrainSystem {
         }
 
         // 4. Post-process (SOURCE -> PALAM, climax/mark checks)
-        this._postProcess(target, master);
+        this._postProcess(target, master, comId, before);
 
         // === P2: Assistant Stage5 buff effects (after post-process) ===
         this._applyAssistantStage5Buff(target);
@@ -90,6 +139,12 @@ class TrainSystem {
             UI.appendText(`【素质觉醒】${target.name}获得了"${t.name}"！\n`, "accent");
         }
 
+        // V10.1: 水晶球记录系统 — 如果记录模式开启，记录本次指令
+        if (this.game._crystalBallRecording) {
+            this.game._crystalBallCommands = this.game._crystalBallCommands || [];
+            this.game._crystalBallCommands.push(def.name);
+        }
+
         // 8. 魔王调教经验+1
         this.game.masterExp++;
 
@@ -99,6 +154,72 @@ class TrainSystem {
         if (stimulatedParts >= 3 && typeof addHiddenTraitProgress === 'function') {
             addHiddenTraitProgress(target, 2 + RAND(4)); // +2~5
         }
+
+        // V10.1: 体液收集
+        this._collectFluid(comId, target, master);
+    }
+
+    // === NEW: Handle command refusal ===
+    _handleRefusal(target, master, comId, check) {
+        const def = TRAIN_DEFS[comId];
+        const diff = check.diff || 0;
+        
+        UI.appendText(`\n──── ${def?.name || '指令'} [#${this.game.trainCount + 1}] ────\n`);
+        
+        // 1. 输出拒绝叙述和对话
+        if (typeof getRefuseText === 'function') {
+            const refuse = getRefuseText(target, comId, diff);
+            if (refuse.narration) {
+                UI.appendText(`${refuse.narration}\n`, "warning");
+            }
+            if (refuse.dialogue) {
+                UI.appendText(`「${refuse.dialogue}」\n`, "accent");
+            }
+        } else {
+            UI.appendText(`【${target.name}拒绝了命令...】\n`, "warning");
+        }
+        
+        // 2. 增加反感PALAM（挣扎带来的负面情绪）
+        const hateGain = Math.max(5, Math.floor(diff * 1.5));
+        target.source[10] = (target.source[10] || 0) + hateGain;
+        // 少量恐惧
+        target.source[15] = (target.source[15] || 0) + Math.floor(hateGain * 0.3);
+        
+        // 3. 消耗体力（挣扎）
+        const stmCost = Math.max(3, Math.min(15, Math.floor(diff * 0.4)));
+        target.stamina = Math.max(0, (target.stamina || target.base[2] || 0) - stmCost);
+        target.base[2] = target.stamina;
+        
+        UI.appendText(`【${target.name}在反抗中消耗了体力...（体力-${stmCost}，反感+${hateGain}）】\n`, "dim");
+        
+        // 4. 显示执行详情（调试用，帮助玩家理解系统）
+        const rate = typeof getSuccessRate === 'function' ? getSuccessRate(this.game, target, comId) : 0;
+        const detailStyle = `font-size:0.7rem;color:var(--text-dim);margin-top:4px;padding:4px 8px;background:rgba(255,255,255,0.02);border-radius:4px;`;
+        let detail = `<div style="${detailStyle}">`;
+        detail += `<span style="color:var(--warning);">❌ 执行失败</span> `;
+        detail += `| 执行值: ${check.baseValue}+${check.dice}=${check.value} `;
+        detail += `| 门槛: ${check.threshold} `;
+        detail += `| 成功率: ${rate}%`;
+        if (check.reasons && check.reasons.length > 0) {
+            detail += `<br><span style="font-size:0.65rem;">原因: ${check.reasons.join('，')}</span>`;
+        }
+        detail += `</div>`;
+        UI.appendText(detail, '', true);
+        
+        // 5. 结果面板（显示变化）
+        this._showRefusalResultPanel(target, hateGain, stmCost);
+    }
+    
+    // 显示拒绝结果面板
+    _showRefusalResultPanel(target, hateGain, stmCost) {
+        if (typeof UI === 'undefined' || !UI._showTrainResult) return;
+        let html = '<div style="font-size:0.75rem;color:var(--warning);margin-bottom:4px;">❌ 命令被拒绝</div>';
+        html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;font-size:0.7rem;">`;
+        html += `<div><span style="color:var(--danger);">反感 +${hateGain}</span></div>`;
+        html += `<div><span style="color:var(--hp-fill);">体力 -${stmCost}</span></div>`;
+        html += `<div><span style="color:var(--text-dim);">恐惧 +${Math.floor(hateGain*0.3)}</span></div>`;
+        html += `</div>`;
+        UI._showTrainResult(html);
     }
 
     // 记录角色状态快照
@@ -138,7 +259,7 @@ class TrainSystem {
 
         // --- 部位快感变化 ---
         const partCodes = ['C','V','A','B','N','O','W','P'];
-        const partNames = ['阴核','阴道','肛门','乳房','乳头','口腔','子宫','阴茎'];
+        const partNames = ['阴核','阴道','肛门','乳房','乳头','口腔','子宫','心理'];
         const partChanges = [];
         if (target.partGauge && before.partGauge) {
             for (let i = 0; i < 8; i++) {
@@ -294,6 +415,8 @@ class TrainSystem {
             case 6: // Kiss
                 target.addPalam(5, RAND_RANGE(10, 20));
                 love = RAND_RANGE(10, 20);
+                // V7.0: 初吻记录
+                this.game._recordSexualFirst(target, 'firstKiss', master, 'kiss');
                 break;
             case 7: // Spread pussy
                 cGain = RAND_RANGE(5, 15) + cSens * 2;
@@ -442,6 +565,14 @@ class TrainSystem {
                     target.tequip[19] = 1;
                 }
                 break;
+            // V10.1: 假鸡巴自慰
+            case 178:
+                UI.appendText(`${target.name}拿着假阴茎，羞耻地自行抽插着...\n`);
+                vGain = RAND_RANGE(40, 80) + vSens * 10;
+                cGain = RAND_RANGE(20, 40) + cSens * 5;
+                target.addPalam(8, RAND_RANGE(30, 60));
+                target.addExp(41, 1); // 自慰经验
+                break;
         }
 
         target.addSource(0, cGain);
@@ -462,7 +593,11 @@ class TrainSystem {
             UI.appendText(`【${target.name}失去了处女！】\n`);
             target.removeTalent(0);
             target.cstr[CSTRS.TITLE] = master.name; // First experience partner
+            // V7.0: 破处记录
+            this.game._recordSexualFirst(target, 'firstPenetration', master, 'train');
         }
+        // Record sexual activity
+        if (this.game._recordSexualActivity) this.game._recordSexualActivity(target, master, 'vaginal');
 
         const reactions = {
             20: `${target.name}的阴道被完全贯穿，小腹因冲击而不断收缩......`,
@@ -547,6 +682,10 @@ class TrainSystem {
 
     // ========== Anal (25-29) ==========
     _execAnal(comId, target, master) {
+        // V7.0: 初肛记录
+        this.game._recordSexualFirst(target, 'firstAnal', master, 'train');
+        // Record sexual activity
+        if (this.game._recordSexualActivity) this.game._recordSexualActivity(target, master, 'anal');
         const reactions = {
             25: `${target.name}自己坐下将肉棒吞入肛门，脸上浮现出痛苦与满足交织的表情......`,
             26: `${target.name}的肛门被从正面贯穿，紧张的肠壁因异物的侵入而不断收缩......`,
@@ -801,6 +940,28 @@ class TrainSystem {
                     target.addSource(2, RAND_RANGE(20, 50) + target.abl[3] * 5); // 电击带来的A快感
                 }
                 break;
+            // V10.1: 犬化/宠物玩法
+            case 175: // 犬化
+                if (target.tequip[33]) {
+                    target.tequip[33] = 0;
+                    UI.appendText(`${target.name}的项圈被取下了，恢复了人的尊严...\n`);
+                } else {
+                    target.tequip[33] = 1;
+                    UI.appendText(`${master.name}给${target.name}戴上了刻有编号的项圈...\n`);
+                    shame = RAND_RANGE(40, 80);
+                    fear += RAND_RANGE(10, 20);
+                    target.addSource(17, RAND_RANGE(30, 60));
+                    target.addExp(81, 1);
+                }
+                break;
+            case 176: // 遛狗
+                UI.appendText(`${master.name}牵着牵引绳，命令${target.name}像狗一样爬行...\n`);
+                shame = RAND_RANGE(60, 120);
+                fear += RAND_RANGE(10, 30);
+                target.addSource(17, RAND_RANGE(40, 80));
+                target.addExp(32, 1); // 露出经验
+                target.hp -= RAND_RANGE(10, 20);
+                break;
         }
 
         // Masochism pleasure
@@ -820,16 +981,15 @@ class TrainSystem {
 
     // ========== Items / Special (50-59) ==========
     _execItem(comId, target, master) {
-        // 消耗型道具的物品ID映射
-        const consumableMap = { 50: 20, 51: 21, 52: 22, 53: 53 };
-        const itemId = consumableMap[comId];
-        if (itemId !== undefined && (this.game.item[itemId] || 0) <= 0) {
-            UI.appendText(`道具不足！无法使用${TRAIN_DEFS[comId]?.name || ''}。\n`);
-            return;
+        // V10.1: 统一道具检查 — 从 TRAIN_DEFS 读取 requiredItem
+        const trainDef = TRAIN_DEFS[comId];
+        if (trainDef && trainDef.requiredItem !== undefined) {
+            if ((this.game.item[trainDef.requiredItem] || 0) <= 0) {
+                UI.appendText(`道具不足！无法使用${trainDef.name || ''}。\n`);
+                return;
+            }
         }
-        if (itemId !== undefined) {
-            this.game.item[itemId]--;
-        }
+        // V7.1: 道具一次购买无限使用，不再消耗
 
         switch (comId) {
             case 50: // Lotion
@@ -876,6 +1036,9 @@ class TrainSystem {
                 target.addSource(17, RAND_RANGE(20, 40));
                 target.addSource(19, RAND_RANGE(10, 20));
                 target.addExp(73, 1); // Conversation exp
+                // === NEW: 言语安抚降低下次命令的反抗 ===
+                target._nextTurnResistanceReduction = (target._nextTurnResistanceReduction || 0) + 5;
+                UI.appendText(`【${target.name}的情绪在对话中稍微平复了一些...（下次命令反抗-5）】\n`, "info");
                 break;
             case 57: // Humiliation play
                 UI.appendText(`${master.name}将${target.name}摆成羞耻的姿势...\n`);
@@ -897,6 +1060,65 @@ class TrainSystem {
                 target.addPalam(5, RAND_RANGE(20, 40));
                 target.addSource(17, RAND_RANGE(20, 40));
                 target.addSource(19, RAND_RANGE(10, 20));
+                break;
+            case 160: // 喂食营养品
+                UI.appendText(`${master.name}让${target.name}服下了高级营养品...\n`);
+                target.stamina = Math.min(target.maxbase[2] || 999, target.stamina + Math.floor(target.maxbase[2] * 0.15));
+                target.base[2] = target.stamina;
+                target.energy = Math.min(target.maxEnergy || 999, target.energy + Math.floor(target.maxEnergy * 0.10));
+                target._nextTurnResistanceReduction = (target._nextTurnResistanceReduction || 0) + 5;
+                UI.appendText(`【${target.name}的体力和气力恢复了！（体力+15% 气力+10%）】\n`, "info");
+                break;
+            case 161: // 使用魅力秤
+                UI.appendText(`${master.name}拿出魅力秤，强迫${target.name}站在上面...\n`);
+                target.addPalam(8, RAND_RANGE(30, 60));
+                target._nextTurnResistanceReduction = (target._nextTurnResistanceReduction || 0) + 3;
+                UI.appendText(`【${target.name}羞耻地看到了自己的体重和三围数据...（羞耻+）】\n`, "info");
+                break;
+            case 162: // 摄影 / 水晶球记录
+                UI.appendText(`${master.name}拿起魔导水晶球，对准了${target.name}...\n`);
+                target.addPalam(8, RAND_RANGE(50, 100));
+                const fallen2 = target.getFallenDepth ? target.getFallenDepth() : 0;
+                if (fallen2 > 0) {
+                    target._nextTurnResistanceReduction = (target._nextTurnResistanceReduction || 0) + 8;
+                    UI.appendText(`【${target.name}在镜头前露出了复杂的表情...陷落者额外顺从（反抗-8）】\n`, "info");
+                } else {
+                    UI.appendText(`【${target.name}拼命遮挡身体，羞耻心爆表...】\n`, "info");
+                }
+                // V10.1: 开启水晶球记录模式
+                this.game._crystalBallRecording = true;
+                this.game._crystalBallCommands = [];
+                this.game._crystalBallParticipants = [master.name, target.name];
+                if (this.game.getAssi()) {
+                    this.game._crystalBallParticipants.push(this.game.getAssi().name);
+                }
+                UI.appendText(`【水晶球开始记录本次调教...】\n`, "accent");
+                break;
+            // V10.1: 避孕套系统
+            case 170: // 使用避孕套
+                UI.appendText(`${master.name}给${target.name}戴上了避孕套...\n`);
+                target.tequip[23] = 1;
+                target.addPalam(8, RAND_RANGE(20, 40));
+                target._nextTurnResistanceReduction = (target._nextTurnResistanceReduction || 0) + 3;
+                UI.appendText(`【${target.name}被戴上了避孕套，怀孕几率归零】\n`, "info");
+                break;
+            // V10.1: 水晶球/药水
+            case 181: // 欣赏性爱记录
+                UI.appendText(`${master.name}拿出水晶球，播放了一段淫靡的记录给${target.name}看...\n`);
+                target.addPalam(8, RAND_RANGE(40, 80));
+                target.addSource(17, RAND_RANGE(20, 40));
+                break;
+            case 182: // 制作水晶球副本
+                UI.appendText(`${master.name}消耗MP复制了一份水晶球记录...\n`);
+                master.mp = Math.max(0, master.mp - 30);
+                this.game.crystalBallCopies = (this.game.crystalBallCopies || 0) + 1;
+                UI.appendText(`【水晶球副本+1，当前持有 ${this.game.crystalBallCopies} 份】\n`, "info");
+                break;
+            case 183: // 使用回复药水
+                UI.appendText(`${master.name}从炼金工房取出一瓶回复药水，让${target.name}服下...\n`);
+                target.hp = Math.min(target.maxHp || target.base[0] || 100, target.hp + 100);
+                target.stamina = Math.min(target.maxbase[2] || 999, target.stamina + 50);
+                UI.appendText(`【${target.name}的HP和体力恢复了！】\n`, "info");
                 break;
         }
     }
@@ -920,7 +1142,10 @@ class TrainSystem {
             68: `${tName}用嘴同时侍奉着${mName}和${assiName}...`,
             69: `${tName}与${assiName}以六九式交缠在一起，双方的嘴都没闲着...`,
             70: `${tName}与${assiName}同时用大腿夹住${mName}摩擦...`,
-            71: `${tName}与${assiName}同时用胸部夹住${mName}摩擦...`
+            71: `${tName}与${assiName}同时用胸部夹住${mName}摩擦...`,
+            // V10.1: 双头龙
+            179: `${assiName}佩戴着双头龙，一端深深插入了${tName}的阴道...`,
+            180: `${assiName}佩戴着双头龙，一端深深插入了${tName}的肛门...`
         };
         UI.appendText((msgs[comId] || `${assiName}也参与了调教...`) + "\n");
 
@@ -984,6 +1209,26 @@ class TrainSystem {
                 yield_ += RAND_RANGE(15, 30);
                 target.addExp(35, 1);
                 break;
+            // V10.1: 双头龙
+            case 179: // 助手双头龙插入
+                vGain = RAND_RANGE(50, 100) + target.abl[2] * 10;
+                cGain = RAND_RANGE(20, 40);
+                yield_ += RAND_RANGE(20, 40);
+                if (assi) {
+                    assi.addPalam(5, RAND_RANGE(20, 40));
+                    assi.addSource(17, RAND_RANGE(10, 20));
+                }
+                break;
+            case 180: // 助手双头龙肛门插入
+                aGain = RAND_RANGE(50, 100) + target.abl[3] * 10;
+                pain = RAND_RANGE(20, 40);
+                yield_ += RAND_RANGE(20, 40);
+                target.addExp(53, 1);
+                if (assi) {
+                    assi.addPalam(5, RAND_RANGE(20, 40));
+                    assi.addSource(17, RAND_RANGE(10, 20));
+                }
+                break;
         }
 
         target.addSource(0, cGain);
@@ -1007,9 +1252,37 @@ class TrainSystem {
         target.hp -= 10;
     }
 
+    // ========== 体液收集 ==========
+    _collectFluid(comId, target, master) {
+        const g = this.game;
+        g.fluidStorage = g.fluidStorage || { milk: 0, semen: 0, loveJuice: 0, saliva: 0 };
+
+        switch (comId) {
+            case 15: // 搾乳器
+                const milkAmt = RAND_RANGE(50, 150);
+                g.fluidStorage.milk += milkAmt;
+                break;
+            case 31: case 32: case 66: case 68: case 69: // 口交相关
+                const salivaAmt = RAND_RANGE(10, 30);
+                g.fluidStorage.saliva += salivaAmt;
+                break;
+            case 20: case 21: case 22: case 23: case 24: // 阴道插入
+            case 120: case 121: case 128: case 129: case 130: case 131: case 132: case 133: case 134:
+            case 25: case 26: case 27: case 28: case 29: // 肛门插入
+                // 爱液在高潮时收集更合理，这里不做实时收集
+                break;
+        }
+    }
+
     // ========== 怀孕判定 ==========
     _checkPregnancy(target, master) {
         if (!target) return;
+        // V10.1: 使用了避孕套则怀孕几率归零
+        if (target.tequip[23]) {
+            target.tequip[23] = 0; // 避孕套使用后被丢弃
+            UI.appendText(`【避孕套发挥了作用，精液被安全阻隔...】\n`, "info");
+            return;
+        }
         // 只有女性或有穴扶她能怀孕
         if (target.talent[122] || target.talent[123]) return;
         if (target.talent[153]) return; // 已经怀孕
@@ -1123,26 +1396,52 @@ class TrainSystem {
         const meta = (typeof getTrainMeta === 'function') ? getTrainMeta(comId) : null;
         if (!meta || !meta.stimulatedParts || meta.stimulatedParts.length === 0) return;
 
-        // 1. Apply part gains
+        // 1. Calculate part gains and collect finalValues for ejaculation
         const stimulatedIdx = [];
+        const partFinalValues = {}; // code -> finalValue
+
         for (const code of meta.stimulatedParts) {
             const idxMap = { C: 0, V: 1, A: 2, B: 3, N: 4, O: 5, W: 6, P: 7 };
             const idx = idxMap[code.toUpperCase()];
             if (idx === undefined) continue;
             stimulatedIdx.push(idx);
 
-            // Base value from palam source (if any) or default
+            const partDef = ORGASM_PARTS[idx];
+
+            // Base value from source (correct source index, not palam index)
             let baseValue = 50; // default per-part gain
-            const palamMap = { C: 0, V: 1, A: 2, B: 14, N: 14, O: 15, W: 1, P: 0 };
-            const palamId = palamMap[code.toUpperCase()];
-            if (palamId !== undefined && target.source) {
-                const srcVal = target.source[palamId] || 0;
+            const sourceMap = { C: 0, V: 1, A: 2, B: 3, N: 3, O: 4, W: 1, P: 17 };
+            const srcId = sourceMap[code.toUpperCase()];
+            const palamId = partDef.palamSource;
+            if (srcId !== undefined && target.source) {
+                const srcVal = target.source[srcId] || 0;
                 baseValue = Math.max(30, Math.floor(srcVal * 0.5));
             }
 
-            // Apply personality/energy multiplier
+            // 文档公式: 部位快感增量 = 指令基础值 × 部位敏感度 × ABL修正 × 气力状态修正 × 性格修正
+            let finalValue = baseValue;
+
+            // 1) 部位基础敏感度
+            finalValue *= partDef.baseSensitivity;
+
+            // 2) ABL修正
+            const ablLevel = target.abl[partDef.ablId] || 0;
+            finalValue *= (typeof getAblMultiplier === 'function') ? getAblMultiplier(ablLevel) : 1.0;
+
+            // 3) 气力状态修正
             const energyMult = target.getEnergyMultiplier ? target.getEnergyMultiplier() : 1.0;
-            let finalValue = Math.floor(baseValue * energyMult);
+            finalValue *= energyMult;
+
+            // 4) 性格修正 (palamMods)
+            const pEff = target.getPersonalityEffects ? target.getPersonalityEffects() : null;
+            if (pEff && pEff.palamMods) {
+                const palamMod = pEff.palamMods[palamId];
+                if (palamMod !== undefined && palamMod !== 0) {
+                    finalValue *= (1 + palamMod);
+                }
+            }
+
+            finalValue = Math.floor(finalValue);
 
             // Sensitivity multipliers
             if (target._sensitivityMultipliers && target._sensitivityMultipliers[idx]) {
@@ -1156,12 +1455,23 @@ class TrainSystem {
                 finalValue = Math.floor(finalValue * 1.30);
             }
 
+            partFinalValues[code] = finalValue;
             target.addPartGain(idx, finalValue);
+        }
 
-            // Penis ejaculation gauge (for P part or linked parts)
-            if (target.genitalConfig && target.genitalConfig.penises && target.genitalConfig.penises.length > 0) {
-                if (typeof addPenisEjaculationGauge === 'function') {
-                    addPenisEjaculationGauge(target, code, Math.floor(finalValue * 0.3));
+        // 2. Penis ejaculation gauge (document formula)
+        // 射精增量 = Σ(linkedParts快感增量 × 阴茎敏感度 × 0.5)
+        if (target.genitalConfig && target.genitalConfig.penises && target.genitalConfig.penises.length > 0) {
+            for (const penis of target.genitalConfig.penises) {
+                let ejGain = 0;
+                for (const code of meta.stimulatedParts) {
+                    if (penis.linkedParts && penis.linkedParts.includes(code)) {
+                        const fv = partFinalValues[code] || 0;
+                        ejGain += Math.floor(fv * (penis.sensitivity || 1.0) * 0.5);
+                    }
+                }
+                if (ejGain > 0 && typeof addPenisEjaculationGauge === 'function') {
+                    addPenisEjaculationGauge(target, penis.id, ejGain);
                 }
             }
         }
@@ -1169,8 +1479,8 @@ class TrainSystem {
         // 2. Multi-part synergy bonus
         const n = stimulatedIdx.length;
         let synergy = 1.0;
-        if (n >= 5) synergy = 1.35;
-        else if (n >= 4) synergy = 1.25;
+        // 文档: 2部位+10%, 3部位+20%, 4++部位+25%
+        if (n >= 4) synergy = 1.25;
         else if (n >= 3) synergy = 1.20;
         else if (n >= 2) synergy = 1.10;
         if (synergy > 1.0) {
@@ -1191,22 +1501,29 @@ class TrainSystem {
             const orgasmResult = checkOrgasm(target);
             if (orgasmResult && orgasmResult.canClimax) {
                 // 6. Check ejaculation
+                let ejResults = null;
                 let ejaculated = false;
                 if (typeof checkEjaculation === 'function') {
-                    const ejResults = checkEjaculation(target);
+                    ejResults = checkEjaculation(target);
                     if (ejResults && ejResults.length > 0) {
                         ejaculated = true;
-                        if (typeof applyEjaculation === 'function') {
-                            const ejMsgs = applyEjaculation(target, ejResults);
-                            for (const m of ejMsgs) UI.appendText(m + "\n", "accent");
-                        }
                     }
                 }
 
                 // 7. Sync pleasure (orgasm + ejaculation simultaneously)
-                if (ejaculated && orgasmResult.combo) {
-                    UI.appendText(`【\u540c\u6b65\u5feb\u611f\uff01\u5feb\u4e50\u500d\u7387x2.5】\n`, "accent");
+                if (ejaculated) {
+                    UI.appendText(`【同步快感！绝顶与射精同时到来，快乐×2.5！】\n`, "accent");
                     orgasmResult.multiplier = (orgasmResult.multiplier || 1.0) * 2.5;
+                    target._syncPleasure = true;
+                    if (ejResults) {
+                        for (const ej of ejResults) ej._syncPleasure = true;
+                    }
+                }
+
+                // Apply ejaculation
+                if (ejaculated && typeof applyEjaculation === 'function') {
+                    const ejMsgs = applyEjaculation(target, ejResults);
+                    for (const m of ejMsgs) UI.appendText(m + "\n", "accent");
                 }
 
                 // 8. Apply orgasm
@@ -1218,6 +1535,7 @@ class TrainSystem {
                         target.talent[291] = 1; // 全觉之体
                     }
                 }
+                target._syncPleasure = false;
 
                 // === NEW (P2-2): Stage5 assistant buff - postOrgasmBoost ===
                 const assiOrgasm = this.game.getAssi();
@@ -1234,16 +1552,51 @@ class TrainSystem {
         // 9. Apply stamina/energy costs from meta
         let stmCost = meta.staminaCost?.target || 0;
         let nrgCost = meta.energyCost?.target || 0;
+
+        // === NEW: Master rank stamina/energy reduction ===
+        const masterRank = this.game.getMasterRank ? this.game.getMasterRank() : 0;
+        const masterMod = 1 - (masterRank * 0.05); // 0.75 ~ 1.0
+        if (stmCost > 0) stmCost = Math.floor(stmCost * masterMod);
+        if (nrgCost > 0) nrgCost = Math.floor(nrgCost * masterMod);
+
+        // === NEW: ABL[12] technique stamina/energy reduction ===
+        const techLv = target.abl ? (target.abl[12] || 0) : 0;
+        const ablMod = 1 - (techLv * 0.02); // 0.80 ~ 1.0
+        if (stmCost > 0) stmCost = Math.floor(stmCost * ablMod);
+        if (nrgCost > 0) nrgCost = Math.floor(nrgCost * ablMod);
+
         // === NEW (P2-3): Stamina save accelerator ===
         if (target._accelStaminaSave > 0 && stmCost > 0) {
             stmCost = Math.floor(stmCost * (1 - target._accelStaminaSave));
         }
+
+        // === NEW: Fatigue linkage ===
+        if (target.energy !== undefined && target._maxEnergy > 0) {
+            const energyPct = target.energy / target._maxEnergy;
+            if (energyPct < 0.3 && stmCost > 0) {
+                stmCost = Math.floor(stmCost * 1.2);
+                if (target._showCostDetail) UI.appendText(`【${target.name}气力不足，身体僵硬…体力消耗增加】\n`, "warning");
+            }
+        }
+        if (target.stamina !== undefined && target.maxbase[2] > 0) {
+            const staminaPct = target.stamina / target.maxbase[2];
+            if (staminaPct < 0.2 && nrgCost > 0) {
+                nrgCost = Math.floor(nrgCost * 1.3);
+                if (target._showCostDetail) UI.appendText(`【${target.name}体力见底，精神紧绷…气力消耗增加】\n`, "warning");
+            }
+        }
+
         // === NEW (P3-1): Personality stamina/energy mods ===
         const pEffCost = target.getPersonalityEffects ? target.getPersonalityEffects() : null;
         if (pEffCost) {
             if (pEffCost.staminaMod) stmCost = Math.floor(stmCost * (1 - pEffCost.staminaMod));
             if (pEffCost.energyMod) nrgCost = Math.floor(nrgCost * (1 - pEffCost.energyMod));
         }
+
+        // V7.3: 气力消耗阶梯修正（陷落维持，未陷落意志力越强下降越慢，软弱/性弱点加速）
+        const drainMod = this.game._calcEnergyDrainMultiplier(target, comId);
+        if (nrgCost > 0) nrgCost = Math.floor(nrgCost * drainMod);
+
         target.stamina = (target.stamina || target.base[2] || 0) - stmCost;
         target.energy = (target.energy || 0) - nrgCost;
 
@@ -1310,7 +1663,7 @@ class TrainSystem {
         }
     }
 
-    _postProcess(target, master) {
+    _postProcess(target, master, comId, before) {
         // 先应用TEQUIP持续性效果
         this._applyTequipEffects(target);
 
@@ -1426,6 +1779,29 @@ class TrainSystem {
             }
         }
 
+        // === V4.0: Apply mark-based PALAM transformations before mark acquisition ===
+        // mark[3] 反抗刻印: 痛苦→快乐转化
+        if (target._markPainToJoy && target.palam[9] > 0) {
+            const result = convertPainToPleasure(target, target.palam[9]);
+            if (result.pain !== target.palam[9]) {
+                target.palam[9] = result.pain;
+                if (result.pleasure > 0) target.addPalam(5, result.pleasure);
+            }
+        }
+        // mark[5] 淫乱刻印: 羞耻→快乐转化
+        if (target._markShameToJoy && target.palam[8] > 0) {
+            const ratio = target._markShameToJoy;
+            const transfer = Math.floor(target.palam[8] * ratio);
+            if (transfer > 0) {
+                target.palam[8] -= transfer;
+                target.addPalam(5, transfer);
+            }
+        }
+        // mark[1] 快乐刻印: 快感倍率
+        if (target._markJoyMult && target.palam[5] > 0) {
+            target.palam[5] = Math.floor(target.palam[5] * target._markJoyMult);
+        }
+
         // Check mark acquisition
         // === NEW (P2-2): Stage5 assistant buff - markExpMult ===
         const assiMark = this.game.getAssi();
@@ -1435,15 +1811,17 @@ class TrainSystem {
             markExpMult = assiMark._assistantBuff.markExpMult;
             markChanceBase = Math.max(1, Math.floor(markChanceBase / markExpMult));
         }
-        if (target.palam[9] > 5000 && target.mark[0] < 3) { // Pain -> Pain mark
+        // V4.0: mark[0] 屈服刻印（原苦痛刻印）
+        if (target.palam[9] > 5000 && target.mark[0] < 3) {
             if (RAND(markChanceBase) === 0) {
                 const addLv = Math.max(1, Math.floor(1 * markExpMult));
                 target.addMark(0, addLv);
-                UI.appendText(`【${target.name}获得了苦痛刻印 Lv.${target.mark[0]}】\n`);
-                if (this.game.dialogueSystem) this.game.dialogueSystem.onMarkCng(target, "pain_lv" + target.mark[0]);
+                UI.appendText(`【${target.name}获得了屈服刻印 Lv.${target.mark[0]}】\n`);
+                if (this.game.dialogueSystem) this.game.dialogueSystem.onMarkCng(target, "yield_lv" + target.mark[0]);
             }
         }
-        if (target.palam[5] > 8000 && target.mark[1] < 3) { // Lust -> Pleasure mark
+        // mark[1] 快乐刻印
+        if (target.palam[5] > 8000 && target.mark[1] < 3) {
             if (RAND(markChanceBase) === 0) {
                 const addLv = Math.max(1, Math.floor(1 * markExpMult));
                 target.addMark(1, addLv);
@@ -1451,13 +1829,110 @@ class TrainSystem {
                 if (this.game.dialogueSystem) this.game.dialogueSystem.onMarkCng(target, "pleasure_lv" + target.mark[1]);
             }
         }
-        if (target.palam[6] > 6000 && target.mark[2] < 3) { // Yield -> Yield mark
+        // V4.0: mark[2] 侍奉刻印（原屈服刻印）
+        if (target.palam[6] > 6000 && target.mark[2] < 3) {
             if (RAND(markChanceBase) === 0) {
                 const addLv = Math.max(1, Math.floor(1 * markExpMult));
                 target.addMark(2, addLv);
-                UI.appendText(`【${target.name}获得了屈服刻印 Lv.${target.mark[2]}】\n`);
-                if (this.game.dialogueSystem) this.game.dialogueSystem.onMarkCng(target, "yield_lv" + target.mark[2]);
+                UI.appendText(`【${target.name}获得了侍奉刻印 Lv.${target.mark[2]}】\n`);
+                if (this.game.dialogueSystem) this.game.dialogueSystem.onMarkCng(target, "service_lv" + target.mark[2]);
             }
+        }
+        // === V4.0: NEW mark acquisitions ===
+        const def = TRAIN_DEFS[comId];
+        const defMeta = (typeof getTrainMeta === 'function') ? getTrainMeta(comId) : null;
+        // mark[3] 反抗刻印: SM/痛苦指令时获得
+        const isPainCommand = defMeta && (defMeta.routeTags?.pain >= 2 || (def && def.category === 'sm') || (def && def.category === 'rough'));
+        if (isPainCommand && target.palam[9] > 3000 && target.mark[3] < 3) {
+            if (RAND(markChanceBase) === 0) {
+                target.addMark(3, 1);
+                UI.appendText(`【${target.name}的反抗刻印加深了 Lv.${target.mark[3]}】\n`);
+                if (this.game.dialogueSystem) this.game.dialogueSystem.onMarkCng(target, "rebel_lv" + target.mark[3]);
+            }
+        }
+        // mark[4] 猎奇刻印: 异常/触手/兽类指令时获得
+        const isAbnormalCommand = (def && def.category === 'monster') || (def && def.category === 'special') || (defMeta && defMeta.routeTags?.abnormal >= 2);
+        if (isAbnormalCommand && target.palam[10] > 3000 && target.mark[4] < 3) {
+            if (RAND(markChanceBase) === 0) {
+                target.addMark(4, 1);
+                UI.appendText(`【${target.name}的猎奇刻印加深了 Lv.${target.mark[4]}】\n`);
+                if (this.game.dialogueSystem) this.game.dialogueSystem.onMarkCng(target, "abnormal_lv" + target.mark[4]);
+            }
+        }
+        // mark[5] 淫乱刻印: 露出/公开指令时获得
+        const isExposeCommand = (def && def.category === 'arena') || (defMeta && (defMeta.routeTags?.shame >= 2 || defMeta.routeTags?.expose >= 2));
+        if (isExposeCommand && target.palam[8] > 3000 && target.mark[5] < 3) {
+            if (RAND(markChanceBase) === 0) {
+                target.addMark(5, 1);
+                UI.appendText(`【${target.name}的淫乱刻印加深了 Lv.${target.mark[5]}】\n`);
+                if (this.game.dialogueSystem) this.game.dialogueSystem.onMarkCng(target, "lewd_lv" + target.mark[5]);
+            }
+        }
+        // mark[6] 征服刻印: 支配/SM指令时获得（SM指令同时可能增加mark[3]或mark[6]）
+        const isDomCommand = (def && def.category === 'sm') || (def && def.category === 'rough') || (defMeta && defMeta.routeTags?.dom >= 2);
+        if (isDomCommand && target.palam[11] > 2000 && target.mark[6] < 3) {
+            if (RAND(markChanceBase) === 0) {
+                target.addMark(6, 1);
+                UI.appendText(`【${target.name}的征服刻印加深了 Lv.${target.mark[6]}】\n`);
+                if (this.game.dialogueSystem) this.game.dialogueSystem.onMarkCng(target, "dom_lv" + target.mark[6]);
+            }
+        }
+        // mark[7] 悲恋刻印: 低气力时调教，或情感事件后（这里仅在低气力时）
+        const spRatio = target.maxbase && target.maxbase[1] > 0 ? target.base[1] / target.maxbase[1] : 1;
+        if (spRatio < 0.3 && target.mark[7] < 3 && RAND(5) === 0) {
+            target.addMark(7, 1);
+            UI.appendText(`【${target.name}的悲恋刻印加深了 Lv.${target.mark[7]}】\n`);
+            if (this.game.dialogueSystem) this.game.dialogueSystem.onMarkCng(target, "tragic_lv" + target.mark[7]);
+        }
+
+        // V4.0: Apply self Stage5 permanent buff effects (from applyRouteAccelerators)
+        const selfEffects = [];
+        // 顺从 Stage5: 每回合+恭顺PALAM
+        if (target._accelPerTurnPalam) {
+            for (const [pid, val] of Object.entries(target._accelPerTurnPalam)) {
+                target.addPalam(parseInt(pid), val);
+                selfEffects.push(`恭顺+${val}`);
+            }
+        }
+        // 痛苦 Stage5 / mark[3]: 痛苦→快乐
+        const painToJoyRatio = (target._accelPainToJoy || 0) + (target._markPainToJoy || 0);
+        if (painToJoyRatio > 0 && target.palam[9] > 0) {
+            const transfer = Math.floor(target.palam[9] * Math.min(painToJoyRatio, 1.0));
+            target.palam[9] -= transfer;
+            target.addPalam(5, transfer);
+            selfEffects.push(`痛苦→快乐+${transfer}`);
+        }
+        // 露出 Stage5 / mark[5]: 羞耻→快乐
+        const shameToJoyRatio = (target._accelShameToJoy || 0) + (target._markShameToJoy || 0);
+        if (shameToJoyRatio > 0 && target.palam[8] > 0) {
+            const transfer = Math.floor(target.palam[8] * Math.min(shameToJoyRatio, 1.0));
+            target.palam[8] -= transfer;
+            target.addPalam(5, transfer);
+            selfEffects.push(`羞耻→快乐+${transfer}`);
+        }
+        // 支配 Stage5 / mark[6]: 反感→恭顺
+        const hateToObeyRatio = (target._accelHateToObey || 0) + (target._markHateToObey || 0);
+        if (hateToObeyRatio > 0 && target.palam[11] > 0) {
+            const transfer = Math.floor(target.palam[11] * Math.min(hateToObeyRatio, 1.0));
+            target.palam[11] -= transfer;
+            target.addPalam(4, transfer);
+            selfEffects.push(`反感→恭顺+${transfer}`);
+        }
+        // 欲望 Stage5 / mark[1]: 快乐倍率
+        const joyMult = (target._accelJoyMult || 1.0) * (target._markJoyMult || 1.0);
+        if (joyMult > 1.0 && target.palam[5] > 0) {
+            const beforeJoy = target.palam[5];
+            target.palam[5] = Math.floor(target.palam[5] * joyMult);
+            selfEffects.push(`快乐×${joyMult.toFixed(2)}`);
+        }
+        // 羞耻倍率
+        const shameMult = (target._accelShameMult || 1.0) * (target._markExposeEffectMult || 1.0);
+        if (shameMult > 1.0 && target.palam[8] > 0) {
+            target.palam[8] = Math.floor(target.palam[8] * shameMult);
+            selfEffects.push(`羞耻×${shameMult.toFixed(2)}`);
+        }
+        if (selfEffects.length > 0) {
+            UI.appendText(`【${target.name}的路线常驻效果】${selfEffects.join('、')}\n`, "info");
         }
 
         // Clear source after application
@@ -1590,6 +2065,44 @@ class TrainSystem {
                 cGain = RAND_RANGE(30, 50) + cSens * 5;
                 pain = RAND_RANGE(20, 40);
                 target.addExp(22, 1);
+                break;
+            // V10.1: 避孕套后续
+            case 171: // 喝避孕套内精液
+                UI.appendText(`${target.name}颤抖着接过避孕套，将里面的精液一饮而尽...\n`);
+                target.tequip[23] = 0;
+                target.addPalam(8, RAND_RANGE(60, 120));
+                target.addSource(17, RAND_RANGE(30, 60));
+                target.addExp(23, 1); // 精液经验
+                break;
+            case 172: // 展示用过的避孕套
+                UI.appendText(`${master.name}将装满精液的避孕套拿到${target.name}眼前晃了晃...\n`);
+                target.tequip[23] = 0;
+                target.addPalam(8, RAND_RANGE(80, 150));
+                target.addSource(17, RAND_RANGE(20, 40));
+                break;
+            // V10.1: 尿道玩法
+            case 173: // 尿道刺激
+                UI.appendText(`${master.name}用尿道棒轻轻刺激着${target.name}的尿道口...\n`);
+                cGain = RAND_RANGE(10, 20);
+                pain = RAND_RANGE(40, 80);
+                target.addPalam(8, RAND_RANGE(30, 60));
+                target.addExp(5, 1); // 异常经验
+                break;
+            case 174: // 尿道插入
+                UI.appendText(`${master.name}将尿道棒缓缓插入了${target.name}的尿道深处...\n`);
+                cGain = RAND_RANGE(20, 40);
+                pain = RAND_RANGE(80, 150);
+                target.addPalam(8, RAND_RANGE(50, 100));
+                target.addPalam(11, RAND_RANGE(30, 60));
+                target.addExp(5, 2); // 异常经验
+                break;
+            // V10.1: 犬化/宠物
+            case 177: // 野外撒尿(狗)
+                UI.appendText(`${target.name}像狗一样抬起后腿，在野外释放尿液...\n`);
+                target.addPalam(8, RAND_RANGE(100, 200));
+                target.addPalam(11, RAND_RANGE(30, 60));
+                target.addExp(31, 1);
+                target.addExp(32, 1); // 露出经验
                 break;
         }
 
@@ -2134,14 +2647,42 @@ class TrainSystem {
                 }
             }
         }
+
+        // === V4.1: Route talent effects (500-545) ===
+        if (typeof TALENT_TREE !== 'undefined') {
+            for (let tid = 500; tid <= 545; tid++) {
+                if (!target.talent[tid] || target.talent[tid] <= 0) continue;
+                const node = TALENT_TREE[tid];
+                if (!node || !node.effect) continue;
+                const eff = node.effect;
+                // Apply palamMods
+                if (eff.palamMods) {
+                    for (const k in eff.palamMods) {
+                        const pid = parseInt(k);
+                        const mod = eff.palamMods[k];
+                        if (target.source[pid] > 0 && mod !== 0) {
+                            target.source[pid] = Math.floor(target.source[pid] * (1 + mod));
+                        }
+                    }
+                }
+                // Apply stamina/energy/orgasm mods via _specialMode or direct source
+                if (eff.staminaMod && eff.staminaMod < 0) {
+                    // Reduce stamina cost (already applied in _applyPartBasedSystem)
+                    target._talentStaminaSave = (target._talentStaminaSave || 0) + Math.abs(eff.staminaMod);
+                }
+                if (eff.orgasmMod && eff.orgasmMod > 0) {
+                    target._talentOrgasmBoost = (target._talentOrgasmBoost || 0) + eff.orgasmMod;
+                }
+            }
+        }
     }
 
     // ========== 相性影响调教效果 (+/-15%) ==========
     _applyAffinityEffect(target, master) {
         if (!target || !master) return;
 
-        // 高陷落状态判定：服从刻印Lv3+ 或 爱慕系/挚爱/重塑素质
-        const isDeeplyFallen = (target.mark[0] || 0) >= 3
+        // V4.0: 高陷落状态判定：屈服刻印Lv3+ 或 侍奉刻印Lv3+ 或 爱慕系/挚爱/重塑素质
+        const isDeeplyFallen = (typeof isFallen === 'function' ? isFallen(target) : ((target.mark[0] || 0) >= 3 || (target.mark[2] || 0) >= 3))
             || target.talent[85] || target.talent[86] || target.talent[182]
             || target.talent[183] || target.talent[76] || target.talent[272];
 

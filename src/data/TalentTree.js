@@ -2,6 +2,11 @@
  * TalentTree.js - Five Route Talent Tree Data
  * Routes: Obedience / Desire / Pain / Shame / Dominance
  * Stage 0-5 per route. Stage5 = assistantOnly.
+ * 
+ * V4.1 UPDATE:
+ * - IDs migrated 300-345 → 500-545 to avoid collision with appearance/race talents
+ * - Unlock requirements significantly lowered (max-tier achievable within 20 trains)
+ * - All extra exp requirements removed
  */
 
 const TALENT_ROUTES = {
@@ -14,134 +19,135 @@ const TALENT_ROUTES = {
 
 const ROUTE_CODE_MAP = { obedience: 0, desire: 1, pain: 2, shame: 3, dominance: 4 };
 
+// ID mapping: old 300-345 → new 500-545
 const TALENT_TREE = {
-    // --- Obedience ---
-    300: { id: 300, name: "\u6e29\u987a", route: 0, stage: 0,
+    // --- Obedience (500-505) ---
+    500: { id: 500, name: "\u6e29\u987a", route: 0, stage: 0,
            req: { abl: { 10: 1 }, routeLv: 0 },
            effect: { palamMods: { 4: 0.10 }, staminaMod: -0.05 },
            desc: "\u521d\u6b65\u987a\u4ece\uff0c\u670d\u4ece\u65f6PALAM\u589e\u52a0+10%\uff0c\u4f53\u529b\u6d88\u8017-5%" },
-    301: { id: 301, name: "\u4e56\u5de7", route: 0, stage: 1,
-           req: { abl: { 10: 2 }, mark: { 2: 1 }, routeLv: 1, juel: 100 },
+    501: { id: 501, name: "\u4e56\u5de7", route: 0, stage: 1,
+           req: { abl: { 10: 1 }, mark: { 2: 1 }, routeLv: 1, juel: 50 },
            effect: { palamMods: { 4: 0.15, 17: 0.10 }, staminaMod: -0.08 },
            desc: "\u66f4\u52a0\u987a\u4ece\uff0c\u5c48\u670dPALAM+15%\uff0c\u5f7d\u5f0a\u65f6\u989d\u5916\u52a0\u6210" },
-    302: { id: 302, name: "\u732e\u8eab", route: 0, stage: 2,
-           req: { abl: { 10: 3 }, mark: { 2: 2 }, routeLv: 2, juel: 500, preTalent: [301] },
+    502: { id: 502, name: "\u732e\u8eab", route: 0, stage: 2,
+           req: { abl: { 10: 2 }, mark: { 2: 1 }, routeLv: 2, juel: 150, preTalent: [501] },
            effect: { palamMods: { 4: 0.20, 17: 0.15 }, staminaMod: -0.10, refuseMod: -0.15 },
            desc: "\u613f\u610f\u4e3a\u4e3b\u4eba\u732e\u8eab\uff0c\u62d2\u7edd\u7387\u5927\u5e45\u4e0b\u964d" },
-    303: { id: 303, name: "\u5fe0\u72ac", route: 0, stage: 3,
-           req: { abl: { 10: 4 }, mark: { 2: 3 }, routeLv: 3, juel: 2000, preTalent: [302] },
+    503: { id: 503, name: "\u5fe0\u72ac", route: 0, stage: 3,
+           req: { abl: { 10: 2 }, mark: { 2: 2 }, routeLv: 3, juel: 400, preTalent: [502] },
            effect: { palamMods: { 4: 0.25, 17: 0.20 }, staminaMod: -0.12, refuseMod: -0.25 },
            desc: "\u7edd\u5bf9\u7684\u5fe0\u8bda\uff0c\u51e0\u4e4e\u4e0d\u4f1a\u62d2\u7edd\u4efb\u4f55\u6307\u4ee4" },
-    304: { id: 304, name: "\u5974\u96b6\u672c\u80fd", route: 0, stage: 4,
-           req: { abl: { 10: 5 }, mark: { 2: 3 }, routeLv: 4, juel: 8000, exp: { 23: 30 }, preTalent: [303] },
+    504: { id: 504, name: "\u5974\u96b6\u672c\u80fd", route: 0, stage: 4,
+           req: { abl: { 10: 3 }, mark: { 2: 2 }, routeLv: 4, juel: 1000, preTalent: [503] },
            effect: { palamMods: { 4: 0.30, 17: 0.25 }, staminaMod: -0.15, refuseMod: -0.35, orgasmMod: 0.10 },
            desc: "\u6df1\u690d\u9aa8\u9ad3\u7684\u670d\u4ece\u672c\u80fd\uff0c\u7edd\u9876\u65f6\u4e5f\u60f3\u7740\u53d6\u60a6\u4e3b\u4eba" },
-    305: { id: 305, name: "\u81f3\u9ad8\u7684\u5949\u4ed5\u8005", route: 0, stage: 5, assistantOnly: true,
-           req: { abl: { 10: 6 }, routeLv: 5, juel: 30000, preTalent: [304] },
+    505: { id: 505, name: "\u81f3\u9ad8\u7684\u5949\u4ed5\u8005", route: 0, stage: 5, assistantOnly: true,
+           req: { abl: { 10: 3 }, routeLv: 5, juel: 2500, preTalent: [504] },
            effect: { palamMods: { 4: 0.15, 17: 0.15 }, staminaMod: -0.10, energyMod: 0.10 },
            desc: "\u3010\u52a9\u624b\u4e13\u7528\u3011\u4f5c\u4e3a\u52a9\u624b\u65f6\u4ee3\u884c\u6307\u4ee4\u6548\u679c+15%\uff0c\u6c14\u529b\u6062\u590d\u52a0\u5feb" },
 
-    // --- Desire ---
-    310: { id: 310, name: "\u597d\u5947", route: 1, stage: 0,
+    // --- Desire (510-515) ---
+    510: { id: 510, name: "\u597d\u5947", route: 1, stage: 0,
            req: { abl: { 11: 1 }, routeLv: 0 },
            effect: { palamMods: { 5: 0.10, 0: 0.05 }, energyMod: -0.05 },
            desc: "\u5bf9\u5feb\u611f\u4ea7\u751f\u597d\u5947\uff0c\u6b32\u60c5PALAM+10%\uff0c\u6c14\u529b\u6d88\u8017-5%" },
-    311: { id: 311, name: "\u53d1\u60c5", route: 1, stage: 1,
-           req: { abl: { 11: 2 }, mark: { 1: 1 }, routeLv: 1, juel: 100 },
+    511: { id: 511, name: "\u53d1\u60c5", route: 1, stage: 1,
+           req: { abl: { 11: 1 }, mark: { 1: 1 }, routeLv: 1, juel: 50 },
            effect: { palamMods: { 5: 0.20, 0: 0.10, 3: 0.10 }, energyMod: -0.08 },
            desc: "\u8eab\u4f53\u5bb9\u6613\u8fdb\u5165\u53d1\u60c5\u72b6\u6001\uff0c\u5feb\u611f\u83b7\u5f97\u5168\u9762\u63d0\u5347" },
-    312: { id: 312, name: "\u6deb\u4e71", route: 1, stage: 2,
-           req: { abl: { 11: 3 }, mark: { 1: 2 }, routeLv: 2, juel: 500, preTalent: [311] },
+    512: { id: 512, name: "\u6deb\u4e71", route: 1, stage: 2,
+           req: { abl: { 11: 2 }, mark: { 1: 1 }, routeLv: 2, juel: 150, preTalent: [511] },
            effect: { palamMods: { 5: 0.25, 0: 0.15, 1: 0.15 }, energyMod: -0.10, orgasmMod: 0.15 },
            desc: "\u8ffd\u6c42\u5feb\u611f\u7684\u6deb\u4e71\u4f53\u8d28\uff0c\u7edd\u9876\u5f3a\u5ea6+15%" },
-    313: { id: 313, name: "\u5feb\u611f\u5974\u96b6", route: 1, stage: 3,
-           req: { abl: { 11: 4 }, mark: { 1: 3 }, routeLv: 3, juel: 2000, preTalent: [312] },
+    513: { id: 513, name: "\u5feb\u611f\u5974\u96b6", route: 1, stage: 3,
+           req: { abl: { 11: 2 }, mark: { 1: 2 }, routeLv: 3, juel: 400, preTalent: [512] },
            effect: { palamMods: { 5: 0.30, 0: 0.20, 1: 0.20, 2: 0.10 }, energyMod: -0.12, orgasmMod: 0.20 },
            desc: "\u4e3a\u5feb\u611f\u800c\u6d3b\uff0c\u6240\u6709\u90e8\u4f4d\u654f\u611f\u5ea6\u4e0a\u5347\uff0c\u7edd\u9876\u5f3a\u5ea6+20%" },
-    314: { id: 314, name: "\u60c5\u6b32\u5316\u8eab", route: 1, stage: 4,
-           req: { abl: { 11: 5 }, mark: { 1: 3 }, routeLv: 4, juel: 8000, exp: { 2: 50 }, preTalent: [313] },
+    514: { id: 514, name: "\u60c5\u6b32\u5316\u8eab", route: 1, stage: 4,
+           req: { abl: { 11: 3 }, mark: { 1: 2 }, routeLv: 4, juel: 1000, preTalent: [513] },
            effect: { palamMods: { 5: 0.35, 0: 0.25, 1: 0.25, 2: 0.15 }, energyMod: -0.15, orgasmMod: 0.25, staminaMod: 0.10 },
            desc: "\u5feb\u611f\u5373\u662f\u4e00\u5207\uff0c\u7edd\u9876\u65f6\u8fdb\u5165\u7279\u6b8a\u53d1\u60c5\u6a21\u5f0f" },
-    315: { id: 315, name: "\u6deb\u6b32\u4e4b\u6e90", route: 1, stage: 5, assistantOnly: true,
-           req: { abl: { 11: 6 }, routeLv: 5, juel: 30000, preTalent: [314] },
+    515: { id: 515, name: "\u6deb\u6b32\u4e4b\u6e90", route: 1, stage: 5, assistantOnly: true,
+           req: { abl: { 11: 3 }, routeLv: 5, juel: 2500, preTalent: [514] },
            effect: { palamMods: { 5: 0.15, 0: 0.10 }, energyMod: 0.10, orgasmMod: 0.10 },
            desc: "\u3010\u52a9\u624b\u4e13\u7528\u3011\u4f5c\u4e3a\u52a9\u624b\u65f6\u534f\u52a9\u7684\u5feb\u611f\u4f20\u5bfc+15%" },
 
-    // --- Pain ---
-    320: { id: 320, name: "\u8010\u75db", route: 2, stage: 0,
+    // --- Pain (520-525) ---
+    520: { id: 520, name: "\u8010\u75db", route: 2, stage: 0,
            req: { abl: { 21: 1 }, routeLv: 0 },
            effect: { palamMods: { 9: 0.10, 16: 0.10 }, staminaMod: -0.05 },
            desc: "\u5f00\u59cb\u4ece\u75db\u82e6\u4e2d\u83b7\u5f97\u5f02\u5e38\u5feb\u611f\uff0c\u75db\u82e6PALAM+10%" },
-    321: { id: 321, name: "\u88ab\u8650\u503e\u5411", route: 2, stage: 1,
-           req: { abl: { 21: 2 }, mark: { 0: 1 }, routeLv: 1, juel: 100 },
+    521: { id: 521, name: "\u88ab\u8650\u503e\u5411", route: 2, stage: 1,
+           req: { abl: { 21: 1 }, mark: { 0: 1 }, routeLv: 1, juel: 50 },
            effect: { palamMods: { 9: 0.20, 16: 0.15 }, staminaMod: -0.08, refuseMod: -0.10 },
            desc: "SM\u6307\u4ee4\u62d2\u7edd\u7387\u4e0b\u964d\uff0c\u75db\u82e6\u8f6c\u5316\u4e3a\u5feb\u611f\u7684\u6548\u7387\u63d0\u5347" },
-    322: { id: 322, name: "\u75db\u82e6\u6210\u763e", route: 2, stage: 2,
-           req: { abl: { 21: 3 }, mark: { 0: 2 }, routeLv: 2, juel: 500, preTalent: [321] },
+    522: { id: 522, name: "\u75db\u82e6\u6210\u763e", route: 2, stage: 2,
+           req: { abl: { 21: 2 }, mark: { 0: 1 }, routeLv: 2, juel: 150, preTalent: [521] },
            effect: { palamMods: { 9: 0.25, 16: 0.20, 5: 0.10 }, staminaMod: -0.10, refuseMod: -0.15 },
            desc: "\u6ca1\u6709\u75db\u82e6\u5c31\u611f\u53d7\u4e0d\u5230\u5feb\u4e50\uff0c\u75db\u82e6\u65f6\u989d\u5916\u589e\u52a0\u6b32\u60c5" },
-    323: { id: 323, name: "\u82e6\u75db\u4e4b\u95e8", route: 2, stage: 3,
-           req: { abl: { 21: 4 }, mark: { 0: 3 }, routeLv: 3, juel: 2000, preTalent: [322] },
+    523: { id: 523, name: "\u82e6\u75db\u4e4b\u95e8", route: 2, stage: 3,
+           req: { abl: { 21: 2 }, mark: { 0: 2 }, routeLv: 3, juel: 400, preTalent: [522] },
            effect: { palamMods: { 9: 0.30, 16: 0.25, 5: 0.15 }, staminaMod: -0.12, refuseMod: -0.20, orgasmMod: 0.15 },
-           desc: "\u75db\u82e6\u662f\u901a\u5f80\u6781\u4e50\u7684\u95e8\u6249\uff0c\u7edd\u9876\u5f3a\u5ea6\u968f\u75db\u82e6\u7d2f\u79ef\u63d0\u5347" },
-    324: { id: 324, name: "\u75db\u89c9\u5feb\u611f\u5230\u8fbe", route: 2, stage: 4,
-           req: { abl: { 21: 5 }, mark: { 0: 3 }, routeLv: 4, juel: 8000, exp: { 30: 40 }, preTalent: [323] },
+           desc: "\u75db\u82e6\u662f\u901a\u5f80\u6781\u4e50\u7684\u95e8\u6237\uff0c\u7edd\u9876\u5f3a\u5ea6\u968f\u75db\u82e6\u7d2f\u79ef\u63d0\u5347" },
+    524: { id: 524, name: "\u75db\u89c9\u5feb\u611f\u5230\u8fbe", route: 2, stage: 4,
+           req: { abl: { 21: 3 }, mark: { 0: 2 }, routeLv: 4, juel: 1000, preTalent: [523] },
            effect: { palamMods: { 9: 0.35, 16: 0.30, 5: 0.20 }, staminaMod: -0.15, refuseMod: -0.25, orgasmMod: 0.25 },
            desc: "\u75db\u82e6\u4e0e\u5feb\u611f\u7684\u754c\u9650\u5b8c\u5168\u6a21\u7cca\uff0c\u4efb\u4f55\u523a\u6fc0\u90fd\u80fd\u901a\u5411\u7edd\u9876" },
-    325: { id: 325, name: "\u75db\u82e6\u7684\u4f20\u9012\u8005", route: 2, stage: 5, assistantOnly: true,
-           req: { abl: { 21: 6 }, routeLv: 5, juel: 30000, preTalent: [324] },
+    525: { id: 525, name: "\u75db\u82e6\u7684\u4f20\u9012\u8005", route: 2, stage: 5, assistantOnly: true,
+           req: { abl: { 21: 3 }, routeLv: 5, juel: 2500, preTalent: [524] },
            effect: { palamMods: { 9: 0.15, 16: 0.15 }, staminaMod: -0.10 },
            desc: "\u3010\u52a9\u624b\u4e13\u7528\u3011\u4ee3\u884cSM\u6307\u4ee4\u65f6\u6548\u679c+20%\uff0c\u81ea\u8eab\u4e5f\u83b7\u5f97\u90e8\u5206\u5feb\u611f\u53cd\u9988" },
 
-    // --- Shame ---
-    330: { id: 330, name: "\u7f9e\u803b\u5fc3", route: 3, stage: 0,
+    // --- Shame (530-535) ---
+    530: { id: 530, name: "\u7f9e\u803b\u5fc3", route: 3, stage: 0,
            req: { abl: { 17: 1 }, routeLv: 0 },
            effect: { palamMods: { 8: 0.15, 5: 0.05 }, energyMod: -0.05 },
            desc: "\u7f9e\u803b\u5fc3\u6210\u4e3a\u5feb\u611f\u7684\u50ac\u5316\u5242\uff0c\u7f9e\u803bPALAM+15%" },
-    331: { id: 331, name: "\u9732\u51fa\u7656", route: 3, stage: 1,
-           req: { abl: { 17: 2 }, mark: { 5: 1 }, routeLv: 1, juel: 100 },
+    531: { id: 531, name: "\u9732\u51fa\u7656", route: 3, stage: 1,
+           req: { abl: { 17: 1 }, mark: { 5: 1 }, routeLv: 1, juel: 50 },
            effect: { palamMods: { 8: 0.25, 5: 0.10 }, energyMod: -0.08, refuseMod: -0.10 },
            desc: "\u5f00\u59cb\u6e34\u671b\u88ab\u6ce8\u89c6\uff0c\u9732\u51fa\u7c7b\u6307\u4ee4\u62d2\u7edd\u7387\u4e0b\u964d" },
-    332: { id: 332, name: "\u7f9e\u803b\u5feb\u611f", route: 3, stage: 2,
-           req: { abl: { 17: 3 }, mark: { 5: 2 }, routeLv: 2, juel: 500, preTalent: [331] },
+    532: { id: 532, name: "\u7f9e\u803b\u5feb\u611f", route: 3, stage: 2,
+           req: { abl: { 17: 2 }, mark: { 5: 1 }, routeLv: 2, juel: 150, preTalent: [531] },
            effect: { palamMods: { 8: 0.30, 5: 0.15, 0: 0.10 }, energyMod: -0.10, refuseMod: -0.15 },
            desc: "\u7f9e\u803b\u611f\u76f4\u63a5\u8f6c\u5316\u4e3a\u5feb\u611f\uff0c\u6709\u65c1\u89c2\u8005\u65f6\u6548\u679c\u7ffb\u500d" },
-    333: { id: 333, name: "\u516c\u5f00\u5c55\u793a", route: 3, stage: 3,
-           req: { abl: { 17: 4 }, mark: { 5: 3 }, routeLv: 3, juel: 2000, preTalent: [332] },
+    533: { id: 533, name: "\u516c\u5f00\u5c55\u793a", route: 3, stage: 3,
+           req: { abl: { 17: 2 }, mark: { 5: 2 }, routeLv: 3, juel: 400, preTalent: [532] },
            effect: { palamMods: { 8: 0.35, 5: 0.20, 0: 0.15 }, energyMod: -0.12, refuseMod: -0.20, orgasmMod: 0.15 },
            desc: "\u6e34\u671b\u5728\u4f17\u4eba\u9762\u524d\u5c55\u793a\u6deb\u6001\uff0c\u6709\u526f\u5974\u5728\u573a\u65f6\u603b\u5feb\u611f+15%" },
-    334: { id: 334, name: "\u7f9e\u803b\u7684\u6781\u9650", route: 3, stage: 4,
-           req: { abl: { 17: 5 }, mark: { 5: 3 }, routeLv: 4, juel: 8000, exp: { 36: 30 }, preTalent: [333] },
+    534: { id: 534, name: "\u7f9e\u803b\u7684\u6781\u9650", route: 3, stage: 4,
+           req: { abl: { 17: 3 }, mark: { 5: 2 }, routeLv: 4, juel: 1000, preTalent: [533] },
            effect: { palamMods: { 8: 0.40, 5: 0.25, 0: 0.20 }, energyMod: -0.15, refuseMod: -0.25, orgasmMod: 0.25 },
            desc: "\u7f9e\u803b\u611f\u5b8c\u5168\u8f6c\u5316\u4e3a\u5feb\u611f\u5f15\u64ce\uff0c\u4efb\u4f55\u573a\u666fplay\u90fd\u80fd\u89e6\u53d1\u989d\u5916\u52a0\u6210" },
-    335: { id: 335, name: "\u7f9e\u803b\u7684\u5f15\u5bfc\u8005", route: 3, stage: 5, assistantOnly: true,
-           req: { abl: { 17: 6 }, routeLv: 5, juel: 30000, preTalent: [334] },
+    535: { id: 535, name: "\u7f9e\u803b\u7684\u5f15\u5bfc\u8005", route: 3, stage: 5, assistantOnly: true,
+           req: { abl: { 17: 3 }, routeLv: 5, juel: 2500, preTalent: [534] },
            effect: { palamMods: { 8: 0.15, 5: 0.10 }, energyMod: 0.10 },
            desc: "\u3010\u52a9\u624b\u4e13\u7528\u3011\u4f5c\u4e3a\u52a9\u624b\u5728\u573a\u65f6\uff0c\u4e3b\u5974\u7684\u7f9e\u803b/\u9732\u51fa\u7c7b\u5feb\u611f+15%" },
 
-    // --- Dominance ---
-    340: { id: 340, name: "\u5360\u6709\u6b32", route: 4, stage: 0,
+    // --- Dominance (540-545) ---
+    540: { id: 540, name: "\u5360\u6709\u6b32", route: 4, stage: 0,
            req: { abl: { 20: 1 }, routeLv: 0 },
            effect: { palamMods: { 20: 0.10, 5: 0.05 }, staminaMod: -0.05 },
            desc: "\u5bf9\u652f\u914d\u4ea7\u751f\u6e34\u671b\uff0c\u65bd\u8650\u65f6\u81ea\u8eab\u6c14\u529b\u6d88\u8017-5%" },
-    341: { id: 341, name: "\u63a7\u5236\u6b32", route: 4, stage: 1,
-           req: { abl: { 20: 2 }, mark: { 3: 1 }, routeLv: 1, juel: 100 },
+    541: { id: 541, name: "\u63a7\u5236\u6b32", route: 4, stage: 1,
+           req: { abl: { 20: 1 }, mark: { 3: 1 }, routeLv: 1, juel: 50 },
            effect: { palamMods: { 20: 0.20, 5: 0.10 }, staminaMod: -0.08, refuseMod: -0.10 },
            desc: "\u6e34\u671b\u63a7\u5236\u5bf9\u65b9\u7684\u4e00\u5207\uff0c\u652f\u914d\u7c7b\u6307\u4ee4\u62d2\u7edd\u7387\u4e0b\u964d" },
-    342: { id: 342, name: "\u652f\u914d\u8005", route: 4, stage: 2,
-           req: { abl: { 20: 3 }, mark: { 3: 2 }, routeLv: 2, juel: 500, preTalent: [341] },
+    542: { id: 542, name: "\u652f\u914d\u8005", route: 4, stage: 2,
+           req: { abl: { 20: 2 }, mark: { 3: 1 }, routeLv: 2, juel: 150, preTalent: [541] },
            effect: { palamMods: { 20: 0.25, 5: 0.15, 16: 0.10 }, staminaMod: -0.10, refuseMod: -0.15 },
            desc: "\u5929\u751f\u7684\u652f\u914d\u8005\u6c14\u8d28\uff0cSM\u6307\u4ee4\u6548\u679c\u63d0\u5347\uff0c\u5bf9\u65b9\u5c48\u670d\u589e\u52a0" },
-    343: { id: 343, name: "\u7edd\u5bf9\u652f\u914d", route: 4, stage: 3,
-           req: { abl: { 20: 4 }, mark: { 3: 3 }, routeLv: 3, juel: 2000, preTalent: [342] },
+    543: { id: 543, name: "\u7edd\u5bf9\u652f\u914d", route: 4, stage: 3,
+           req: { abl: { 20: 2 }, mark: { 3: 2 }, routeLv: 3, juel: 400, preTalent: [542] },
            effect: { palamMods: { 20: 0.30, 5: 0.20, 16: 0.15 }, staminaMod: -0.12, refuseMod: -0.20, orgasmMod: 0.10 },
            desc: "\u652f\u914d\u7684\u6c14\u573a\u4ee4\u4eba\u65e0\u6cd5\u62b5\u6297\uff0c\u5bf9\u65b9\u7684\u62d2\u7edd\u7387\u5168\u9762\u4e0b\u964d" },
-    344: { id: 344, name: "\u738b\u8005\u7684\u6109\u60a6", route: 4, stage: 4,
-           req: { abl: { 20: 5 }, mark: { 3: 3 }, routeLv: 4, juel: 8000, exp: { 33: 30 }, preTalent: [343] },
+    544: { id: 544, name: "\u738b\u8005\u7684\u6109\u60a6", route: 4, stage: 4,
+           req: { abl: { 20: 3 }, mark: { 3: 2 }, routeLv: 4, juel: 1000, preTalent: [543] },
            effect: { palamMods: { 20: 0.35, 5: 0.25, 16: 0.20 }, staminaMod: -0.15, refuseMod: -0.25, orgasmMod: 0.20 },
            desc: "\u652f\u914d\u672c\u8eab\u5c31\u662f\u6700\u5927\u7684\u5feb\u611f\uff0c\u63a7\u5236\u5bf9\u65b9\u7edd\u9876\u65f6\u83b7\u5f97\u53cc\u500d\u6ee1\u8db3" },
-    345: { id: 345, name: "\u5171\u72af\u8005", route: 4, stage: 5, assistantOnly: true,
-           req: { abl: { 20: 6 }, routeLv: 5, juel: 30000, preTalent: [344] },
+    545: { id: 545, name: "\u5171\u72af\u8005", route: 4, stage: 5, assistantOnly: true,
+           req: { abl: { 20: 3 }, routeLv: 5, juel: 2500, preTalent: [544] },
            effect: { palamMods: { 20: 0.15, 5: 0.10 }, staminaMod: -0.10, energyMod: 0.10 },
            desc: "\u3010\u52a9\u624b\u4e13\u7528\u3011\u53c2\u4e0e\u6a21\u5f0f\u65f6\u4ee3\u884c/\u53c2\u4e0e\u6548\u679c+15%\uff0c\u53cc\u65b9\u6c14\u529b\u6d88\u8017\u964d\u4f4e" }
 };
@@ -186,15 +192,7 @@ function checkTalentTreeUnlock(chara, node) {
         const has = chara.juel[juelType] || 0;
         if (has < req.juel) reasons.push(`\u73e0\u5b50\u4e0d\u8db3 (${has}/${req.juel})`);
     }
-    if (req.exp) {
-        for (const expId in req.exp) {
-            const need = req.exp[expId], has = chara.exp[parseInt(expId)] || 0;
-            if (has < need) {
-                const name = (typeof EXP_DEFS !== 'undefined' && EXP_DEFS[expId]) ? (EXP_DEFS[expId].name || EXP_DEFS[expId]) : `\u7ecf\u9a8c[${expId}]`;
-                reasons.push(`${name}\u4e0d\u8db3 (${has}/${need})`);
-            }
-        }
-    }
+    // V4.1: Exp requirements removed — all talents unlockable within 20 trains
     if (req.preTalent) {
         for (const preId of req.preTalent) {
             if (!chara.talent[preId] || chara.talent[preId] <= 0) {
@@ -214,6 +212,18 @@ function tryUnlockTalent(chara, node) {
         chara.juel[juelType] -= node.req.juel;
     }
     chara.talent[node.id] = 1;
+    
+    // === V4.1: Stage 5 talent grants dungeon fame ===
+    if (node.stage === 5) {
+        const game = (typeof window !== 'undefined' && window.G) ? window.G : null;
+        if (game && game.addFame) {
+            game.addFame(100);
+            if (typeof UI !== 'undefined') {
+                UI.showToast(`【${chara.name}掌握了${node.name}】地下城声望 +100！`, 'accent');
+            }
+        }
+    }
+    
     return { success: true, msg: `\u3010${chara.name}\u83b7\u5f97\u4e86\u300c${node.name}\u300d\uff01\u3011` };
 }
 

@@ -103,37 +103,37 @@ const TALENT_EFFECTS = {
     79: { palamMods: { 16: -0.10 }, refuseMod: 0, staminaMod: 0, energyMod: 0, orgasmMod: -0.05, uiColor: null },
     80: { palamMods: { 16: -0.20 }, refuseMod: 0, staminaMod: 0, energyMod: 0, orgasmMod: -0.10, uiColor: null },
 
-    // ===== Route talents (300-345 from TalentTree) =====
-    300: { palamMods: { 4: 0.10 }, refuseMod: -0.10, staminaMod: -0.05, energyMod: 0, orgasmMod: 0, uiColor: "#61afef" },
+    // ===== Route talents (500-545 from TalentTree) =====
+    500: { palamMods: { 4: 0.10 }, refuseMod: -0.10, staminaMod: -0.05, energyMod: 0, orgasmMod: 0, uiColor: "#61afef" },
     301: { palamMods: { 4: 0.15, 17: 0.10 }, refuseMod: -0.15, staminaMod: -0.08, energyMod: 0, orgasmMod: 0, uiColor: "#61afef" },
     302: { palamMods: { 4: 0.20, 17: 0.15 }, refuseMod: -0.25, staminaMod: -0.10, energyMod: 0, orgasmMod: 0, uiColor: "#61afef" },
     303: { palamMods: { 4: 0.25, 17: 0.20 }, refuseMod: -0.35, staminaMod: -0.12, energyMod: 0, orgasmMod: 0, uiColor: "#61afef" },
     304: { palamMods: { 4: 0.30, 17: 0.25 }, refuseMod: -0.45, staminaMod: -0.15, energyMod: 0, orgasmMod: 0.10, uiColor: "#61afef" },
-    305: { palamMods: { 4: 0.15, 17: 0.15 }, refuseMod: -0.20, staminaMod: -0.10, energyMod: 0.10, orgasmMod: 0, uiColor: "#61afef" },
-    310: { palamMods: { 5: 0.10, 0: 0.05 }, refuseMod: 0, staminaMod: 0, energyMod: -0.05, orgasmMod: 0, uiColor: "#e06c75" },
+    505: { palamMods: { 4: 0.15, 17: 0.15 }, refuseMod: -0.20, staminaMod: -0.10, energyMod: 0.10, orgasmMod: 0, uiColor: "#61afef" },
+    510: { palamMods: { 5: 0.10, 0: 0.05 }, refuseMod: 0, staminaMod: 0, energyMod: -0.05, orgasmMod: 0, uiColor: "#e06c75" },
     311: { palamMods: { 5: 0.20, 0: 0.10, 3: 0.10 }, refuseMod: 0, staminaMod: 0, energyMod: -0.08, orgasmMod: 0, uiColor: "#e06c75" },
     312: { palamMods: { 5: 0.25, 0: 0.15, 1: 0.15 }, refuseMod: 0, staminaMod: 0, energyMod: -0.10, orgasmMod: 0.15, uiColor: "#e06c75" },
     313: { palamMods: { 5: 0.30, 0: 0.20, 1: 0.20, 2: 0.10 }, refuseMod: 0, staminaMod: 0, energyMod: -0.12, orgasmMod: 0.20, uiColor: "#e06c75" },
     314: { palamMods: { 5: 0.35, 0: 0.25, 1: 0.25, 2: 0.15 }, refuseMod: 0, staminaMod: 0.10, energyMod: -0.15, orgasmMod: 0.25, uiColor: "#e06c75" },
-    315: { palamMods: { 5: 0.15, 0: 0.10 }, refuseMod: 0, staminaMod: 0, energyMod: 0.10, orgasmMod: 0.10, uiColor: "#e06c75" },
-    320: { palamMods: { 9: 0.10, 16: 0.10 }, refuseMod: 0, staminaMod: -0.05, energyMod: 0, orgasmMod: 0, uiColor: "#c678dd" },
+    515: { palamMods: { 5: 0.15, 0: 0.10 }, refuseMod: 0, staminaMod: 0, energyMod: 0.10, orgasmMod: 0.10, uiColor: "#e06c75" },
+    520: { palamMods: { 9: 0.10, 16: 0.10 }, refuseMod: 0, staminaMod: -0.05, energyMod: 0, orgasmMod: 0, uiColor: "#c678dd" },
     321: { palamMods: { 9: 0.20, 16: 0.15 }, refuseMod: -0.10, staminaMod: -0.08, energyMod: 0, orgasmMod: 0, uiColor: "#c678dd" },
     322: { palamMods: { 9: 0.25, 16: 0.20, 5: 0.10 }, refuseMod: -0.15, staminaMod: -0.10, energyMod: 0, orgasmMod: 0, uiColor: "#c678dd" },
     323: { palamMods: { 9: 0.30, 16: 0.25, 5: 0.15 }, refuseMod: -0.20, staminaMod: -0.12, energyMod: 0, orgasmMod: 0.15, uiColor: "#c678dd" },
     324: { palamMods: { 9: 0.35, 16: 0.30, 5: 0.20 }, refuseMod: -0.25, staminaMod: -0.15, energyMod: 0, orgasmMod: 0.25, uiColor: "#c678dd" },
-    325: { palamMods: { 9: 0.15, 16: 0.15 }, refuseMod: -0.10, staminaMod: -0.10, energyMod: 0, orgasmMod: 0, uiColor: "#c678dd" },
-    330: { palamMods: { 8: 0.15, 5: 0.05 }, refuseMod: 0, staminaMod: 0, energyMod: -0.05, orgasmMod: 0, uiColor: "#e5c07b" },
+    525: { palamMods: { 9: 0.15, 16: 0.15 }, refuseMod: -0.10, staminaMod: -0.10, energyMod: 0, orgasmMod: 0, uiColor: "#c678dd" },
+    530: { palamMods: { 8: 0.15, 5: 0.05 }, refuseMod: 0, staminaMod: 0, energyMod: -0.05, orgasmMod: 0, uiColor: "#e5c07b" },
     331: { palamMods: { 8: 0.25, 5: 0.10 }, refuseMod: -0.10, staminaMod: 0, energyMod: -0.08, orgasmMod: 0, uiColor: "#e5c07b" },
     332: { palamMods: { 8: 0.30, 5: 0.15, 0: 0.10 }, refuseMod: -0.15, staminaMod: 0, energyMod: -0.10, orgasmMod: 0, uiColor: "#e5c07b" },
     333: { palamMods: { 8: 0.35, 5: 0.20, 0: 0.15 }, refuseMod: -0.20, staminaMod: 0, energyMod: -0.12, orgasmMod: 0.15, uiColor: "#e5c07b" },
     334: { palamMods: { 8: 0.40, 5: 0.25, 0: 0.20 }, refuseMod: -0.25, staminaMod: 0, energyMod: -0.15, orgasmMod: 0.25, uiColor: "#e5c07b" },
-    335: { palamMods: { 8: 0.15, 5: 0.10 }, refuseMod: -0.10, staminaMod: 0, energyMod: 0.10, orgasmMod: 0, uiColor: "#e5c07b" },
-    340: { palamMods: { 20: 0.10, 5: 0.05 }, refuseMod: 0, staminaMod: -0.05, energyMod: 0, orgasmMod: 0, uiColor: "#98c379" },
+    535: { palamMods: { 8: 0.15, 5: 0.10 }, refuseMod: -0.10, staminaMod: 0, energyMod: 0.10, orgasmMod: 0, uiColor: "#e5c07b" },
+    540: { palamMods: { 20: 0.10, 5: 0.05 }, refuseMod: 0, staminaMod: -0.05, energyMod: 0, orgasmMod: 0, uiColor: "#98c379" },
     341: { palamMods: { 20: 0.20, 5: 0.10 }, refuseMod: -0.10, staminaMod: -0.08, energyMod: 0, orgasmMod: 0, uiColor: "#98c379" },
     342: { palamMods: { 20: 0.25, 5: 0.15, 16: 0.10 }, refuseMod: -0.15, staminaMod: -0.10, energyMod: 0, orgasmMod: 0, uiColor: "#98c379" },
     343: { palamMods: { 20: 0.30, 5: 0.20, 16: 0.15 }, refuseMod: -0.20, staminaMod: -0.12, energyMod: 0, orgasmMod: 0.10, uiColor: "#98c379" },
     344: { palamMods: { 20: 0.35, 5: 0.25, 16: 0.20 }, refuseMod: -0.25, staminaMod: -0.15, energyMod: 0, orgasmMod: 0.20, uiColor: "#98c379" },
-    345: { palamMods: { 20: 0.15, 5: 0.10 }, refuseMod: -0.10, staminaMod: -0.10, energyMod: 0.10, orgasmMod: 0, uiColor: "#98c379" }
+    545: { palamMods: { 20: 0.15, 5: 0.10 }, refuseMod: -0.10, staminaMod: -0.10, energyMod: 0.10, orgasmMod: 0, uiColor: "#98c379" }
 };
 
 function applyTalentEffects(chara, context) {

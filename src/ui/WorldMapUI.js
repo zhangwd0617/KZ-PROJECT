@@ -7,6 +7,10 @@ window.WorldMapUI = {
         ui.clearText();
         if (ui.textArea) ui.textArea.style.display = 'block';
         ui.appendText('【世界地图】\n', 'accent');
+        const devilFame = game.flag[503] || 0;
+        const devilMorale = game.devilMorale || 100;
+        const devilBaseMorale = game.devilBaseMorale || 0;
+        ui.appendText(`魔王军声望: ${devilFame} | 魔王军士气: ${devilMorale}${devilBaseMorale > 0 ? '+' + devilBaseMorale : ''}`);
         ui.appendText('点击城市、要塞或势力区域查看详情。鼠标滚轮缩放，拖拽平移。');
         ui.appendDivider();
 
@@ -98,16 +102,42 @@ window.WorldMapUI = {
             // Cities
             D.cities.forEach(c=>{
                 const isSel=sel&&sel.name===c.name;const sz=c.type==='capital'?10:(c.type==='major'?7:4);
+                // 获取城市防御耐久度
+                let defenseDur = 100;
+                let isRuined = false;
+                if (game.factionStates && game.factionStates[c.race] && game.factionStates[c.race].cityStates[c.name]) {
+                    defenseDur = game.factionStates[c.race].cityStates[c.name].defense;
+                    isRuined = game.factionStates[c.race].cityStates[c.name].status === 'ruined';
+                }
                 if(isSel){ctx.beginPath();ctx.arc(c.x,c.y,sz+8,0,Math.PI*2);ctx.fillStyle='rgba(233,69,96,0.3)';ctx.fill();}
                 ctx.beginPath();
                 if(c.type==='capital'){for(let i=0;i<5;i++){const ang=(Math.PI*2*i/5)-Math.PI/2,rr=i%2===0?sz:sz/2;const px=c.x+Math.cos(ang)*rr,py=c.y+Math.sin(ang)*rr;i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.closePath();}
                 else if(c.type==='major'){ctx.moveTo(c.x,c.y-sz);ctx.lineTo(c.x+sz,c.y);ctx.lineTo(c.x,c.y+sz);ctx.lineTo(c.x-sz,c.y);ctx.closePath();}
                 else if(c.type==='church'){ctx.moveTo(c.x,c.y-sz);ctx.lineTo(c.x+sz*0.7,c.y+sz);ctx.lineTo(c.x-sz*0.7,c.y+sz);ctx.closePath();}
                 else{ctx.arc(c.x,c.y,sz,0,Math.PI*2);}
-                ctx.fillStyle=RACE_COL[c.race]||'#fff';ctx.fill();ctx.strokeStyle=isSel?'#e94560':'rgba(255,255,255,0.9)';ctx.lineWidth=isSel?2.2:1.2;ctx.stroke();
+                // 根据耐久度调整颜色和透明度
+                let baseColor = RACE_COL[c.race]||'#fff';
+                if (isRuined) {
+                    ctx.fillStyle = 'rgba(100,100,100,0.3)';
+                    ctx.strokeStyle = 'rgba(150,150,150,0.4)';
+                } else if (defenseDur <= 20) {
+                    ctx.fillStyle = baseColor;
+                    ctx.strokeStyle = isSel?'#e94560':'#ff4444';
+                } else if (defenseDur <= 50) {
+                    ctx.fillStyle = baseColor;
+                    ctx.strokeStyle = isSel?'#e94560':'#ffaa44';
+                } else {
+                    ctx.fillStyle = baseColor;
+                    ctx.strokeStyle = isSel?'#e94560':'rgba(255,255,255,0.9)';
+                }
+                ctx.globalAlpha = isRuined ? 0.4 : 1.0;
+                ctx.fill();
+                ctx.lineWidth=isSel?2.2:1.2;ctx.stroke();
+                ctx.globalAlpha = 1.0;
                 // City label
                 ctx.fillStyle='rgba(0,0,0,0.55)';ctx.font='bold 11px sans-serif';const tl2=ctx.measureText(c.name).width;ctx.fillRect(c.x-tl2/2-3,c.y+sz+4,tl2+6,16);
-                ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(c.name,c.x,c.y+sz+12);
+                ctx.fillStyle = isRuined ? '#888' : '#fff';
+                ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(c.name + (isRuined ? ' [已沦陷]' : ''),c.x,c.y+sz+12);
             });
 
             // Forts
@@ -141,6 +171,17 @@ window.WorldMapUI = {
                 const rn={human:'人类',dwarf:'矮人',elf:'精灵',orc:'兽人',church:'教廷',frontier:'边缘地带'};
                 html='<strong style="color:var(--accent)">'+d.name+'</strong> ';
                 html+='<span style="color:var(--text-dim)">|'+(tn[d.type]||d.type)+' | '+(rn[d.race]||d.race)+' | 人口:'+d.pop+'</span> ';
+                // 显示防御值和耐久度
+                if (game.factionStates && game.factionStates[d.race] && game.factionStates[d.race].cityStates[d.name]) {
+                    const cityState = game.factionStates[d.race].cityStates[d.name];
+                    const defStrength = game.getCityDefenseStrength ? game.getCityDefenseStrength(d.name) : 0;
+                    if (cityState.status === 'ruined') {
+                        html+='<span style="color:#888">| 已沦陷</span> ';
+                    } else {
+                        const durColor = cityState.defense > 50 ? '#44ff44' : (cityState.defense > 20 ? '#ffaa44' : '#ff4444');
+                        html+=`<span style="color:var(--text-dim)">| 防御值:${defStrength}</span> <span style="color:${durColor}">| 耐久:${cityState.defense}%</span> `;
+                    }
+                }
                 html+='<span style="color:var(--text-dim)">'+d.feature+'</span>';
                 if(d.type==='capital'){const ft=D.forts.find(f=>f.target===d.name);if(ft)html+=' <span style="color:#a29bfe">| 监视要塞: '+ft.name+'（'+ft.direction+'）</span>';}
             }else if(entity.type==='fort'){
@@ -150,7 +191,19 @@ window.WorldMapUI = {
             }else if(entity.type==='territory'){
                 html='<strong style="color:var(--accent)">'+d.name+'</strong> ';
                 html+='<span style="color:var(--text-dim)">| 主导种族:'+d.race+' | 人口:'+d.pop+'（'+d.ratio+'）</span> ';
-                html+='<span style="color:var(--text-dim)">'+d.desc+'</span>';
+                // 显示势力声望和士气
+                const factionId = d.id;
+                if (game.factionStates && game.factionStates[factionId]) {
+                    const rep = game.getFactionReputation ? game.getFactionReputation(factionId) : 0;
+                    const morale = game.getFactionMorale ? game.getFactionMorale(factionId) : 100;
+                    const surrender = game.getFactionSurrenderLevel ? game.getFactionSurrenderLevel(factionId) : 0;
+                    const moraleColor = morale >= 120 ? '#44ff44' : (morale >= 80 ? '#fff' : '#ff4444');
+                    html+=`<span style="color:var(--text-dim)">| 声望:${rep}</span> <span style="color:${moraleColor}">| 士气:${morale}</span>`;
+                    if (surrender >= 3) html+=' <span style="color:#ff4444;font-weight:bold">| 已投降</span>';
+                    else if (surrender >= 2) html+=' <span style="color:#ffaa44">| 副城全陷</span>';
+                    else if (surrender >= 1) html+=' <span style="color:#ffcc44">| 城镇全陷</span>';
+                }
+                html+=' <span style="color:var(--text-dim)">'+d.desc+'</span>';
             }
             bar.innerHTML=html;
         }

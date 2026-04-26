@@ -46,8 +46,11 @@ const DIALOGUE_STATE_RULES = [
     { id: 'devoted',         check: t => t.hasTalent(182),                                     desc: '挚爱献身' },
     { id: 'blind_faith',     check: t => t.hasTalent(86),                                      desc: '盲信' },
     { id: 'broken',          check: t => t.hasTalent(9),                                       desc: '精神崩坏' },
-    { id: 'rebel',           check: t => t.mark[3] >= 3,                                       desc: '强烈反抗' },
-    { id: 'fear',            check: t => (t.mark[6] || 0) >= 2,                                 desc: '深度恐惧' },
+    // V9.0: 洗脑状态 — 表面服从但心智未真正陷落
+    { id: 'brainwashed',     check: t => t.hasTalent(296),                                    desc: '洗脑控制' },
+    // V4.0: mark[3] 反抗刻印→M属性专精，mark[6] 征服刻印→支配专精
+    { id: 'rebel',           check: t => t.mark[3] >= 3,                                       desc: 'M觉醒' },
+    { id: 'dominant',        check: t => (t.mark[6] || 0) >= 2,                                 desc: '支配觉醒' },
     { id: 'lewd_love',       check: t => t.hasTalent(76) && t.hasTalent(85),                   desc: '媚爱' },
     { id: 'lewd',            check: t => t.hasTalent(76),                                      desc: '淫乱' },
     { id: 'love',            check: t => t.hasTalent(85),                                      desc: '爱慕' },
@@ -61,7 +64,7 @@ const DIALOGUE_STATE_RULES = [
 const DIALOGUE_STATE_RANK = {
     first: 1,
     default: 2, yield1: 2, yield2: 3, yield3: 4,
-    fear: 5, rebel: 5,
+    rebel: 5, dominant: 5,
     love: 6, lewd: 6,
     lewd_love: 7,
     broken: 7,
@@ -327,8 +330,9 @@ class DialogueSystem {
         // Legacy fallbacks
         if (target.hasTalent(9)) {
             this.say("嘻嘻~…已经…结束了吗…？", "", target);
+        // V4.0: mark[3] M觉醒状态台词
         } else if (target.mark[3] >= 3 && !target.hasTalent(76) && !target.hasTalent(85)) {
-            this.say("…不可原谅…你这个恶魔…！", "", target);
+            this.say("…再多一点…这种痛苦…让我更快乐…！", "", target);
         } else if (target.mark[2] >= 3) {
             this.say("哈啊…哈啊…已经…无法思考了…", "", target);
         }
@@ -1070,8 +1074,9 @@ class DialogueSystem {
         // 屈服/反抗状态的反映
         if (target.mark[2] >= 2 && target.palam[5] > 3000) {
             texts.push(`${tName}的眼神逐渐变得顺从，身体开始主动迎合...`);
-        } else if (target.mark[3] >= 2 && target.palam[11] > 1000) {
-            texts.push(`${tName}虽然还在抵抗，但身体已经开始背叛意志...`);
+        // V4.0: mark[3] M属性状态
+        } else if (target.mark[3] >= 2 && target.palam[9] > 1000) {
+            texts.push(`${tName}在痛苦中露出迷醉的表情，身体诚实地渴求着更多...`);
         }
 
         // 恐惧状态

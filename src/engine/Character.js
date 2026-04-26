@@ -44,7 +44,7 @@ class Character {
         this.gear = { head: null, body: null, legs: null, hands: null, neck: null, ring: null, weapons: [], items: [] };
 
         // String storage
-        this.cstr = new Array(100).fill("");
+        this.cstr = new Array(400).fill("");
 
         // Relation flags
         this.relation = new Array(200).fill(0);
@@ -208,10 +208,14 @@ class Character {
 
     // ========== Route allocation (1 main + 2 sub) ==========
     getRouteExpMultiplier(routeId) {
-        if (this.mainRoute < 0) return 1.0; // not chosen: all routes 100%
-        if (routeId === this.mainRoute) return 1.0;
-        if (this.subRoutes.includes(routeId)) return 0.5;
-        return 0.0; // other routes get no exp
+        // V4.0: All routes get 100% exp regardless of main/sub selection
+        return 1.0;
+    }
+
+    getRouteEffectMultiplier(routeId) {
+        if (this.mainRoute === routeId) return 2.0;   // 主：额外+100%
+        if (this.subRoutes.includes(routeId)) return 1.5; // 副：额外+50%
+        return 1.0;
     }
 
     setMainRoute(routeId) {
@@ -240,12 +244,36 @@ class Character {
 
     getRouteAllocationLabel() {
         const names = ['顺从','欲望','痛苦','露出','支配'];
-        if (this.mainRoute < 0) return '未分配';
-        let s = names[this.mainRoute];
-        if (this.subRoutes.length > 0) {
-            s += ' + ' + this.subRoutes.map(r => names[r]).join('/');
+        const badges = [];
+        for (let r = 0; r < 5; r++) {
+            const isMain = this.mainRoute === r;
+            const isSub = this.subRoutes.includes(r);
+            if (isMain) badges.push(`【主】${names[r]}`);
+            else if (isSub) badges.push(`【副】${names[r]}`);
         }
-        return s;
+        if (badges.length === 0) return '未分配';
+        return badges.join(' / ');
+    }
+
+    getTotalTrainCount() {
+        try {
+            const stats = JSON.parse(this.cstr[362] || '{}');
+            return stats.trainCount || 0;
+        } catch { return 0; }
+    }
+
+    convertJuelToRoutePoints(juelType, amount) {
+        if (amount <= 0) return { success: false, msg: '兑换数量无效' };
+        const has = this.juel[juelType] || 0;
+        if (has < amount) return { success: false, msg: `珠子不足（拥有${has}颗）` };
+        // V4.0: 兑换比率 50:1
+        const RATE = 50;
+        const points = Math.floor(amount / RATE);
+        if (points <= 0) return { success: false, msg: `至少需要${RATE}颗珠子才能兑换1点` };
+        const actualCost = points * RATE;
+        this.juel[juelType] -= actualCost;
+        this.routePoints += points;
+        return { success: true, points, cost: actualCost };
     }
 
     // ========== Talent check shortcuts ==========
@@ -349,7 +377,12 @@ class Character {
                 const thresholds = cond.expCond[expId];
                 const required = thresholds[Math.min(current, thresholds.length - 1)];
                 expNeed = required;
-                expHas = this.exp[parseInt(expId)] || 0;
+                // V10.0: 同性成淫(abl[37]) 同时计入百合经验(exp[40])和BL经验(exp[41])
+                if (ablId === 37) {
+                    expHas = (this.exp[40] || 0) + (this.exp[41] || 0);
+                } else {
+                    expHas = this.exp[parseInt(expId)] || 0;
+                }
                 if (expHas < required) {
                     expOk = false;
                     break;
@@ -393,10 +426,20 @@ class Character {
 
     // ========== Status recovery ==========
     recoverHp(rate = 1.0) {
-        this.base[0] = Math.min(this.maxbase[0], this.base[0] + Math.floor(this.maxbase[0] * rate));
+        // V12.0: 3件诅咒装备/武器则恢复-50%
+        let finalRate = rate;
+        if (typeof GearSystem !== 'undefined' && GearSystem.countCursedGear) {
+            if (GearSystem.countCursedGear(this) >= 3) finalRate *= 0.5;
+        }
+        this.base[0] = Math.min(this.maxbase[0], this.base[0] + Math.floor(this.maxbase[0] * finalRate));
     }
     recoverMp(rate = 1.0) {
-        this.base[1] = Math.min(this.maxbase[1], this.base[1] + Math.floor(this.maxbase[1] * rate));
+        // V12.0: 3件诅咒装备/武器则恢复-50%
+        let finalRate = rate;
+        if (typeof GearSystem !== 'undefined' && GearSystem.countCursedGear) {
+            if (GearSystem.countCursedGear(this) >= 3) finalRate *= 0.5;
+        }
+        this.base[1] = Math.min(this.maxbase[1], this.base[1] + Math.floor(this.maxbase[1] * finalRate));
     }
 
     // ========== Training start/end cleanup ==========
@@ -442,64 +485,146 @@ class Character {
         if (routeId < 0 || routeId >= 5 || value <= 0) return 0;
         const mult = this.getRouteExpMultiplier(routeId);
         const gain = Math.floor(value * mult);
-        const oldLv = this.routeLevel[routeId] || 0;
+        // V4.0: Experience accumulates but does NOT auto-level up
         this.routeExp[routeId] = (this.routeExp[routeId] || 0) + gain;
-        // Level up thresholds: 0->1:100, 1->2:300, 2->3:600, 3->4:1000, 4->5:1500
-        const thresholds = [0, 100, 300, 600, 1000, 1500];
-        let newLv = oldLv;
-        while (newLv < 5 && this.routeExp[routeId] >= thresholds[newLv + 1]) {
-            newLv++;
-        }
-        if (newLv > oldLv) {
-            this.routeLevel[routeId] = newLv;
-            this.routePoints += (newLv - oldLv);
-            // Grant accelerator talent automatically
-            if (typeof onRouteLevelUp === 'function') {
-                for (let lv = oldLv + 1; lv <= newLv; lv++) {
-                    const result = onRouteLevelUp(this, routeId, lv);
-                    if (result && typeof UI !== 'undefined') UI.appendText(result.msg + "\n", "accent");
-                }
-            }
-            if (typeof applyRouteAccelerators === 'function') applyRouteAccelerators(this);
-        }
         return gain;
     }
 
     addTrainExp(value) {
         if (value <= 0) return;
         const oldLevel = this.trainLevel || 0;
-        // Train exp thresholds (same pattern)
         const thresholds = [0, 50, 150, 300, 500, 800, 1200, 1700, 2300, 3000];
         this.trainLevel = (this.trainLevel || 0) + value;
         let newLevel = 0;
         while (newLevel < 9 && this.trainLevel >= thresholds[newLevel + 1]) newLevel++;
         if (newLevel > oldLevel) {
-            this.routePoints += (newLevel - oldLevel) * 2;
-            if (typeof UI !== 'undefined') UI.appendText(`【${this.name}\u7684\u8c03\u6559\u7b49\u7ea7\u63d0\u5347\u5230 Lv.${newLevel}！\u83b7\u5f97${(newLevel - oldLevel) * 2}\u70b9\u8def\u7ebf\u70b9\u6570】\n`, "accent");
+            // V4.0: Reduced from 2 points per level to 1 point per level
+            const gained = newLevel - oldLevel;
+            this.routePoints += gained;
+            if (typeof UI !== 'undefined') UI.appendText(`【${this.name}的调教等级提升到 Lv.${newLevel}！获得${gained}点升级点数】\n`, "accent");
         }
     }
 
     allocateRoutePoint(routeId) {
-        if (this.routePoints <= 0) return false;
-        if (routeId < 0 || routeId >= 5) return false;
-        this.routePoints--;
-        this.routeExp[routeId] = (this.routeExp[routeId] || 0) + 50;
-        // Re-check level up
+        // V4.0: Deprecated, redirect to upgradeRouteStage if possible
+        return this.upgradeRouteStage(routeId);
+    }
+
+    getRouteUpgradeInfo(routeId) {
         const thresholds = [0, 100, 300, 600, 1000, 1500];
-        const oldLv = this.routeLevel[routeId] || 0;
-        let newLv = oldLv;
-        while (newLv < 5 && this.routeExp[routeId] >= thresholds[newLv + 1]) newLv++;
-        if (newLv > oldLv) {
-            this.routeLevel[routeId] = newLv;
-            if (typeof onRouteLevelUp === 'function') {
-                for (let lv = oldLv + 1; lv <= newLv; lv++) {
-                    const result = onRouteLevelUp(this, routeId, lv);
-                    if (result && typeof UI !== 'undefined') UI.appendText(result.msg + "\n", "accent");
+        const routeAblMap = [10, 11, 21, 17, 20];
+        const routeMarkMap = [2, 1, 3, 5, 6];
+        const currentLv = this.routeLevel[routeId] || 0;
+        const result = {
+            can: false,
+            reasons: [],
+            cost: 0,
+            nextStage: currentLv + 1,
+            currentLv,
+            currentExp: this.routeExp[routeId] || 0,
+            needExp: 0
+        };
+        if (currentLv >= 5) {
+            result.reasons.push('已达到最高阶段');
+            return result;
+        }
+        const nextLv = currentLv + 1;
+        result.cost = nextLv;
+        result.needExp = thresholds[nextLv];
+
+        // Check exp
+        if ((this.routeExp[routeId] || 0) < thresholds[nextLv]) {
+            result.reasons.push(`经验不足 (${this.routeExp[routeId] || 0}/${thresholds[nextLv]})`);
+        }
+        // Check points
+        if (this.routePoints < nextLv) {
+            result.reasons.push(`升级点数不足 (拥有${this.routePoints}，需要${nextLv})`);
+        }
+
+        // Extra conditions for Stage III+
+        if (nextLv >= 3) {
+            const trainCount = this.getTotalTrainCount();
+            const ablNeed = nextLv === 3 ? 3 : (nextLv === 4 ? 4 : 5);
+            const markNeed = nextLv === 3 ? 1 : (nextLv === 4 ? 2 : 3);
+            const ablId = routeAblMap[routeId];
+            const markId = routeMarkMap[routeId];
+            const ablVal = this.abl[ablId] || 0;
+            const markVal = this.mark[markId] || 0;
+
+            if (trainCount < ablNeed) {
+                result.reasons.push(`调教次数不足 (${trainCount}/${ablNeed})`);
+            }
+            if (ablVal < ablNeed) {
+                const ablName = (typeof ABL_DEFS !== 'undefined' && ABL_DEFS[ablId]) ? ABL_DEFS[ablId].name : `ABL[${ablId}]`;
+                result.reasons.push(`${ablName}不足 (${ablVal}/${ablNeed})`);
+            }
+            if (markVal < markNeed) {
+                const markName = (typeof MARK_DEFS !== 'undefined' && MARK_DEFS[markId]) ? MARK_DEFS[markId].name : `刻印[${markId}]`;
+                result.reasons.push(`${markName}不足 (${markVal}/${markNeed})`);
+            }
+
+            // Stage IV/V extra: need some submission sign
+            if (nextLv >= 4) {
+                const subMark = (this.mark[0] || 0) + (this.mark[2] || 0);
+                const subNeed = nextLv === 4 ? 1 : 2;
+                if (subMark < subNeed) {
+                    result.reasons.push(`需要屈服/侍奉迹象 (${subMark}/${subNeed})`);
                 }
             }
-            if (typeof applyRouteAccelerators === 'function') applyRouteAccelerators(this);
         }
-        return true;
+
+        result.can = result.reasons.length === 0;
+        return result;
+    }
+
+    upgradeRouteStage(routeId) {
+        const info = this.getRouteUpgradeInfo(routeId);
+        if (!info.can) return { success: false, reasons: info.reasons };
+
+        const oldLv = this.routeLevel[routeId] || 0;
+        const newLv = oldLv + 1;
+        this.routePoints -= info.cost;
+        this.routeLevel[routeId] = newLv;
+
+        // Grant accelerator talent automatically
+        if (typeof onRouteLevelUp === 'function') {
+            const result = onRouteLevelUp(this, routeId, newLv);
+            if (result && typeof UI !== 'undefined') UI.appendText(result.msg + "\n", "accent");
+        }
+        if (typeof applyRouteAccelerators === 'function') applyRouteAccelerators(this);
+
+        // V4.0: Also boost corresponding mark by +1 on stage up
+        const routeMarkMap = [2, 1, 3, 5, 6];
+        const boostMark = routeMarkMap[routeId];
+        if (boostMark !== undefined && this.mark[boostMark] < 3) {
+            this.mark[boostMark] = Math.min(3, (this.mark[boostMark] || 0) + 1);
+        }
+
+        // V4.0: Trigger stage special event for Stage 3/4/5
+        if (newLv >= 3 && typeof triggerRouteStageEvent === 'function') {
+            const evt = triggerRouteStageEvent(this, routeId, newLv);
+            if (evt && typeof UI !== 'undefined') {
+                const style = `border:2px solid ${evt.routeColor};background:${evt.routeColor}15;padding:12px;border-radius:8px;margin:8px 0;`;
+                UI.appendText(`<div style="${style}"><strong>【${evt.routeName}·${evt.name}】Stage ${evt.stage}</strong><br>${evt.text}</div>\n`, "accent");
+            }
+        }
+
+        // === NEW: Route-Talent fallen linkage ===
+        // When route reaches Stage 3+, auto-grant corresponding fallen talent if not present
+        if (newLv >= 3) {
+            const routeToTalent = { 0: 85, 1: 76, 2: 70, 3: 76, 4: 85 };
+            const talentId = routeToTalent[routeId];
+            if (talentId !== undefined && !this.talent[talentId]) {
+                this.talent[talentId] = 1;
+                const talentNames = { 70: "接受快感", 76: "淫乱", 85: "爱慕" };
+                const tName = talentNames[talentId] || `素质[${talentId}]`;
+                if (typeof UI !== 'undefined') {
+                    UI.appendText(`【${this.name}的${tName}觉醒了...（${['顺从','欲望','痛苦','露出','支配'][routeId]}路线Stage ${newLv}）】\n`, "accent");
+                }
+            }
+        }
+
+        return { success: true, oldLv, newLv, routeId };
     }
 
     checkTalentTree() {
@@ -559,11 +684,22 @@ class Character {
     }
 
     getFallenDepth() {
-        const maxRouteLv = Math.max(...this.routeLevel);
-        if (maxRouteLv >= 5) return 3;
-        if (maxRouteLv >= 4) return 2;
-        if (maxRouteLv >= 3) return 1;
-        return 0;
+        // Talent-based depth (0-5)
+        let talentDepth = 0;
+        if (this.talent[86]) talentDepth = 5;      // Blind faith
+        else if (this.talent[182]) talentDepth = 4; // Beloved
+        else if (this.talent[85]) talentDepth = 3;  // Love
+        else if (this.talent[76]) talentDepth = 2;  // Lewd
+        else if (this.talent[70]) talentDepth = 1;  // Accept pleasure
+        
+        // Route-based depth (0-3): any route Stage 3+ counts as fallen
+        const maxRouteLv = Math.max(...(this.routeLevel || [0]));
+        let routeDepth = 0;
+        if (maxRouteLv >= 5) routeDepth = 3;
+        else if (maxRouteLv >= 4) routeDepth = 2;
+        else if (maxRouteLv >= 3) routeDepth = 1;
+        
+        return Math.max(talentDepth, routeDepth);
     }
 
     getAssistantBuff() {
@@ -581,16 +717,6 @@ class Character {
             refuseMod: depth >= 2 ? -(depth - 1) * 0.05 : 0,
             stage5: this._assistantBuff || null
         };
-    }
-
-    getFallenDepth() {
-        // Returns 0-5 based on fallen-related talents
-        if (this.talent[86]) return 5; // Blind faith
-        if (this.talent[182]) return 4; // Beloved
-        if (this.talent[85]) return 3; // Love
-        if (this.talent[76]) return 2; // Lewd
-        if (this.talent[70]) return 1; // Accept pleasure
-        return 0;
     }
 
     // ========== Hidden Trait ==========

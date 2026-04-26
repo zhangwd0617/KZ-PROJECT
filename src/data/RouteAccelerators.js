@@ -188,10 +188,87 @@ function applyRouteAccelerators(chara) {
             const acc4 = ROUTE_ACCELERATORS[400 + r * 10 + 3];
             if (acc4 && chara.talent[acc4.id] > 0) acc4.applyFunc(chara);
         }
-        // Stage5 assistant buff
+        // Stage5: assistant buff (as assistant) + permanent self buff (when own route reaches V)
         if (lv >= 5) {
             const buff = ASSISTANT_BUFFS[450 + r];
-            if (buff && chara.talent[buff.id] > 0) buff.applyFunc(chara);
+            if (buff && chara.talent[buff.id] > 0) {
+                buff.applyFunc(chara); // keep assistant buff for backward compat
+                // V4.0: Apply permanent self buff equivalents
+                if (r === 0) {
+                    // 信仰传播者: 每回合+50恭顺PALAM, 刻印经验×1.5
+                    chara._accelPerTurnPalam = chara._accelPerTurnPalam || {};
+                    chara._accelPerTurnPalam[4] = (chara._accelPerTurnPalam[4] || 0) + 50;
+                    chara._accelMarkExpMult = (chara._accelMarkExpMult || 1.0) * 1.5;
+                } else if (r === 1) {
+                    // 快感导师: 快乐×1.25, 绝顶门槛-5%
+                    chara._accelJoyMult = (chara._accelJoyMult || 1.0) * 1.25;
+                    chara._accelOrgasmThresholdMod = (chara._accelOrgasmThresholdMod || 0) - 0.05;
+                    chara._accelWetMult = (chara._accelWetMult || 1.0) * 1.15;
+                } else if (r === 2) {
+                    // 苦痛代行者: 痛苦80%转快乐, SM×1.4
+                    chara._accelPainToJoy = (chara._accelPainToJoy || 0) + 0.80;
+                    chara._accelSMMult = (chara._accelSMMult || 1.0) * 1.40;
+                    chara._accelPainRefuseMod = (chara._accelPainRefuseMod || 0) - 0.10;
+                } else if (r === 3) {
+                    // 公开处刑人: 羞耻×1.3, 副奴在场羞耻×1.2
+                    chara._accelShameMult = (chara._accelShameMult || 1.0) * 1.30;
+                    chara._accelBystanderShame = (chara._accelBystanderShame || 0) + 0.20;
+                    chara._accelPublicJoy = (chara._accelPublicJoy || 1.0) * 1.15;
+                } else if (r === 4) {
+                    // 代理支配者: 反感50%转恭顺, 支配×1.2
+                    chara._accelHateToObey = (chara._accelHateToObey || 0) + 0.50;
+                    chara._accelDomMult = (chara._accelDomMult || 1.0) * 1.20;
+                    chara._accelHateReduce = (chara._accelHateReduce || 0) + 0.15;
+                }
+            }
+        }
+    }
+
+    // V4.0: Apply main/sub route effect multipliers
+    if (typeof chara.getRouteEffectMultiplier === 'function') {
+        for (let r = 0; r < 5; r++) {
+            const mult = chara.getRouteEffectMultiplier(r);
+            if (mult === 1.0) continue;
+            // Obedience
+            if (r === 0) {
+                chara._accelServiceMult = (chara._accelServiceMult || 1.0) * mult;
+                chara._accelRefuseMod = (chara._accelRefuseMod || 0) * mult;
+                chara._accelYieldBonus = (chara._accelYieldBonus || 0) * mult;
+                chara._accelStaminaSave = (chara._accelStaminaSave || 0) * mult;
+                chara._accelStaminaRegen = (chara._accelStaminaRegen || 0) * mult;
+                chara._accelObedienceMult = (chara._accelObedienceMult || 1.0) * mult;
+            }
+            // Desire
+            else if (r === 1) {
+                chara._accelWetMult = (chara._accelWetMult || 1.0) * mult;
+                chara._accelJoyFeedback = (chara._accelJoyFeedback || 0) * mult;
+                chara._accelOrgasmResonance = (chara._accelOrgasmResonance || 0) * mult;
+                chara._accelJoyMult = (chara._accelJoyMult || 1.0) * mult;
+                chara._accelOrgasmThresholdMod = (chara._accelOrgasmThresholdMod || 0) * mult;
+            }
+            // Pain
+            else if (r === 2) {
+                chara._accelPainToJoy = (chara._accelPainToJoy || 0) * mult;
+                chara._accelPainReduce = (chara._accelPainReduce || 0) * mult;
+                chara._accelJoyFromPain = (chara._accelJoyFromPain || 0) * mult;
+                chara._accelPainMult = (chara._accelPainMult || 1.0) * mult;
+                chara._accelPainRefuseMod = (chara._accelPainRefuseMod || 0) * mult;
+                chara._accelSMMult = (chara._accelSMMult || 1.0) * mult;
+            }
+            // Shame
+            else if (r === 3) {
+                chara._accelShameToJoy = (chara._accelShameToJoy || 0) * mult;
+                chara._accelShameMult = (chara._accelShameMult || 1.0) * mult;
+                chara._accelBystanderShame = (chara._accelBystanderShame || 0) * mult;
+                chara._accelPublicJoy = (chara._accelPublicJoy || 1.0) * mult;
+            }
+            // Dominance
+            else if (r === 4) {
+                chara._accelDomMult = (chara._accelDomMult || 1.0) * mult;
+                chara._accelHateReduce = (chara._accelHateReduce || 0) * mult;
+                chara._accelRandomGauge = (chara._accelRandomGauge || 0) * mult;
+                chara._accelHateToObey = (chara._accelHateToObey || 0) * mult;
+            }
         }
     }
 }
